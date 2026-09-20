@@ -7716,11 +7716,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .meter-status {
   flex: 0 0 auto;
   height: 26px;
+  /* 画面の端まで黒い帯にする(#app の余白を打ち消す)。 */
+  margin: -10px -14px 0;
+  padding: 0 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 28px;
-  padding: 0 6px;
+  background: #000;
 }
 
 .meter-status-item {
@@ -7741,15 +7744,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .meter-status-item small {
   color: #4f8d83;
   font-size: 8px;
-  font-weight: 800;
-  letter-spacing: .18em;
+  font-weight: 900;
+  letter-spacing: .22em;
 }
 
 .meter-status-item b {
   color: #9fc9c1;
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: .02em;
+  letter-spacing: .14em;
 }
 
 .meter-status-item.is-ok i {
@@ -7771,9 +7774,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 @media (max-height: 520px) {
   .meter-status { height: 21px; gap: 20px; }
   .meter-status-item { gap: 6px; }
-  .meter-status-item small { font-size: 7px; letter-spacing: .14em; }
-  .meter-status-item b { font-size: 11px; }
+  .meter-status-item small { font-size: 7px; letter-spacing: .18em; }
+  .meter-status-item b { font-size: 11px; letter-spacing: .1em; }
   .meter-status-item i { width: 5px; height: 5px; }
+}
+
+/* 画面が小さいときは #app の余白が変わるので、帯の打ち消し幅も合わせる */
+@media (max-width: 720px), (max-height: 470px) {
+  .meter-status { margin: -10px -10px 0; padding: 0 10px; }
 }
 
 /* 上の帯(NAVIGATION SYSTEM / TANTO / OBD2)をやめたので、

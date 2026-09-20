@@ -1551,24 +1551,12 @@ export default function Home() {
   const solarPointX = 4 + 82 * (solarProgress ?? 0.5);
   const solarPointY = 24 - 22 * Math.sin(Math.PI * (solarProgress ?? 0.5));
   const obdStatusLabelEn = obdConnectionLabel;
-  // 四隅は幅が狭いので、状態は短い日本語にして出す。
-  const obdShortLabel =
-    obdStatus === "live"
-      ? "接続中"
-      : obdStatus === "connected" || obdStatus === "initializing"
-        ? "準備中"
-        : obdStatus === "connecting" || obdStatus === "requesting"
-          ? "接続しています"
-          : obdStatus === "unsupported"
-            ? "非対応"
-            : obdStatus === "error" || obdStatus === "disconnected"
-              ? "切れています"
-              : "未接続";
   // ターコイズの全画面メーターだけ、操作用の上のバーを消して、
   // かわりに状態だけを出す細いバーにする。
   const hideTopbar = showMeter && settings.meterTheme === "green";
 
-  // 上のバーに出す4つの状態。tone は色(ok=通っている/warn=途中/off=つながっていない)。
+  // 上のバーに出す4つの状態。表記は英語。
+  // tone は色(ok=通っている / warn=途中 / off=つながっていない)。
   const meterStatusItems: {
     key: string;
     label: string;
@@ -1577,45 +1565,56 @@ export default function Home() {
   }[] = [
     {
       key: "net",
-      label: "ネット",
-      value: isOnline ? "オンライン" : "オフライン",
+      label: "NET",
+      value: isOnline ? "ONLINE" : "OFFLINE",
       tone: isOnline ? "ok" : "off",
     },
     {
       key: "phone",
-      label: "スマホ",
+      label: "PHONE",
       value: !syncKey
-        ? "未接続"
+        ? "UNPAIRED"
         : phoneLinkOk === false
-          ? "通信できません"
+          ? "NO LINK"
           : phoneLinkOk === null
-            ? "確認中"
-            : "接続済み",
+            ? "SYNCING"
+            : "LINKED",
       tone: !syncKey ? "off" : phoneLinkOk === true ? "ok" : "warn",
     },
     {
       key: "obd",
       label: "OBD2",
-      value: obdShortLabel,
+      value:
+        obdStatus === "live"
+          ? "LIVE"
+          : obdStatus === "connected" || obdStatus === "initializing"
+            ? "INIT"
+            : obdStatus === "connecting" || obdStatus === "requesting"
+              ? "LINKING"
+              : obdStatus === "unsupported"
+                ? "N/A"
+                : obdStatus === "error" || obdStatus === "disconnected"
+                  ? "LOST"
+                  : "STANDBY",
       tone:
         obdStatus === "live"
           ? "ok"
-          : obdStatus === "idle" ||
-              obdStatus === "unsupported" ||
-              obdStatus === "disconnected" ||
-              obdStatus === "error"
-            ? "off"
-            : "warn",
+          : obdStatus === "connected" ||
+              obdStatus === "initializing" ||
+              obdStatus === "connecting" ||
+              obdStatus === "requesting"
+            ? "warn"
+            : "off",
     },
     {
       key: "gps",
       label: "GPS",
       value:
         locationStatus === "ready"
-          ? "受信中"
+          ? "LOCK"
           : locationStatus === "locating"
-            ? "探しています"
-            : "使えません",
+            ? "SEARCH"
+            : "NO FIX",
       tone:
         locationStatus === "ready"
           ? "ok"
@@ -2578,7 +2577,7 @@ export default function Home() {
                     className={`gauge-corner gauge-corner-tr obd-${obdStatus}`}
                     onClick={() => connectDialog.current?.showModal()}
                   >
-                    <small>OBD2 {obdShortLabel}</small>
+                    <small>OBD2・スマホ</small>
                     <b>接続</b>
                   </button>
                   <button
