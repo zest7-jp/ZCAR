@@ -1920,25 +1920,19 @@ export default function Home() {
         <main className="launch-screen">
           <button
             type="button"
-            className="launch-z-button"
+            className="launch-button"
             onClick={launchZCar}
             aria-label="Z CARを起動"
           >
-            <span className="launch-grid" aria-hidden="true" />
-            <span className="launch-mark" aria-hidden="true">
-              <svg viewBox="0 0 200 200">
-                <circle className="launch-ring-spin" cx="100" cy="100" r="90" />
-                <circle className="launch-ring-thin" cx="100" cy="100" r="76" />
-                <path
-                  className="launch-z"
-                  d="M52 46 L148 46 L148 68 L88 122 L148 122 L148 144 L52 144 L52 122 L112 68 L52 68 Z"
-                />
-              </svg>
-            </span>
-            <span className="launch-word" aria-hidden="true">Z CAR</span>
+            <img
+              className="launch-landscape"
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/z-car-launch-landscape.png`}
+              alt=""
+            />
+            <span className="launch-vignette" aria-hidden="true" />
             <span className="launch-hint" aria-hidden="true">TOUCH TO START</span>
             {BUILD_STAMP ? (
-              <span className="build-stamp launch-build" aria-hidden="true">
+              <span className="build-stamp" aria-hidden="true">
                 {BUILD_STAMP}
               </span>
             ) : null}
