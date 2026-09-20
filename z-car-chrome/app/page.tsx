@@ -31,21 +31,6 @@ import {
   type Settings,
 } from "./settings-store";
 
-type ConfirmedShift = {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  storeName: string;
-  workType: string;
-  status: "confirmed";
-};
-type ShiftFeed = {
-  profileId: string;
-  displayName: string;
-  updatedAt: string;
-  shifts: ConfirmedShift[];
-};
 type RouteEta = {
   arrivalAt: number;
   durationSeconds: number;
@@ -79,9 +64,6 @@ type FuelDraft = {
   distanceKm: string;
   amountYen: string;
 };
-
-const SHIFT_URL =
-  "https://zest-home.amok-uk.chatgpt.site/api/confirmed-shifts?profileId=nanatsuka";
 
 const FUEL_TANK_CAPACITY_L = 36;
 const FUEL_RESERVE_L = 4;
@@ -553,7 +535,6 @@ export default function Home() {
   const [isOnline, setIsOnline] = useState(true);
   const [ready, setReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showMeter, setShowMeter] = useState(false);
   const [showFuel, setShowFuel] = useState(false);
   // 給油記録は設定と同じ入れ物に置き、スマホと共有する。
   const fuelEntries = settings.fuelEntries;
@@ -582,10 +563,6 @@ export default function Home() {
   const [routeEtaStatus, setRouteEtaStatus] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
-  const [shiftFeed, setShiftFeed] = useState<ShiftFeed | null>(null);
-  const [shiftStatus, setShiftStatus] = useState<
-    "loading" | "ready" | "error"
-  >("loading");
   const [location, setLocation] = useState<{
     lat: number;
     lng: number;
@@ -599,7 +576,6 @@ export default function Home() {
   const [weatherStatus, setWeatherStatus] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
-  const homeDialog = useRef<HTMLDialogElement>(null);
   const destDialog = useRef<HTMLDialogElement>(null);
   const connectDialog = useRef<HTMLDialogElement>(null);
   const settingsDialog = useRef<HTMLDialogElement>(null);
@@ -643,21 +619,8 @@ export default function Home() {
   const smoothedSpeedRef = useRef<number | null>(null);
   const speedZeroSinceRef = useRef<number | null>(null);
   const fuelResetTimerRef = useRef<number | null>(null);
-  // 燃費画面をメーターから開いたか(閉じたときにメーターへ戻すため)。
-  const fuelFromMeterRef = useRef(false);
   const locationWatchRef = useRef<number | null>(null);
-  const liveMapElementRef = useRef<HTMLDivElement>(null);
   // google.maps objects, typed loosely because the SDK loads at runtime.
-  const homeGmapRef = useRef<{
-    panTo: (point: { lat: number; lng: number }) => void;
-  } | null>(null);
-  const homeGmapMarkerRef = useRef<{
-    setPosition: (point: { lat: number; lng: number }) => void;
-  } | null>(null);
-  const homeGmapCircleRef = useRef<{
-    setCenter: (point: { lat: number; lng: number }) => void;
-    setRadius: (radius: number) => void;
-  } | null>(null);
   const greenMapElementRef = useRef<HTMLDivElement>(null);
   // 中央メーターの地図タイルが1枚でも描画できたか(待機表示の出し分け用)。
   const [greenMapReady, setGreenMapReady] = useState(false);
@@ -784,9 +747,6 @@ export default function Home() {
       if (locationWatchRef.current !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(locationWatchRef.current);
       }
-      homeGmapRef.current = null;
-      homeGmapMarkerRef.current = null;
-      homeGmapCircleRef.current = null;
       greenGmapRef.current = null;
     };
   }, []);
@@ -1007,118 +967,24 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const returnToHome = () => {
-      setShowFuel(false);
-      // メーターから燃費を開いたときは、戻ったらメーターに帰る。
-      if (fuelFromMeterRef.current) {
-        fuelFromMeterRef.current = false;
-        setShowMeter(true);
-        return;
-      }
-      setShowMeter(false);
-    };
-    window.addEventListener("popstate", returnToHome);
-    return () => window.removeEventListener("popstate", returnToHome);
+    // 画面はメーターと燃費の2つだけ。戻る操作ではメーターに帰る。
+    const backToMeter = () => setShowFuel(false);
+    window.addEventListener("popstate", backToMeter);
+    return () => window.removeEventListener("popstate", backToMeter);
   }, []);
 
-  useEffect(() => {
-    const returnToHomeWhenFullscreenCloses = () => {
-      if (showMeter && !document.fullscreenElement) {
-        setShowMeter(false);
-        window.history.replaceState(
-          { ...(window.history.state || {}), zcarView: "home" },
-          "",
-        );
-      }
-    };
-    document.addEventListener("fullscreenchange", returnToHomeWhenFullscreenCloses);
-    return () =>
-      document.removeEventListener("fullscreenchange", returnToHomeWhenFullscreenCloses);
-  }, [showMeter]);
 
 
-  const toggleMeterView = async () => {
-    const openingMeter = !showMeter;
-
-    if (!openingMeter) {
-      setShowMeter(false);
-      if (window.history.state?.zcarView === "meter") {
-        window.history.back();
-      }
-      return;
-    }
-
-    setShowFuel(false);
-    setShowMeter(true);
-    window.history.pushState(
-      { ...(window.history.state || {}), zcarView: "meter" },
-      "",
-    );
-
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch {
-      // Keep the meter available even when the browser blocks fullscreen.
-    }
-  };
-
-  // 上のバーを消したので、メーターの中央下(RPM表示)を長押しすると
-  // ホームへ戻れるようにしてある。誤操作しないよう1.2秒押す。
-  const holdExitRef = useRef<number | null>(null);
-
-  const cancelHoldExit = () => {
-    if (holdExitRef.current !== null) {
-      window.clearTimeout(holdExitRef.current);
-      holdExitRef.current = null;
-    }
-  };
-
-  const startHoldExit = () => {
-    cancelHoldExit();
-    holdExitRef.current = window.setTimeout(() => {
-      holdExitRef.current = null;
-      void exitMeterFromBrand();
-    }, 1200);
-  };
-
-  const exitMeterFromBrand = async () => {
-    if (!showMeter) return;
-
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-        return;
-      } catch {
-        // Fall through and return to the home view when fullscreen exit is blocked.
-      }
-    }
-
-    fuelFromMeterRef.current = false;
-    setShowMeter(false);
-    window.history.replaceState(
-      { ...(window.history.state || {}), zcarView: "home" },
-      "",
-    );
-  };
 
   const toggleFuelView = () => {
     if (showFuel) {
       setShowFuel(false);
       if (window.history.state?.zcarView === "fuel") {
         window.history.back();
-        return;
-      }
-      if (fuelFromMeterRef.current) {
-        fuelFromMeterRef.current = false;
-        setShowMeter(true);
       }
       return;
     }
 
-    fuelFromMeterRef.current = showMeter;
-    setShowMeter(false);
     setShowFuel(true);
     setFuelDraft((current) => ({ ...current, date: japanDateKey() }));
     window.history.pushState(
@@ -1171,13 +1037,26 @@ export default function Home() {
     if (ready) requestLocation();
   }, [ready]);
 
-  // 「戻る」でホームに帰れるよう、最初の履歴にホームの印を付けておく
-  // (起動画面をやめたので、ここで行う)。
+  // 「戻る」でメーターに帰れるよう、最初の履歴に印を付けておく。
   useEffect(() => {
     window.history.replaceState(
-      { ...(window.history.state || {}), zcarView: "home" },
+      { ...(window.history.state || {}), zcarView: "meter" },
       "",
     );
+  }, []);
+
+  // 全画面表示は画面に触れたときしか頼めないので、最初の1回だけ頼む。
+  // (起動画面もホーム画面も無くなり、頼む機会が無くなったため)
+  useEffect(() => {
+    const askOnce = () => {
+      window.removeEventListener("pointerdown", askOnce);
+      if (document.fullscreenElement) return;
+      void document.documentElement.requestFullscreen().catch(() => {
+        // 全画面にできないブラウザでも、そのまま使える。
+      });
+    };
+    window.addEventListener("pointerdown", askOnce);
+    return () => window.removeEventListener("pointerdown", askOnce);
   }, []);
 
   useEffect(() => {
@@ -1261,94 +1140,14 @@ export default function Home() {
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
 
   useEffect(() => {
-    if (!location || !liveMapElementRef.current) return;
-    let cancelled = false;
-    const point = { lat: location.lat, lng: location.lng };
-    const accuracyRadius = Math.max(5, location.accuracy);
-
-    void loadGoogleMaps(mapsApiKey)
-      .then((maps) => {
-        if (cancelled || !liveMapElementRef.current) return;
-        const mapsApi = maps as {
-          Map: new (
-            element: HTMLElement,
-            options: Record<string, unknown>,
-          ) => { panTo: (target: { lat: number; lng: number }) => void };
-          Marker: new (options: Record<string, unknown>) => {
-            setPosition: (target: { lat: number; lng: number }) => void;
-          };
-          Circle: new (options: Record<string, unknown>) => {
-            setCenter: (target: { lat: number; lng: number }) => void;
-            setRadius: (radius: number) => void;
-          };
-          SymbolPath: { CIRCLE: number };
-        };
-
-        if (!homeGmapRef.current) {
-          const map = new mapsApi.Map(liveMapElementRef.current, {
-            center: point,
-            zoom: 16,
-            disableDefaultUI: true,
-            clickableIcons: false,
-            gestureHandling: "none",
-            keyboardShortcuts: false,
-            styles: NIGHT_MAP_STYLES,
-          });
-          homeGmapRef.current = map;
-          homeGmapCircleRef.current = new mapsApi.Circle({
-            map,
-            center: point,
-            radius: accuracyRadius,
-            strokeColor: "#4285f4",
-            strokeOpacity: 0.35,
-            strokeWeight: 1,
-            fillColor: "#4285f4",
-            fillOpacity: 0.09,
-            clickable: false,
-          });
-          homeGmapMarkerRef.current = new mapsApi.Marker({
-            map,
-            position: point,
-            clickable: false,
-            icon: {
-              path: mapsApi.SymbolPath.CIRCLE,
-              scale: 9,
-              fillColor: "#4285f4",
-              fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: 3,
-            },
-          });
-          return;
-        }
-
-        homeGmapMarkerRef.current?.setPosition(point);
-        homeGmapCircleRef.current?.setCenter(point);
-        homeGmapCircleRef.current?.setRadius(accuracyRadius);
-        homeGmapRef.current.panTo(point);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [location, mapsApiKey, showMeter, showFuel]);
-
-  useEffect(() => {
-    if (!showMeter && !showFuel) return;
-    homeGmapRef.current = null;
-    homeGmapMarkerRef.current = null;
-    homeGmapCircleRef.current = null;
-  }, [showMeter, showFuel]);
-
-  useEffect(() => {
-    if (showMeter && settings.meterTheme === "green") return;
+    if (!showFuel && settings.meterTheme === "green") return;
     greenGmapRef.current = null;
     setGreenMapReady(false);
-  }, [showMeter, settings.meterTheme]);
+  }, [showFuel, settings.meterTheme]);
 
   useEffect(() => {
     if (
-      !showMeter ||
+      showFuel ||
       settings.meterTheme !== "green" ||
       !mapsApiKey ||
       !greenMapElementRef.current
@@ -1407,41 +1206,10 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [showMeter, location, settings.meterTheme, mapsApiKey]);
+  }, [showFuel, location, settings.meterTheme, mapsApiKey]);
 
-  useEffect(() => {
-    if (!ready) return;
-    let active = true;
-
-    const loadShift = async () => {
-      try {
-        const response = await fetch(SHIFT_URL, { cache: "no-store" });
-        if (!response.ok) throw new Error("shift request failed");
-        const data = (await response.json()) as ShiftFeed;
-        if (!Array.isArray(data.shifts)) throw new Error("invalid shift data");
-        if (active) {
-          setShiftFeed(data);
-          setShiftStatus("ready");
-        }
-      } catch {
-        if (active) setShiftStatus("error");
-      }
-    };
-
-    loadShift();
-    return () => {
-      active = false;
-    };
-  }, [ready]);
 
   const hour = new Date().getHours();
-  const greeting =
-    hour < 11
-      ? "おはようございます"
-      : hour < 18
-        ? "お疲れさまです"
-        : "本日もお疲れさまでした";
-
   const stateLabel =
     settings.state === "not_departed"
       ? "未出発"
@@ -1450,48 +1218,6 @@ export default function Home() {
         : `退勤済み ・ ${settings.checkedOutAt}`;
 
   const today = japanDateKey();
-  const todayShift = shiftFeed?.shifts.find((shift) => shift.date === today);
-  const nextShift = shiftFeed?.shifts
-    .filter((shift) => shift.date > today)
-    .sort((a, b) => a.date.localeCompare(b.date))[0];
-  const destinationName = todayShift?.storeName || settings.storeName;
-  const destinationQuery = todayShift?.storeName || settings.storeDest;
-  const homeboundMode = hour >= 19 || settings.state === "checked_out";
-  const routeCardLabel = homeboundMode
-    ? "本日もお疲れさまでした ・ 帰宅先"
-    : `${greeting} ・ 本日の稼働先`;
-  const routeCardDestination = homeboundMode ? "自宅" : destinationName;
-  const workFinished = Boolean(
-    todayShift && (settings.state === "checked_out" || hour >= 19),
-  );
-  const monitorMessage =
-    shiftStatus === "loading"
-      ? "シフトを確認しています"
-      : shiftStatus === "error"
-        ? "シフトを取得できません"
-        : todayShift
-          ? workFinished
-            ? "本日もお疲れ様でした"
-            : "本日は出勤日です"
-          : "本日はお休みです";
-  const monitorValue =
-    shiftStatus === "loading"
-      ? "···"
-      : shiftStatus === "error"
-        ? "—"
-        : todayShift && !workFinished
-          ? todayShift.startTime
-          : todayShift
-            ? "DONE"
-            : "OFF";
-  const monitorTone =
-    shiftStatus === "loading" || shiftStatus === "error"
-      ? "waiting"
-      : todayShift
-        ? workFinished
-          ? "finished"
-          : "active"
-        : "off";
   const routeMinutesRemaining = routeEta
     ? Math.max(0, Math.ceil((routeEta.arrivalAt - Date.now()) / 60_000))
     : null;
@@ -1547,9 +1273,9 @@ export default function Home() {
   const solarPointX = 4 + 82 * (solarProgress ?? 0.5);
   const solarPointY = 24 - 22 * Math.sin(Math.PI * (solarProgress ?? 0.5));
   const obdStatusLabelEn = obdConnectionLabel;
-  // ターコイズの全画面メーターだけ、操作用の上のバーを消して、
+  // ターコイズのメーターだけ、操作用の上のバーを消して、
   // かわりに状態だけを出す細いバーにする。
-  const hideTopbar = showMeter && settings.meterTheme === "green";
+  const hideTopbar = !showFuel && settings.meterTheme === "green";
 
   // 上のバーに出す4つの状態。表記は英語。
   // tone は色(ok=通っている / warn=途中 / off=つながっていない)。
@@ -1638,21 +1364,6 @@ export default function Home() {
       navigator.vibrate?.(60);
     }, 900);
   };
-
-  const todayDate = new Date(`${today}T00:00:00+09:00`);
-  const weekShifts = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(todayDate.getTime() + index * 24 * 60 * 60 * 1000);
-    const dateKey = japanDateKey(date);
-    return {
-      dateKey,
-      day: Number(dateKey.split("-")[2]),
-      weekday: new Intl.DateTimeFormat("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        weekday: "short",
-      }).format(date),
-      shift: shiftFeed?.shifts.find((item) => item.date === dateKey),
-    };
-  });
 
   // --- 音楽プレイヤー ---
   // 鳴らす曲: スマホで選んだプレイリストがあればその順番で、
@@ -1995,43 +1706,6 @@ export default function Home() {
     openMap(destination);
   };
 
-  const mainAction = async () => {
-    if (homeboundMode) {
-      // 行き先が未設定なら何もしない(ボタンも押せないようにしてある)。
-      if (!settings.homeDest) return;
-      await beginNavigation(settings.homeDest, "HOME");
-      return;
-    }
-    if (settings.state === "not_departed") {
-      const next = {
-        ...settings,
-        state: "departed" as const,
-        departedAt: hm(),
-      };
-      setSettings(next);
-      await beginNavigation(destinationQuery, "DESTINATION");
-      return;
-    }
-    if (settings.state === "departed") {
-      await beginNavigation(destinationQuery, "DESTINATION");
-      return;
-    }
-    if (!settings.homeDest) return;
-    await beginNavigation(settings.homeDest, "HOME");
-  };
-
-  const completeCheckout = async () => {
-    homeDialog.current?.close();
-    const next = {
-      ...settings,
-      state: "checked_out" as const,
-      checkedOutAt: hm(),
-    };
-    setSettings(next);
-    // 行き先が未設定のときは案内しない(ボタンも押せないようにしてある)。
-    if (!next.homeDest) return;
-    await beginNavigation(next.homeDest, "HOME");
-  };
 
   const fuelLitersInput = Number.parseFloat(fuelDraft.liters);
   const fuelDistanceInput = Number.parseFloat(fuelDraft.distanceKm);
@@ -2245,89 +1919,50 @@ export default function Home() {
     <div className="screen-shell">
       <div
         id="app"
-        className={`${showMeter ? "is-fullscreen " : ""}${isFullscreen ? "browser-fullscreen " : ""}meter-theme-${settings.meterTheme}`}
-        aria-label="Z CAR カーナビホーム"
+        className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}meter-theme-${settings.meterTheme}`}
+        aria-label="Z CAR"
       >
-        {/* ターコイズの全画面メーターは四隅の操作だけで完結するので、
-            上のバーは出さない。オレンジ(PATTERN ORANGE)はまだ四隅が
-            無いので、今までどおりバーを出す。 */}
+        {/* ターコイズのメーターは四隅の操作だけで完結するので、上のバーは
+            出さない。燃費画面と、まだ四隅の無いオレンジでは出す。 */}
         {!hideTopbar && (
           <header className="topbar">
-            <button
-              type="button"
-              className="brand brand-secret-exit"
-              onClick={exitMeterFromBrand}
-              disabled={!showMeter}
-              aria-label={showMeter ? "全画面メーターを終了" : undefined}
-            >
+            <div className="brand">
               <b>Z CAR</b>
               <small>
-                {showMeter
-                  ? "OBD2 VEHICLE MONITOR"
-                  : showFuel
-                    ? "TANTO FUEL ECONOMY"
-                    : "Z PORTAL | CAR"}
+                {showFuel ? "TANTO FUEL ECONOMY" : "OBD2 VEHICLE MONITOR"}
               </small>
-            </button>
+            </div>
             <div className="car-status">
-              {!showMeter && (
+              {showFuel ? (
                 <button
                   type="button"
-                  className={`car-id car-id-button ${showFuel ? "active" : ""}`}
+                  className="car-id car-id-button active"
                   onClick={toggleFuelView}
-                  aria-label={showFuel ? "ホーム画面へ戻る" : "タントの燃費計算を開く"}
+                  aria-label="メーターに戻る"
                 >
-                  {showFuel ? "HOME" : settings.carId}
+                  METER
                 </button>
-              )}
-              {!showFuel && (
-                <button
-                  type="button"
-                  className={`meter-view-button ${showMeter ? "active" : ""}`}
-                  onClick={toggleMeterView}
-                  aria-label={showMeter ? "ホーム画面へ戻る" : "デジタルメーターを表示"}
-                >
-                  {showMeter ? "HOME" : "METER"}
-                </button>
-              )}
-              {!showMeter && (
-                <button
-                  type="button"
-                  className="sync-button"
-                  onClick={openPairing}
-                  aria-label="スマホと接続する(QRを表示)"
-                  title="スマホと接続"
-                >
-                  {/* QRコードに見える印。押すと接続用のQRが出る。 */}
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="7" height="7" rx="1.4" />
-                    <rect x="14" y="3" width="7" height="7" rx="1.4" />
-                    <rect x="3" y="14" width="7" height="7" rx="1.4" />
-                    <path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20.5h1.5M20.5 14H21" />
-                  </svg>
-                </button>
-              )}
-              {showMeter && (
-                <button
-                  type="button"
-                  className="meter-theme-button"
-                  onClick={() => themeDialog.current?.showModal()}
-                  aria-label="Select meter theme"
-                >
-                  THEME
-                </button>
-              )}
-              {showMeter && (
-                <button
-                  type="button"
-                  className={`obd-connect-compact ${obdStatus}`}
-                  onClick={connectObd}
-                  aria-label="Connect OBD2"
-                  title={`${obdDeviceName} · ${obdStatusLabelEn}${obdErrorMessage ? ` · ${obdErrorMessage}` : ""}`}
-                >
-                  <i aria-hidden="true" />
-                  <span>OBD2</span>
-                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="meter-theme-button"
+                    onClick={() => themeDialog.current?.showModal()}
+                    aria-label="Select meter theme"
+                  >
+                    THEME
+                  </button>
+                  <button
+                    type="button"
+                    className={`obd-connect-compact ${obdStatus}`}
+                    onClick={connectObd}
+                    aria-label="Connect OBD2"
+                    title={`${obdDeviceName} · ${obdStatusLabelEn}${obdErrorMessage ? ` · ${obdErrorMessage}` : ""}`}
+                  >
+                    <i aria-hidden="true" />
+                    <span>OBD2</span>
+                  </button>
+                </>
               )}
               <strong className="clock" aria-label={`現在時刻 ${clock}`}>
                 {clock}
@@ -2346,10 +1981,16 @@ export default function Home() {
                 <b>{item.value}</b>
               </span>
             ))}
+            {/* 反映確認用のビルド時刻。帯の右端に薄く出す。 */}
+            {BUILD_STAMP ? (
+              <span className="build-stamp" aria-hidden="true">
+                {BUILD_STAMP}
+              </span>
+            ) : null}
           </header>
         )}
 
-        {showMeter && (
+        {!showFuel && (
           <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
             {settings.meterTheme === "eva" ? (
               <section className="eva-cluster" aria-label="Pattern orange command cockpit">
@@ -2527,7 +2168,10 @@ export default function Home() {
                   <button
                     type="button"
                     className="gauge-corner gauge-corner-tl"
-                    onClick={() => navTarget && openMap(navTarget.destination)}
+                    onClick={() =>
+                      navTarget &&
+                      void beginNavigation(navTarget.destination, "DESTINATION")
+                    }
                     disabled={!navTarget}
                   >
                     <small>案内開始</small>
@@ -2594,20 +2238,11 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* 上のバーを消したので、ここを長押しするとホームへ戻れる。 */}
-                <button
-                  type="button"
-                  className="performance-rpm-digital"
-                  onPointerDown={startHoldExit}
-                  onPointerUp={cancelHoldExit}
-                  onPointerLeave={cancelHoldExit}
-                  onPointerCancel={cancelHoldExit}
-                  aria-label="長押しでホーム画面へ戻る"
-                >
+                <div className="performance-rpm-digital">
                   <small>RPM</small>
                   <b>{obdData.rpm ?? "—"}</b>
                   <span>rpm</span>
-                </button>
+                </div>
               </article>
 
               <aside className="performance-side performance-right green-drive-panel green-instrument-rail">
@@ -2795,147 +2430,7 @@ export default function Home() {
               </section>
             </div>
           </main>
-        ) : (
-        <main className="dashboard">
-          <section className="left-panel map-only-panel" aria-label="現在地マップ">
-            <div className="map-frame map-only-frame">
-              <div className="map-status-bar" aria-label="ドライブステータス">
-                <time>{clock}</time>
-                <span className={locationStatus === "ready" ? "ready" : "searching"}>
-                  <i aria-hidden="true" />
-                  {locationStatus === "ready" ? "GPS LOCK" : locationStatus === "locating" ? "GPS SEARCH" : "GPS OFF"}
-                </span>
-                <span>
-                  {greenHeading === null
-                    ? "HDG ---°"
-                    : `HDG ${Math.round(greenHeading).toString().padStart(3, "0")}°`}
-                </span>
-                <span className={isOnline ? "online" : "offline"}>
-                  <i aria-hidden="true" />
-                  {isOnline ? "ONLINE" : "OFFLINE"}
-                </span>
-              </div>
-              <nav className="map-shortcuts" aria-label="Googleマップ目的地ショートカット">
-                {mapDestinations.map((shortcut, index) => {
-                  const target = shortcut.destination.trim();
-                  const name = shortcut.label.trim();
-                  return (
-                    <button
-                      key={index}
-                      type="button"
-                      disabled={!target}
-                      onClick={() => target && openMap(target)}
-                      aria-label={
-                        target
-                          ? `${index + 1}番 ${name || "目的地"}へのナビを開始`
-                          : `${index + 1}番 未登録`
-                      }
-                    >
-                      <b>{index + 1}</b>
-                      {name ? <em>{name}</em> : null}
-                    </button>
-                  );
-                })}
-              </nav>
-              <div
-                ref={liveMapElementRef}
-                className="live-map-canvas"
-                aria-label="現在地を追従するライブマップ"
-              />
-              <nav className="map-obd-bar map-commute-bar" aria-label="ナビの操作">
-                <button
-                  type="button"
-                  disabled={!navTarget}
-                  onClick={() => navTarget && openMap(navTarget.destination)}
-                >
-                  <small>START GUIDE</small>
-                  <strong>案内開始</strong>
-                  <em>{navTarget ? navTarget.label : "目的地なし"}</em>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => destDialog.current?.showModal()}
-                >
-                  <small>DESTINATION</small>
-                  <strong>目的地設定</strong>
-                  <em>{navTarget ? navTarget.note : "スマホで登録"}</em>
-                </button>
-              </nav>
-            </div>
-          </section>
-
-          <section className="right-panel" aria-label="映像とシフトモニター">
-            <article className={`home-weather-card ${weatherStatus}`} aria-live="polite">
-              <div className="home-weather-icon" aria-hidden="true">
-                {weather ? (
-                  <svg viewBox="0 0 48 48">
-                    <WeatherGlyph
-                      code={weather.code}
-                      isDay={weather.isDay}
-                      x={24}
-                      y={24}
-                      size={42}
-                    />
-                  </svg>
-                ) : (
-                  <span>—</span>
-                )}
-              </div>
-              <div className="home-weather-copy">
-                <small>TODAY WEATHER</small>
-                <strong>
-                  {weather
-                    ? weatherLabel(weather.code)
-                    : weatherStatus === "error"
-                      ? "WEATHER UNAVAILABLE"
-                      : "ACQUIRING WEATHER"}
-                </strong>
-              </div>
-              <div className="home-weather-temperature">
-                <span>
-                  <strong>{weather ? Math.round(weather.temperature) : "—"}</strong>
-                  <em>°C</em>
-                </span>
-                <small>現在地</small>
-              </div>
-            </article>
-            <article
-              className="home-music-card media-card"
-              aria-label="音楽プレイヤー"
-            >
-              {musicPanel}
-            </article>
-            <div className="shift-monitor" aria-live="polite">
-              <header>
-                <span className="schedule-mini-icon" aria-hidden="true">Z</span>
-                <span>
-                  <small>Z PORTAL SHIFT</small>
-                  <strong>{shiftFeed?.displayName || "七塚 俊介"}</strong>
-                </span>
-                <em>{nextShift ? "確定シフト" : "TODAY"}</em>
-              </header>
-              <div className={`today-shift ${monitorTone}`}>
-                <span>
-                  <small>TODAY</small>
-                  <strong>{monitorMessage}</strong>
-                </span>
-                <time>{monitorValue}</time>
-              </div>
-              <div className="week-shifts" aria-label="今日から1週間の勤務予定">
-                {weekShifts.map((item, index) => (
-                  <div className={item.shift ? "working" : "off"} key={item.dateKey}>
-                    <span>
-                      <small>{index === 0 ? "今日" : item.weekday}</small>
-                      <strong>{item.day}</strong>
-                    </span>
-                    <em>{item.shift ? item.shift.startTime : "休"}</em>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        </main>
-        )}
+        ) : null}
 
         <footer>
           安全運転を最優先してください
@@ -3010,28 +2505,7 @@ export default function Home() {
           </aside>
         ) : null}
 
-        {/* 反映確認用のビルド時刻。ホームの隅にだけ小さく出す。 */}
-        {BUILD_STAMP && !showMeter && !showFuel ? (
-          <span className="build-stamp" aria-hidden="true">
-            BUILD {BUILD_STAMP}
-          </span>
-        ) : null}
       </div>
-
-      <dialog ref={homeDialog}>
-        <div className="dialog-card">
-          <h2>本日の勤務を終了します</h2>
-          <p>退勤時刻 <b>{clock}</b></p>
-          <div className="two-actions">
-            <button onClick={() => homeDialog.current?.close()}>
-              キャンセル
-            </button>
-            <button className="confirm" onClick={completeCheckout}>
-              退勤してナビを開始
-            </button>
-          </div>
-        </div>
-      </dialog>
 
       <dialog ref={themeDialog} className="theme-dialog-shell">
         <div className="dialog-card meter-theme-dialog">
