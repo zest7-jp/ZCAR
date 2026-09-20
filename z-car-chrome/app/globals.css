@@ -2504,7 +2504,19 @@ footer {
   line-height: 20px;
 }
 
-dialog { background: transparent; border: 0; padding: 0; }
+/* ダイアログは画面の真ん中に出す(既定だと左上に寄ってしまう) */
+dialog {
+  position: fixed;
+  inset: 0;
+  width: fit-content;
+  height: fit-content;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
 dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .theme-dialog-shell {
   position: fixed;
@@ -6663,8 +6675,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .pairing-qr img {
-  /* スマホから読み取るので、白地をはっきり出して大きめに表示する。 */
-  width: 260px;
+  /* スマホから読み取るので、白地をはっきり出して大きめに表示する。
+     画面が低い車載機では、説明の文が切れないように縮める。 */
+  width: min(260px, 44vh);
   height: auto;
   aspect-ratio: 1;
   border-radius: 10px;
@@ -7696,6 +7709,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
 }
 
+/* 上の帯(NAVIGATION SYSTEM / TANTO / OBD2)をやめたので、
+   計器の枠は1段だけにする。 */
+#app.meter-theme-green.is-fullscreen .green-nav-cluster {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 /* 計器のカードをそのまま押せるようにする。見た目はカードのままで、
    押したときだけ少し明るくなる。 */
 .green-card-button {
@@ -7775,6 +7794,20 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .gauge-corner:active { color: #ffffff; }
 .gauge-corner:active small { color: #8ee8da; }
 .gauge-corner:active::before { border-color: rgba(150, 255, 240, .95); }
+
+/* RPM表示はボタンにしてあるので、見た目が変わらないように整える */
+.performance-rpm-digital {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 右上(接続)は、OBD2の状態で小さい文字の色を変える */
+.gauge-corner.obd-live small { color: #6cf0b2; }
+.gauge-corner.obd-error small,
+.gauge-corner.obd-disconnected small,
+.gauge-corner.obd-unsupported small { color: #e08b7a; }
 
 .gauge-corner:disabled {
   opacity: .38;

@@ -602,6 +602,7 @@ export default function Home() {
   >("idle");
   const homeDialog = useRef<HTMLDialogElement>(null);
   const destDialog = useRef<HTMLDialogElement>(null);
+  const connectDialog = useRef<HTMLDialogElement>(null);
   const settingsDialog = useRef<HTMLDialogElement>(null);
   // QRを出しっぱなしにしない(合言葉そのものなので)。表示してから
   // PAIRING_AUTO_CLOSE_S 秒で自動的に閉じる。
@@ -1071,6 +1072,25 @@ export default function Home() {
     }
   };
 
+  // 上のバーを消したので、メーターの中央下(RPM表示)を長押しすると
+  // ホームへ戻れるようにしてある。誤操作しないよう1.2秒押す。
+  const holdExitRef = useRef<number | null>(null);
+
+  const cancelHoldExit = () => {
+    if (holdExitRef.current !== null) {
+      window.clearTimeout(holdExitRef.current);
+      holdExitRef.current = null;
+    }
+  };
+
+  const startHoldExit = () => {
+    cancelHoldExit();
+    holdExitRef.current = window.setTimeout(() => {
+      holdExitRef.current = null;
+      void exitMeterFromBrand();
+    }, 1200);
+  };
+
   const exitMeterFromBrand = async () => {
     if (!showMeter) return;
 
@@ -1526,6 +1546,21 @@ export default function Home() {
   const solarPointX = 4 + 82 * (solarProgress ?? 0.5);
   const solarPointY = 24 - 22 * Math.sin(Math.PI * (solarProgress ?? 0.5));
   const obdStatusLabelEn = obdConnectionLabel;
+  // ターコイズの全画面メーターだけ、上のバーを消す。
+  const hideTopbar = showMeter && settings.meterTheme === "green";
+  // 四隅は幅が狭いので、状態は短い日本語にして出す。
+  const obdShortLabel =
+    obdStatus === "live"
+      ? "接続中"
+      : obdStatus === "connected" || obdStatus === "initializing"
+        ? "準備中"
+        : obdStatus === "connecting" || obdStatus === "requesting"
+          ? "接続しています"
+          : obdStatus === "unsupported"
+            ? "非対応"
+            : obdStatus === "error" || obdStatus === "disconnected"
+              ? "切れています"
+              : "未接続";
 
   const cancelFuelReset = () => {
     if (fuelResetTimerRef.current !== null) {
@@ -2190,88 +2225,93 @@ export default function Home() {
         className={`${showMeter ? "is-fullscreen " : ""}${isFullscreen ? "browser-fullscreen " : ""}meter-theme-${settings.meterTheme}`}
         aria-label="Z CAR カーナビホーム"
       >
-        <header className="topbar">
-          <button
-            type="button"
-            className="brand brand-secret-exit"
-            onClick={exitMeterFromBrand}
-            disabled={!showMeter}
-            aria-label={showMeter ? "全画面メーターを終了" : undefined}
-          >
-            <b>Z CAR</b>
-            <small>
-              {showMeter
-                ? "OBD2 VEHICLE MONITOR"
-                : showFuel
-                  ? "TANTO FUEL ECONOMY"
-                  : "Z PORTAL | CAR"}
-            </small>
-          </button>
-          <div className="car-status">
-            {!showMeter && (
-              <button
-                type="button"
-                className={`car-id car-id-button ${showFuel ? "active" : ""}`}
-                onClick={toggleFuelView}
-                aria-label={showFuel ? "ホーム画面へ戻る" : "タントの燃費計算を開く"}
-              >
-                {showFuel ? "HOME" : settings.carId}
-              </button>
-            )}
-            {!showFuel && (
-              <button
-                type="button"
-                className={`meter-view-button ${showMeter ? "active" : ""}`}
-                onClick={toggleMeterView}
-                aria-label={showMeter ? "ホーム画面へ戻る" : "デジタルメーターを表示"}
-              >
-                {showMeter ? "HOME" : "METER"}
-              </button>
-            )}
-            {!showMeter && (
-              <button
-                type="button"
-                className="sync-button"
-                onClick={openPairing}
-                aria-label="スマホと接続する(QRを表示)"
-                title="スマホと接続"
-              >
-                {/* QRコードに見える印。押すと接続用のQRが出る。 */}
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="3" y="3" width="7" height="7" rx="1.4" />
-                  <rect x="14" y="3" width="7" height="7" rx="1.4" />
-                  <rect x="3" y="14" width="7" height="7" rx="1.4" />
-                  <path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20.5h1.5M20.5 14H21" />
-                </svg>
-              </button>
-            )}
-            {showMeter && (
-              <button
-                type="button"
-                className="meter-theme-button"
-                onClick={() => themeDialog.current?.showModal()}
-                aria-label="Select meter theme"
-              >
-                THEME
-              </button>
-            )}
-            {showMeter && (
-              <button
-                type="button"
-                className={`obd-connect-compact ${obdStatus}`}
-                onClick={connectObd}
-                aria-label="Connect OBD2"
-                title={`${obdDeviceName} · ${obdStatusLabelEn}${obdErrorMessage ? ` · ${obdErrorMessage}` : ""}`}
-              >
-                <i aria-hidden="true" />
-                <span>OBD2</span>
-              </button>
-            )}
-            <strong className="clock" aria-label={`現在時刻 ${clock}`}>
-              {clock}
-            </strong>
-          </div>
-        </header>
+        {/* ターコイズの全画面メーターは四隅の操作だけで完結するので、
+            上のバーは出さない。オレンジ(PATTERN ORANGE)はまだ四隅が
+            無いので、今までどおりバーを出す。 */}
+        {!hideTopbar && (
+          <header className="topbar">
+            <button
+              type="button"
+              className="brand brand-secret-exit"
+              onClick={exitMeterFromBrand}
+              disabled={!showMeter}
+              aria-label={showMeter ? "全画面メーターを終了" : undefined}
+            >
+              <b>Z CAR</b>
+              <small>
+                {showMeter
+                  ? "OBD2 VEHICLE MONITOR"
+                  : showFuel
+                    ? "TANTO FUEL ECONOMY"
+                    : "Z PORTAL | CAR"}
+              </small>
+            </button>
+            <div className="car-status">
+              {!showMeter && (
+                <button
+                  type="button"
+                  className={`car-id car-id-button ${showFuel ? "active" : ""}`}
+                  onClick={toggleFuelView}
+                  aria-label={showFuel ? "ホーム画面へ戻る" : "タントの燃費計算を開く"}
+                >
+                  {showFuel ? "HOME" : settings.carId}
+                </button>
+              )}
+              {!showFuel && (
+                <button
+                  type="button"
+                  className={`meter-view-button ${showMeter ? "active" : ""}`}
+                  onClick={toggleMeterView}
+                  aria-label={showMeter ? "ホーム画面へ戻る" : "デジタルメーターを表示"}
+                >
+                  {showMeter ? "HOME" : "METER"}
+                </button>
+              )}
+              {!showMeter && (
+                <button
+                  type="button"
+                  className="sync-button"
+                  onClick={openPairing}
+                  aria-label="スマホと接続する(QRを表示)"
+                  title="スマホと接続"
+                >
+                  {/* QRコードに見える印。押すと接続用のQRが出る。 */}
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7" rx="1.4" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.4" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.4" />
+                    <path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20.5h1.5M20.5 14H21" />
+                  </svg>
+                </button>
+              )}
+              {showMeter && (
+                <button
+                  type="button"
+                  className="meter-theme-button"
+                  onClick={() => themeDialog.current?.showModal()}
+                  aria-label="Select meter theme"
+                >
+                  THEME
+                </button>
+              )}
+              {showMeter && (
+                <button
+                  type="button"
+                  className={`obd-connect-compact ${obdStatus}`}
+                  onClick={connectObd}
+                  aria-label="Connect OBD2"
+                  title={`${obdDeviceName} · ${obdStatusLabelEn}${obdErrorMessage ? ` · ${obdErrorMessage}` : ""}`}
+                >
+                  <i aria-hidden="true" />
+                  <span>OBD2</span>
+                </button>
+              )}
+              <strong className="clock" aria-label={`現在時刻 ${clock}`}>
+                {clock}
+              </strong>
+            </div>
+          </header>
+        )}
 
         {showMeter && (
           <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
@@ -2333,14 +2373,6 @@ export default function Home() {
               </section>
             ) : (
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
-              <header className={`performance-banner ${obdStatus}`}>
-                <strong>NAVIGATION SYSTEM</strong>
-                <i aria-hidden="true" />
-                <span>{obdStatusLabelEn}</span>
-                <i aria-hidden="true" />
-                <b>{settings.carId.toUpperCase()} / OBD2</b>
-              </header>
-
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
                   <div className="solar-clock-heading">
@@ -2467,19 +2499,27 @@ export default function Home() {
                   </button>
                   <button
                     type="button"
-                    className="gauge-corner gauge-corner-tr"
+                    className={`gauge-corner gauge-corner-tr obd-${obdStatus}`}
+                    onClick={() => connectDialog.current?.showModal()}
+                  >
+                    <small>OBD2 {obdShortLabel}</small>
+                    <b>接続</b>
+                  </button>
+                  <button
+                    type="button"
+                    className="gauge-corner gauge-corner-bl"
                     onClick={() => destDialog.current?.showModal()}
                   >
-                    <small>目的地</small>
-                    <b>変更</b>
+                    <small>変更</small>
+                    <b>目的地</b>
                   </button>
                   <button
                     type="button"
                     className="gauge-corner gauge-corner-br"
-                    onClick={openPairing}
+                    onClick={() => themeDialog.current?.showModal()}
                   >
-                    <small>スマホ接続</small>
-                    <b>QR</b>
+                    <small>切り替え</small>
+                    <b>テーマ</b>
                   </button>
                 </div>
                 <div className="performance-rpm-track" aria-hidden="true" />
@@ -2518,11 +2558,20 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="performance-rpm-digital">
+                {/* 上のバーを消したので、ここを長押しするとホームへ戻れる。 */}
+                <button
+                  type="button"
+                  className="performance-rpm-digital"
+                  onPointerDown={startHoldExit}
+                  onPointerUp={cancelHoldExit}
+                  onPointerLeave={cancelHoldExit}
+                  onPointerCancel={cancelHoldExit}
+                  aria-label="長押しでホーム画面へ戻る"
+                >
                   <small>RPM</small>
                   <b>{obdData.rpm ?? "—"}</b>
                   <span>rpm</span>
-                </div>
+                </button>
               </article>
 
               <aside className="performance-side performance-right green-drive-panel green-instrument-rail">
@@ -3017,6 +3066,37 @@ export default function Home() {
           )}
           <div className="two-actions">
             <button onClick={() => destDialog.current?.close()}>閉じる</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog ref={connectDialog}>
+        <div className="dialog-card dest-card">
+          <h2>接続</h2>
+          <div className="dest-choices">
+            <button
+              type="button"
+              onClick={() => {
+                connectDialog.current?.close();
+                void connectObd();
+              }}
+            >
+              <b>車のOBD2につなぐ</b>
+              <small>{obdDeviceName} · {obdStatusLabelEn}</small>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                connectDialog.current?.close();
+                openPairing();
+              }}
+            >
+              <b>スマホとつなぐ</b>
+              <small>QRを出して、スマホのカメラで読み取ります</small>
+            </button>
+          </div>
+          <div className="two-actions">
+            <button onClick={() => connectDialog.current?.close()}>閉じる</button>
           </div>
         </div>
       </dialog>
