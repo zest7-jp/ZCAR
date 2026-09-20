@@ -535,6 +535,7 @@ export default function Home() {
   const [isOnline, setIsOnline] = useState(true);
   const [ready, setReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [showFuel, setShowFuel] = useState(false);
   // 給油記録は設定と同じ入れ物に置き、スマホと共有する。
   const fuelEntries = settings.fuelEntries;
@@ -1034,8 +1035,19 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (ready) requestLocation();
-  }, [ready]);
+    if (ready && hasStarted) requestLocation();
+  }, [ready, hasStarted]);
+
+  // Zのボタンを押したらメーターへ。全画面もここで頼む(画面に触れた
+  // ときしか頼めないため)。
+  const launchZCar = () => {
+    setHasStarted(true);
+    if (!document.fullscreenElement) {
+      void document.documentElement.requestFullscreen().catch(() => {
+        // 全画面にできないブラウザでも、そのまま使える。
+      });
+    }
+  };
 
   // 「戻る」でメーターに帰れるよう、最初の履歴に印を付けておく。
   useEffect(() => {
@@ -1045,19 +1057,6 @@ export default function Home() {
     );
   }, []);
 
-  // 全画面表示は画面に触れたときしか頼めないので、最初の1回だけ頼む。
-  // (起動画面もホーム画面も無くなり、頼む機会が無くなったため)
-  useEffect(() => {
-    const askOnce = () => {
-      window.removeEventListener("pointerdown", askOnce);
-      if (document.fullscreenElement) return;
-      void document.documentElement.requestFullscreen().catch(() => {
-        // 全画面にできないブラウザでも、そのまま使える。
-      });
-    };
-    window.addEventListener("pointerdown", askOnce);
-    return () => window.removeEventListener("pointerdown", askOnce);
-  }, []);
 
   useEffect(() => {
     if (!weatherLocationKey || weatherLatitude === null || weatherLongitude === null) return;
@@ -1914,6 +1913,40 @@ export default function Home() {
                 ) : null}
     </>
   );
+
+  if (!hasStarted) {
+    return (
+      <div className="screen-shell">
+        <main className="launch-screen">
+          <button
+            type="button"
+            className="launch-z-button"
+            onClick={launchZCar}
+            aria-label="Z CARを起動"
+          >
+            <span className="launch-grid" aria-hidden="true" />
+            <span className="launch-mark" aria-hidden="true">
+              <svg viewBox="0 0 200 200">
+                <circle className="launch-ring-spin" cx="100" cy="100" r="90" />
+                <circle className="launch-ring-thin" cx="100" cy="100" r="76" />
+                <path
+                  className="launch-z"
+                  d="M52 46 L148 46 L148 68 L88 122 L148 122 L148 144 L52 144 L52 122 L112 68 L52 68 Z"
+                />
+              </svg>
+            </span>
+            <span className="launch-word" aria-hidden="true">Z CAR</span>
+            <span className="launch-hint" aria-hidden="true">TOUCH TO START</span>
+            {BUILD_STAMP ? (
+              <span className="build-stamp launch-build" aria-hidden="true">
+                {BUILD_STAMP}
+              </span>
+            ) : null}
+          </button>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="screen-shell">
