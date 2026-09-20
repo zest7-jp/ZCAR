@@ -1114,9 +1114,9 @@ export default function PhoneSettingsPage() {
                 </div>
                 <p className="zsetup-sync-note">
                   合計 {(tracksBytes / 1048576).toFixed(1)} MB / 曲数 {tracks.length}
-                  （1曲25MBまで・全体で600MBまで）。
+                  （1曲25MBまで・全体で2GB・500曲まで）。
                   選んだ一覧が、車のメーター右下のプレイヤーに並びます。
-                  車の画面で ▶ を押すと鳴ります。
+                  車の画面で「再生」を押すと鳴ります。
                   {editingPlaylist
                     ? "　曲を消したいときは「すべての曲」に戻してください。"
                     : ""}
