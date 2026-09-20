@@ -507,7 +507,7 @@ export default function Home() {
   const mapDestinations = settings.mapDestinations;
   // 案内開始で使う行き先。「目的地設定」から選ぶ。
   const [navTargetKey, setNavTargetKey] = useState("work");
-  // 出勤・退勤は設定した店舗/自宅住所を使い、未入力なら1番・2番で代用する。
+  // 出発(店舗)・帰宅は設定した住所を使い、未入力なら1番・2番で代用する。
   const workDestination =
     settings.storeDest.trim() ||
     settings.storeName.trim() ||
@@ -515,10 +515,10 @@ export default function Home() {
     "";
   const homeDestination =
     settings.homeDest.trim() || mapDestinations[1]?.destination || "";
-  // 「目的地設定」で選べる候補。出勤・退勤と、登録済みの 1〜5。
+  // 「目的地設定」で選べる候補。出発・帰宅と、登録済みの 1〜5。
   const navChoices = [
-    { key: "work", label: "出勤", note: "店舗へ", destination: workDestination },
-    { key: "home", label: "退勤", note: "自宅へ", destination: homeDestination },
+    { key: "work", label: "DEPART", note: "店舗へ", destination: workDestination },
+    { key: "home", label: "RETURN", note: "自宅へ", destination: homeDestination },
     ...mapDestinations.map((entry, index) => ({
       key: `dest-${index}`,
       label: entry.label.trim() || `${index + 1}番`,
@@ -1209,13 +1209,6 @@ export default function Home() {
 
 
   const hour = new Date().getHours();
-  const stateLabel =
-    settings.state === "not_departed"
-      ? "未出発"
-      : settings.state === "departed"
-        ? `出発済み ・ ${settings.departedAt}`
-        : `退勤済み ・ ${settings.checkedOutAt}`;
-
   const today = japanDateKey();
   const routeMinutesRemaining = routeEta
     ? Math.max(0, Math.ceil((routeEta.arrivalAt - Date.now()) / 60_000))
