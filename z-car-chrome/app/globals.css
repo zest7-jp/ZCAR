@@ -5891,11 +5891,64 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     calc(env(safe-area-inset-bottom, 0px) + 44px)
     calc(env(safe-area-inset-left, 0px) + 18px);
   background:
+    linear-gradient(90deg, rgba(57, 204, 212, .028) 1px, transparent 1px) 0 0 / 26px 26px,
+    linear-gradient(rgba(57, 204, 212, .028) 1px, transparent 1px) 0 0 / 26px 26px,
     radial-gradient(120% 62% at 50% -10%, rgba(57, 204, 212, .16), transparent 62%),
     #07090b;
 }
 
-.zsetup-head { margin-bottom: 26px; }
+.zsetup-head {
+  margin-bottom: 26px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(57, 204, 212, .18);
+}
+
+.zsetup-head-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* 車とつながっているか。メーターの上のバーと同じ見せ方。 */
+.zsetup-link {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #000;
+  white-space: nowrap;
+}
+
+.zsetup-link i {
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #33474a;
+}
+
+.zsetup-link small {
+  color: #4f8d83;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .22em;
+}
+
+.zsetup-link b {
+  color: #5e7b78;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.zsetup-link.is-ok i {
+  background: #5ce6c6;
+  box-shadow: 0 0 8px rgba(92, 230, 198, .8);
+}
+
+.zsetup-link.is-ok b { color: #dffff6; }
 
 .zsetup-eyebrow {
   margin: 0 0 8px;
@@ -6240,12 +6293,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .map-shortcuts button:disabled em { color: rgba(159, 244, 210, .28); }
 
 /* --- 設定ページ: ナビ開始 --- */
-.zsetup-nav {
-  border-color: #2f7f84;
-  background:
-    linear-gradient(180deg, rgba(57, 204, 212, .1), transparent 46%),
-    var(--panel);
-}
+/* 5枚のカードは同じ見た目に揃える(目立たせるのは開いたカードだけ)。 */
 
 .zsetup-nav-list { display: grid; gap: 10px; padding-bottom: 14px; }
 
@@ -6516,7 +6564,26 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* --- 設定ページ: 折りたたみカード --- */
-.zsetup-card { padding: 0; overflow: hidden; }
+.zsetup-card {
+  padding: 0;
+  overflow: hidden;
+  /* 計器のカードと同じ、左の細い色帯。 */
+  box-shadow: inset 3px 0 rgba(57, 204, 212, .45);
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+
+.zsetup-card.is-open { box-shadow: inset 3px 0 #39ccd4; }
+
+/* カードの通し番号と英語名。計器の小さい見出しと同じ字送り。 */
+.zsetup-card-tag {
+  color: #4f8f95;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .28em;
+}
+
+.zsetup-card.is-open .zsetup-card-tag { color: #39ccd4; }
 
 .zsetup-card-head {
   width: 100%;
@@ -6524,8 +6591,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  min-height: 68px;
-  padding: 14px 16px;
+  min-height: 72px;
+  padding: 14px 16px 14px 18px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -6535,12 +6602,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   -webkit-tap-highlight-color: transparent;
 }
 
-.zsetup-card-head > span { display: grid; gap: 4px; min-width: 0; }
+.zsetup-card-head > span { display: grid; gap: 5px; min-width: 0; }
 
 .zsetup-card-head b {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
 }
 
 .zsetup-card-head small {
