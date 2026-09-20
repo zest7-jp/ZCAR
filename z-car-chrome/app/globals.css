@@ -34,91 +34,16 @@ button { cursor: pointer; }
   background: #07090b;
 }
 
-.launch-screen {
+/* 反映確認用のビルド時刻。ホーム画面の右下に小さく出す。 */
+.build-stamp {
   position: fixed;
-  inset: 0;
-  overflow: hidden;
-  background: #020405;
-}
-
-.launch-logo-button {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  overflow: hidden;
-  transition: transform 120ms ease, filter 120ms ease;
-}
-
-.launch-landscape {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.launch-vignette {
-  position: absolute;
-  inset: 0;
+  right: 12px;
+  bottom: 8px;
+  z-index: 10;
+  color: rgba(255, 255, 255, .28);
+  font-size: 10px;
+  letter-spacing: .08em;
   pointer-events: none;
-  background:
-    linear-gradient(90deg, rgba(0, 4, 8, .48), transparent 26%, transparent 74%, rgba(0, 8, 5, .5)),
-    linear-gradient(0deg, rgba(0, 0, 0, .56), transparent 33%, rgba(0, 0, 0, .2));
-  box-shadow: inset 0 0 90px rgba(0, 0, 0, .78);
-}
-
-.launch-vignette::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: .16;
-  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(143, 255, 219, .16) 4px);
-  mix-blend-mode: screen;
-}
-
-.launch-target {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(20vmin, 108px);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(170, 255, 229, .16);
-  border-radius: 50%;
-  box-shadow: 0 0 30px rgba(72, 224, 174, .08), inset 0 0 22px rgba(42, 155, 120, .06);
-  pointer-events: none;
-  animation: launchPulse 2.6s ease-in-out infinite;
-}
-
-.launch-target i {
-  position: absolute;
-  inset: 10px;
-  border: 1px solid rgba(110, 211, 244, .1);
-  border-radius: 50%;
-}
-
-@keyframes launchPulse {
-  0%, 100% { opacity: .45; transform: translate(-50%, -50%) scale(.92); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-}
-
-.launch-logo-button:active {
-  transform: scale(.985);
-  filter: brightness(1.16);
-}
-
-.launch-logo-button:focus-visible {
-  outline: 2px solid #50e6b0;
-  outline-offset: -4px;
 }
 
 #app {
