@@ -40,7 +40,12 @@ jobs:
           # 公開先のサブフォルダ名。FTPアカウントの接続先ディレクトリ
           # (…/public_html/zcar)と一致させること。
           BASE_PATH: /zcar
-        run: npm run build:static
+        # ビルド時刻を埋め込む。起動画面の右下に出るので、車載機が
+        # 新しい版になっているかを目で確かめられる。
+        run: |
+          export NEXT_PUBLIC_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "build time: $NEXT_PUBLIC_BUILD_TIME"
+          npm run build:static
 
       # サーバーへのFTPS接続はまれにタイムアウトする(Timeout (control socket))。
       # 立て続けに繋ぎ直しても失敗しやすいので、間を空けて最大3回試す。
