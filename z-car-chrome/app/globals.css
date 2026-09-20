@@ -7694,8 +7694,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* ------------------------------------------------------------------
-   中央メーターの四隅ボタン
-   丸い計器の外側に余る四隅だけを使う。計器の絵には重ならない。
+   中央メーターの四隅の操作
+   丸い計器の外側に余る三角の隙間を使う。箱は描かず、計器の表示と
+   同じ「文字だけ」で置き、角にだけ細いカギ線を出して押せる所を示す。
    ------------------------------------------------------------------ */
 .gauge-corners {
   position: absolute;
@@ -7708,66 +7709,81 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   position: absolute;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  width: 16.2%;
-  height: 12.6%;
-  padding: 0 7px;
-  border: 1px solid rgba(96, 226, 209, .32);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(8, 26, 24, .92), rgba(4, 13, 12, .92));
-  box-shadow:
-    inset 0 1px 0 rgba(145, 255, 236, .12),
-    0 6px 14px rgba(0, 0, 0, .55);
-  color: #d7fff6;
+  gap: 3px;
+  /* 見た目は文字だけ。押せる範囲だけ広く取る。 */
+  min-width: 74px;
+  padding: 9px 10px;
+  border: 0;
+  background: none;
+  color: #dffff7;
   font-family: inherit;
-  line-height: 1.05;
+  line-height: 1;
   text-align: left;
   cursor: pointer;
   pointer-events: auto;
-  transition: border-color .15s ease, background .15s ease, transform .1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 角のカギ線。線の向きは四隅それぞれで変える。 */
+.gauge-corner::before {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 1px solid rgba(110, 233, 214, .5);
+  transition: border-color .15s ease;
 }
 
 .gauge-corner small {
-  color: #63c6b8;
+  color: #59b6a9;
   font-size: 8px;
   font-weight: 800;
-  letter-spacing: .1em;
+  letter-spacing: .18em;
   white-space: nowrap;
 }
 
 .gauge-corner b {
-  overflow: hidden;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 900;
-  letter-spacing: .02em;
+  letter-spacing: .04em;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  text-shadow: 0 0 12px rgba(93, 226, 208, .45);
 }
 
-.gauge-corner:active {
-  transform: translateY(1px);
-  border-color: rgba(120, 255, 235, .7);
-  background: linear-gradient(180deg, rgba(14, 46, 42, .96), rgba(6, 22, 20, .96));
-}
+.gauge-corner:active { color: #ffffff; }
+.gauge-corner:active small { color: #8ee8da; }
+.gauge-corner:active::before { border-color: rgba(150, 255, 240, .95); }
 
 .gauge-corner:disabled {
-  opacity: .42;
+  opacity: .38;
   cursor: default;
 }
 
-.gauge-corner-tl { top: -5px; left: -5px; }
-.gauge-corner-tr { top: -5px; right: -5px; text-align: right; align-items: flex-end; }
-.gauge-corner-bl { bottom: -5px; left: -5px; }
-.gauge-corner-br { bottom: -5px; right: -5px; text-align: right; align-items: flex-end; }
+.gauge-corner-tl,
+.gauge-corner-bl { align-items: flex-start; }
+.gauge-corner-tr,
+.gauge-corner-br { align-items: flex-end; text-align: right; }
 
+.gauge-corner-tl { top: -4px; left: -8px; }
+.gauge-corner-tr { top: -4px; right: -8px; }
+.gauge-corner-bl { bottom: 0; left: -8px; }
+.gauge-corner-br { bottom: 0; right: -8px; }
 
-/* 画面が低い車載機では四隅の余白も小さくなるので、文字も詰める */
+.gauge-corner-tl::before { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.gauge-corner-tr::before { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.gauge-corner-bl::before { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.gauge-corner-br::before { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+/* 下側は「小さい見出し」を下に置いて、円の弧から文字を遠ざける */
+.gauge-corner-bl,
+.gauge-corner-br { flex-direction: column-reverse; }
+
+/* 画面の高さが低い車載機では、見出し帯と画面外にはみ出さない位置に寄せる */
 @media (max-height: 520px) {
-  .gauge-corner { padding: 0 6px; border-radius: 9px; }
-  .gauge-corner small { font-size: 7px; }
-  .gauge-corner b { font-size: 11px; }
-  /* 上下の余白が足りない画面では、見出し帯と画面の外にはみ出さない位置まで寄せる */
-  .gauge-corner-tl, .gauge-corner-tr { top: 6%; }
-  .gauge-corner-bl, .gauge-corner-br { bottom: 5%; }
+  .gauge-corner { min-width: 64px; padding: 7px 8px; }
+  .gauge-corner small { font-size: 7px; letter-spacing: .14em; }
+  .gauge-corner b { font-size: 13px; }
+  .gauge-corner::before { width: 11px; height: 11px; }
+  .gauge-corner-tl, .gauge-corner-tr { top: 4%; }
+  .gauge-corner-bl, .gauge-corner-br { bottom: 7%; }
 }

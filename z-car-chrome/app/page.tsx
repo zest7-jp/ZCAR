@@ -2478,15 +2478,15 @@ export default function Home() {
                     className="gauge-corner gauge-corner-bl"
                     onClick={toggleFuelView}
                   >
-                    <small>燃費</small>
-                    <b>記録</b>
+                    <small>記録・確認</small>
+                    <b>燃費</b>
                   </button>
                   <button
                     type="button"
                     className="gauge-corner gauge-corner-br"
                     onClick={openPairing}
                   >
-                    <small>接続</small>
+                    <small>スマホ接続</small>
                     <b>QR</b>
                   </button>
                 </div>
