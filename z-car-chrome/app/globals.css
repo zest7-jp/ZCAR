@@ -7692,3 +7692,82 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 700;
   cursor: pointer;
 }
+
+/* ------------------------------------------------------------------
+   中央メーターの四隅ボタン
+   丸い計器の外側に余る四隅だけを使う。計器の絵には重ならない。
+   ------------------------------------------------------------------ */
+.gauge-corners {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  pointer-events: none;
+}
+
+.gauge-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  width: 16.2%;
+  height: 12.6%;
+  padding: 0 7px;
+  border: 1px solid rgba(96, 226, 209, .32);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(8, 26, 24, .92), rgba(4, 13, 12, .92));
+  box-shadow:
+    inset 0 1px 0 rgba(145, 255, 236, .12),
+    0 6px 14px rgba(0, 0, 0, .55);
+  color: #d7fff6;
+  font-family: inherit;
+  line-height: 1.05;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color .15s ease, background .15s ease, transform .1s ease;
+}
+
+.gauge-corner small {
+  color: #63c6b8;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  white-space: nowrap;
+}
+
+.gauge-corner b {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gauge-corner:active {
+  transform: translateY(1px);
+  border-color: rgba(120, 255, 235, .7);
+  background: linear-gradient(180deg, rgba(14, 46, 42, .96), rgba(6, 22, 20, .96));
+}
+
+.gauge-corner:disabled {
+  opacity: .42;
+  cursor: default;
+}
+
+.gauge-corner-tl { top: -5px; left: -5px; }
+.gauge-corner-tr { top: -5px; right: -5px; text-align: right; align-items: flex-end; }
+.gauge-corner-bl { bottom: -5px; left: -5px; }
+.gauge-corner-br { bottom: -5px; right: -5px; text-align: right; align-items: flex-end; }
+
+
+/* 画面が低い車載機では四隅の余白も小さくなるので、文字も詰める */
+@media (max-height: 520px) {
+  .gauge-corner { padding: 0 6px; border-radius: 9px; }
+  .gauge-corner small { font-size: 7px; }
+  .gauge-corner b { font-size: 11px; }
+  /* 上下の余白が足りない画面では、見出し帯と画面の外にはみ出さない位置まで寄せる */
+  .gauge-corner-tl, .gauge-corner-tr { top: 6%; }
+  .gauge-corner-bl, .gauge-corner-br { bottom: 5%; }
+}

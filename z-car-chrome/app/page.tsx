@@ -643,6 +643,8 @@ export default function Home() {
   const smoothedSpeedRef = useRef<number | null>(null);
   const speedZeroSinceRef = useRef<number | null>(null);
   const fuelResetTimerRef = useRef<number | null>(null);
+  // 燃費画面をメーターから開いたか(閉じたときにメーターへ戻すため)。
+  const fuelFromMeterRef = useRef(false);
   const locationWatchRef = useRef<number | null>(null);
   const liveMapElementRef = useRef<HTMLDivElement>(null);
   // google.maps objects, typed loosely because the SDK loads at runtime.
@@ -1001,8 +1003,14 @@ export default function Home() {
 
   useEffect(() => {
     const returnToHome = () => {
-      setShowMeter(false);
       setShowFuel(false);
+      // メーターから燃費を開いたときは、戻ったらメーターに帰る。
+      if (fuelFromMeterRef.current) {
+        fuelFromMeterRef.current = false;
+        setShowMeter(true);
+        return;
+      }
+      setShowMeter(false);
     };
     window.addEventListener("popstate", returnToHome);
     return () => window.removeEventListener("popstate", returnToHome);
@@ -1075,6 +1083,7 @@ export default function Home() {
       }
     }
 
+    fuelFromMeterRef.current = false;
     setShowMeter(false);
     window.history.replaceState(
       { ...(window.history.state || {}), zcarView: "home" },
@@ -1087,10 +1096,16 @@ export default function Home() {
       setShowFuel(false);
       if (window.history.state?.zcarView === "fuel") {
         window.history.back();
+        return;
+      }
+      if (fuelFromMeterRef.current) {
+        fuelFromMeterRef.current = false;
+        setShowMeter(true);
       }
       return;
     }
 
+    fuelFromMeterRef.current = showMeter;
     setShowMeter(false);
     setShowFuel(true);
     setFuelDraft((current) => ({ ...current, date: japanDateKey() }));
@@ -2438,6 +2453,43 @@ export default function Home() {
               </aside>
 
               <article className="performance-main-gauge green-map-gauge" aria-label="Map integrated tachometer and speedometer">
+                {/* 円の外側に余る四隅に、メーターを離れずに押せるボタンを置く。
+                    計器の配置には触らない(重ねるだけ)。 */}
+                <div className="gauge-corners" aria-label="メーターからの操作">
+                  <button
+                    type="button"
+                    className="gauge-corner gauge-corner-tl"
+                    onClick={() => navTarget && openMap(navTarget.destination)}
+                    disabled={!navTarget}
+                  >
+                    <small>案内開始</small>
+                    <b>{navTarget?.label ?? "未設定"}</b>
+                  </button>
+                  <button
+                    type="button"
+                    className="gauge-corner gauge-corner-tr"
+                    onClick={() => destDialog.current?.showModal()}
+                  >
+                    <small>目的地</small>
+                    <b>変更</b>
+                  </button>
+                  <button
+                    type="button"
+                    className="gauge-corner gauge-corner-bl"
+                    onClick={toggleFuelView}
+                  >
+                    <small>燃費</small>
+                    <b>記録</b>
+                  </button>
+                  <button
+                    type="button"
+                    className="gauge-corner gauge-corner-br"
+                    onClick={openPairing}
+                  >
+                    <small>接続</small>
+                    <b>QR</b>
+                  </button>
+                </div>
                 <div className="performance-rpm-track" aria-hidden="true" />
                 <div className="performance-rpm-ticks" aria-hidden="true" />
                 <div className="performance-rpm-labels" aria-hidden="true">
