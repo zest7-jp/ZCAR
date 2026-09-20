@@ -2511,7 +2511,7 @@ export default function Home() {
                   )
                 }
               >
-                ♪
+                MUSIC
               </button>
             ) : (
               <>
@@ -2527,7 +2527,7 @@ export default function Home() {
                       )
                     }
                   >
-                    ▶ 再生
+                    再生
                   </button>
                   <button type="button" onClick={() => setCarPlaying(null)}>
                     停止

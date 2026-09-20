@@ -6516,21 +6516,23 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .car-player-badge {
-  width: 44px;
   height: 44px;
+  padding: 0 14px;
   border: 0;
   border-radius: 11px;
   background: transparent;
   color: #7fe3e9;
   font-family: inherit;
-  font-size: 19px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .18em;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 #app.is-fullscreen .car-player.is-collapsed { padding: 0; opacity: .8; }
-#app.is-fullscreen .car-player-badge { width: 38px; height: 38px; font-size: 17px; }
+#app.is-fullscreen .car-player-badge { height: 38px; padding: 0 12px; font-size: 10px; }
 
 /* 畳んだときのサイズ指定が、メーター表示中の指定に負けないようにする。 */
 #app .car-player.is-collapsed iframe { width: 1px; height: 1px; }
