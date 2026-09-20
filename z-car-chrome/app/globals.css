@@ -4147,7 +4147,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   justify-content: center;
   justify-items: center;
   border-block: 1px solid rgba(112, 255, 126, .32);
-  background: linear-gradient(90deg, transparent, rgba(0, 10, 2, .9) 13% 87%, transparent);
+  /* 地図が透ける程度の薄い下敷き。端は広くぼかして境目を出さない。 */
+  background: linear-gradient(90deg, transparent, rgba(0, 10, 2, .42) 26% 74%, transparent);
   text-align: center;
   text-shadow: 0 0 12px rgba(95, 255, 112, .35);
 }
@@ -5743,7 +5744,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 #app.meter-theme-green.is-fullscreen .green-gauge-speed {
   border-color: rgba(92, 255, 110, .28);
-  background: linear-gradient(90deg, transparent, rgba(0, 11, 1, .92) 14% 86%, transparent);
+  background: linear-gradient(90deg, transparent, rgba(0, 11, 1, .42) 26% 74%, transparent);
   text-shadow: 0 0 13px rgba(63, 255, 84, .34);
 }
 
