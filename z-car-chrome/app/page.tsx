@@ -2201,32 +2201,32 @@ export default function Home() {
                     }
                     disabled={!navTarget}
                   >
-                    <small>案内開始</small>
-                    <b>{navTarget?.label ?? "未設定"}</b>
+                    <small>START GUIDE</small>
+                    <b>{navTarget?.label ?? "NO DEST"}</b>
                   </button>
                   <button
                     type="button"
                     className={`gauge-corner gauge-corner-tr obd-${obdStatus}`}
                     onClick={() => connectDialog.current?.showModal()}
                   >
-                    <small>OBD2・スマホ</small>
-                    <b>接続</b>
+                    <small>DEVICES</small>
+                    <b>CONNECT</b>
                   </button>
                   <button
                     type="button"
                     className="gauge-corner gauge-corner-bl"
                     onClick={() => destDialog.current?.showModal()}
                   >
-                    <small>変更</small>
-                    <b>目的地</b>
+                    <small>CHANGE</small>
+                    <b>DEST</b>
                   </button>
                   <button
                     type="button"
                     className="gauge-corner gauge-corner-br"
                     onClick={() => themeDialog.current?.showModal()}
                   >
-                    <small>切り替え</small>
-                    <b>テーマ</b>
+                    <small>SWITCH</small>
+                    <b>THEME</b>
                   </button>
                 </div>
                 <div className="performance-rpm-track" aria-hidden="true" />
