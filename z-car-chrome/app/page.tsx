@@ -824,6 +824,8 @@ export default function Home() {
   // 走行状態やAPIキーは端末ごとの値なので同期しない(settings-store の SYNCED_FIELDS)。
   const syncKey = settings.syncKey.trim();
   const syncEnabled = ready && syncKey.length >= MIN_SYNC_KEY_LENGTH;
+  // スマホとのやりとりが通っているか(上のステータス表示用)。
+  const [phoneLinkOk, setPhoneLinkOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!syncEnabled) return;
@@ -832,7 +834,9 @@ export default function Home() {
     const pull = async () => {
       try {
         const result = await fetchSharedSettings(syncKey);
-        if (!active || !result.ok) return;
+        if (!active) return;
+        setPhoneLinkOk(result.ok);
+        if (!result.ok) return;
         const current = settingsRef.current;
         if (!result.settings) {
           // サーバーにまだ何も無ければ、この端末の設定を最初の1件として置く。
@@ -857,6 +861,7 @@ export default function Home() {
         setSettings(merged);
       } catch {
         // 圏外や一時的なエラーは次の周期に任せる。
+        if (active) setPhoneLinkOk(false);
       }
     };
 
@@ -1546,8 +1551,6 @@ export default function Home() {
   const solarPointX = 4 + 82 * (solarProgress ?? 0.5);
   const solarPointY = 24 - 22 * Math.sin(Math.PI * (solarProgress ?? 0.5));
   const obdStatusLabelEn = obdConnectionLabel;
-  // ターコイズの全画面メーターだけ、上のバーを消す。
-  const hideTopbar = showMeter && settings.meterTheme === "green";
   // 四隅は幅が狭いので、状態は短い日本語にして出す。
   const obdShortLabel =
     obdStatus === "live"
@@ -1561,6 +1564,66 @@ export default function Home() {
             : obdStatus === "error" || obdStatus === "disconnected"
               ? "切れています"
               : "未接続";
+  // ターコイズの全画面メーターだけ、操作用の上のバーを消して、
+  // かわりに状態だけを出す細いバーにする。
+  const hideTopbar = showMeter && settings.meterTheme === "green";
+
+  // 上のバーに出す4つの状態。tone は色(ok=通っている/warn=途中/off=つながっていない)。
+  const meterStatusItems: {
+    key: string;
+    label: string;
+    value: string;
+    tone: "ok" | "warn" | "off";
+  }[] = [
+    {
+      key: "net",
+      label: "ネット",
+      value: isOnline ? "オンライン" : "オフライン",
+      tone: isOnline ? "ok" : "off",
+    },
+    {
+      key: "phone",
+      label: "スマホ",
+      value: !syncKey
+        ? "未接続"
+        : phoneLinkOk === false
+          ? "通信できません"
+          : phoneLinkOk === null
+            ? "確認中"
+            : "接続済み",
+      tone: !syncKey ? "off" : phoneLinkOk === true ? "ok" : "warn",
+    },
+    {
+      key: "obd",
+      label: "OBD2",
+      value: obdShortLabel,
+      tone:
+        obdStatus === "live"
+          ? "ok"
+          : obdStatus === "idle" ||
+              obdStatus === "unsupported" ||
+              obdStatus === "disconnected" ||
+              obdStatus === "error"
+            ? "off"
+            : "warn",
+    },
+    {
+      key: "gps",
+      label: "GPS",
+      value:
+        locationStatus === "ready"
+          ? "受信中"
+          : locationStatus === "locating"
+            ? "探しています"
+            : "使えません",
+      tone:
+        locationStatus === "ready"
+          ? "ok"
+          : locationStatus === "locating"
+            ? "warn"
+            : "off",
+    },
+  ];
 
   const cancelFuelReset = () => {
     if (fuelResetTimerRef.current !== null) {
@@ -2310,6 +2373,19 @@ export default function Home() {
                 {clock}
               </strong>
             </div>
+          </header>
+        )}
+
+        {/* 操作用のバーのかわりに、状態だけを出す細いバー。 */}
+        {hideTopbar && (
+          <header className="meter-status" aria-label="接続の状態">
+            {meterStatusItems.map((item) => (
+              <span key={item.key} className={`meter-status-item is-${item.tone}`}>
+                <i aria-hidden="true" />
+                <small>{item.label}</small>
+                <b>{item.value}</b>
+              </span>
+            ))}
           </header>
         )}
 

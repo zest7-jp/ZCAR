@@ -7709,6 +7709,73 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
 }
 
+/* ------------------------------------------------------------------
+   ターコイズメーターの上に出す、状態だけの細いバー
+   ネット / スマホ / OBD2 / GPS の4つ。押すところは無い。
+   ------------------------------------------------------------------ */
+.meter-status {
+  flex: 0 0 auto;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 0 6px;
+}
+
+.meter-status-item {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.meter-status-item i {
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2e4f47;
+}
+
+.meter-status-item small {
+  color: #4f8d83;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+.meter-status-item b {
+  color: #9fc9c1;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.meter-status-item.is-ok i {
+  background: #5ce6c6;
+  box-shadow: 0 0 8px rgba(92, 230, 198, .8);
+}
+.meter-status-item.is-ok b { color: #dffff6; }
+
+.meter-status-item.is-warn i {
+  background: #e7b55a;
+  box-shadow: 0 0 8px rgba(231, 181, 90, .65);
+}
+.meter-status-item.is-warn b { color: #f0d9a8; }
+
+.meter-status-item.is-off i { background: #33474a; box-shadow: none; }
+.meter-status-item.is-off small,
+.meter-status-item.is-off b { color: #5e7b78; }
+
+@media (max-height: 520px) {
+  .meter-status { height: 21px; gap: 20px; }
+  .meter-status-item { gap: 6px; }
+  .meter-status-item small { font-size: 7px; letter-spacing: .14em; }
+  .meter-status-item b { font-size: 11px; }
+  .meter-status-item i { width: 5px; height: 5px; }
+}
+
 /* 上の帯(NAVIGATION SYSTEM / TANTO / OBD2)をやめたので、
    計器の枠は1段だけにする。 */
 #app.meter-theme-green.is-fullscreen .green-nav-cluster {
