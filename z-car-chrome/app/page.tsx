@@ -1831,7 +1831,7 @@ export default function Home() {
                         : "PAUSED"
                       : "STOPPED"}
                     {currentTrack && savedTracks.has(currentTrack.url) ? (
-                      <b title="この端末に保存済み(通信なしで鳴ります)">⬇</b>
+                      <b title="この端末に保存済み(通信なしで鳴ります)">SAVED</b>
                     ) : null}
                   </span>
                   <em>

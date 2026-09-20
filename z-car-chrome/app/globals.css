@@ -7345,9 +7345,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 /* 端末に保存済みの曲に付ける印(通信なしで鳴らせる)。 */
 #app.meter-theme-green.is-fullscreen .media-status span b {
-  margin-left: 2px;
+  margin-left: 5px;
   color: #7dff92;
-  font-size: 9px;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .14em;
   line-height: 1;
 }
 
