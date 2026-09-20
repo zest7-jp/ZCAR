@@ -4540,7 +4540,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > article {
+#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > article,
+#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > button {
   background: transparent;
 }
 
@@ -6742,10 +6743,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* 文字の上下に入る余白を詰めて、広くした分の高さを確保する。 */
-#app.meter-theme-green.is-fullscreen .green-drive-panel > article { line-height: 1.15; }
+#app.meter-theme-green.is-fullscreen .green-drive-panel > article,
+#app.meter-theme-green.is-fullscreen .green-drive-panel > button { line-height: 1.15; }
 
 /* 縦が足りないときは計器側を縮め、いちばん下のメディアは潰さない。 */
-#app.meter-theme-green.is-fullscreen .green-drive-panel > article { flex-shrink: 1; }
+#app.meter-theme-green.is-fullscreen .green-drive-panel > article,
+#app.meter-theme-green.is-fullscreen .green-drive-panel > button { flex-shrink: 1; }
 #app.meter-theme-green.is-fullscreen .media-card { flex-shrink: 0; }
 
 /* 余白を詰めて、計器の見た目はそのままに高さだけを取り戻す。 */
@@ -7691,6 +7694,25 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* 計器のカードをそのまま押せるようにする。見た目はカードのままで、
+   押したときだけ少し明るくなる。 */
+.green-card-button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s ease;
+}
+
+.green-card-button:active {
+  background: rgba(93, 226, 208, .09);
 }
 
 /* ------------------------------------------------------------------

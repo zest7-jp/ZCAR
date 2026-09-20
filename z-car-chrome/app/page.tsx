@@ -2475,14 +2475,6 @@ export default function Home() {
                   </button>
                   <button
                     type="button"
-                    className="gauge-corner gauge-corner-bl"
-                    onClick={toggleFuelView}
-                  >
-                    <small>記録・確認</small>
-                    <b>燃費</b>
-                  </button>
-                  <button
-                    type="button"
                     className="gauge-corner gauge-corner-br"
                     onClick={openPairing}
                   >
@@ -2545,7 +2537,12 @@ export default function Home() {
                   </div>
                   <small>AUTO RESET · REFUEL LOG</small>
                 </article>
-                <article className="green-average-fuel-card" aria-label="Estimated average fuel economy">
+                <button
+                  type="button"
+                  className="green-average-fuel-card green-card-button"
+                  onClick={toggleFuelView}
+                  aria-label="燃費の記録・確認を開く"
+                >
                   <div className="green-average-fuel" aria-label="Estimated average fuel economy">
                     <span>
                       <small>EST. AVERAGE FUEL</small>
@@ -2554,7 +2551,7 @@ export default function Home() {
                     </span>
                     <i>FULL TANK TRIP {Math.round(fuelTripKm)} km / EST {estimatedRemainingLiters?.toFixed(1) ?? "—"} L</i>
                   </div>
-                </article>
+                </button>
                 <article className="green-speed-card">
                   <div className="green-telemetry-graph green-speed-graph">
                     <header><small>SPEED</small><em>km/h</em></header>
