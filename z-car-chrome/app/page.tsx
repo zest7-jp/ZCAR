@@ -552,7 +552,6 @@ export default function Home() {
   const [chinaClock, setChinaClock] = useState("--:--");
   const [isOnline, setIsOnline] = useState(true);
   const [ready, setReady] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMeter, setShowMeter] = useState(false);
   const [showFuel, setShowFuel] = useState(false);
@@ -1037,18 +1036,6 @@ export default function Home() {
       document.removeEventListener("fullscreenchange", returnToHomeWhenFullscreenCloses);
   }, [showMeter]);
 
-  const launchZCar = () => {
-    setHasStarted(true);
-    window.history.replaceState(
-      { ...(window.history.state || {}), zcarView: "home" },
-      "",
-    );
-    if (!document.fullscreenElement) {
-      void document.documentElement.requestFullscreen().catch(() => {
-        // The home still opens if this browser does not permit fullscreen.
-      });
-    }
-  };
 
   const toggleMeterView = async () => {
     const openingMeter = !showMeter;
@@ -1181,8 +1168,17 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (ready && hasStarted) requestLocation();
-  }, [ready, hasStarted]);
+    if (ready) requestLocation();
+  }, [ready]);
+
+  // 「戻る」でホームに帰れるよう、最初の履歴にホームの印を付けておく
+  // (起動画面をやめたので、ここで行う)。
+  useEffect(() => {
+    window.history.replaceState(
+      { ...(window.history.state || {}), zcarView: "home" },
+      "",
+    );
+  }, []);
 
   useEffect(() => {
     if (!weatherLocationKey || weatherLatitude === null || weatherLongitude === null) return;
@@ -2247,41 +2243,6 @@ export default function Home() {
 
   return (
     <div className="screen-shell">
-      {!hasStarted ? (
-        <main className="launch-screen" aria-label="Z CAR 起動画面">
-          <button
-            type="button"
-            className="launch-logo-button"
-            onClick={launchZCar}
-            aria-label="Z CARを起動"
-          >
-            <img
-              className="launch-landscape"
-              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/z-car-launch-landscape.png`}
-              alt="Z CAR"
-            />
-            <span className="launch-vignette" aria-hidden="true" />
-            <span className="launch-target" aria-hidden="true"><i /></span>
-          </button>
-          {BUILD_STAMP ? (
-            <span
-              aria-hidden="true"
-              style={{
-                position: "fixed",
-                right: 12,
-                bottom: 8,
-                fontSize: 10,
-                letterSpacing: "0.08em",
-                color: "rgba(255, 255, 255, 0.4)",
-                pointerEvents: "none",
-                zIndex: 10,
-              }}
-            >
-              BUILD {BUILD_STAMP}
-            </span>
-          ) : null}
-        </main>
-      ) : (
       <div
         id="app"
         className={`${showMeter ? "is-fullscreen " : ""}${isFullscreen ? "browser-fullscreen " : ""}meter-theme-${settings.meterTheme}`}
@@ -3048,8 +3009,14 @@ export default function Home() {
             )}
           </aside>
         ) : null}
+
+        {/* 反映確認用のビルド時刻。ホームの隅にだけ小さく出す。 */}
+        {BUILD_STAMP && !showMeter && !showFuel ? (
+          <span className="build-stamp" aria-hidden="true">
+            BUILD {BUILD_STAMP}
+          </span>
+        ) : null}
       </div>
-      )}
 
       <dialog ref={homeDialog}>
         <div className="dialog-card">
