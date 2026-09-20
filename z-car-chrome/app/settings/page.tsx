@@ -648,7 +648,15 @@ export default function PhoneSettingsPage() {
         </button>
       ) : null}
       <header className="zsetup-head">
-        <p className="zsetup-eyebrow">Z PORTAL | CAR</p>
+        <div className="zsetup-head-top">
+          <p className="zsetup-eyebrow">Z PORTAL | CAR</p>
+          {/* 車とつながっているかを、メーターの上のバーと同じ書き方で出す。 */}
+          <span className={`zsetup-link${isPaired ? " is-ok" : ""}`}>
+            <i aria-hidden="true" />
+            <small>LINK</small>
+            <b>{isPaired ? "LINKED" : "UNPAIRED"}</b>
+          </span>
+        </div>
         <h1>Z CAR 設定</h1>
         <p className="zsetup-lead">
           {handoffDone
@@ -665,6 +673,7 @@ export default function PhoneSettingsPage() {
           onClick={() => toggleCard("pair")}
         >
           <span>
+            <em className="zsetup-card-tag">01 · LINK</em>
             <b>車と接続</b>
             <small>{isPaired ? "接続済み" : "まだつながっていません"}</small>
           </span>
@@ -723,6 +732,7 @@ export default function PhoneSettingsPage() {
           onClick={() => toggleCard("nav")}
         >
           <span>
+            <em className="zsetup-card-tag">02 · NAVI</em>
             <b>ナビの目的地</b>
             <small>車の「目的地設定」に並ぶ行き先を登録します</small>
           </span>
@@ -775,6 +785,7 @@ export default function PhoneSettingsPage() {
           onClick={() => toggleCard("theme")}
         >
           <span>
+            <em className="zsetup-card-tag">03 · THEME</em>
             <b>メーターテーマ</b>
             <small>フルスクリーン表示の配色</small>
           </span>
@@ -820,6 +831,7 @@ export default function PhoneSettingsPage() {
           onClick={() => toggleCard("fuel")}
         >
           <span>
+            <em className="zsetup-card-tag">04 · FUEL</em>
             <b>満タン法 燃費記録</b>
             <small>給油のたびに入力すると実燃費が出ます</small>
           </span>
@@ -935,6 +947,7 @@ export default function PhoneSettingsPage() {
           onClick={() => toggleCard("files")}
         >
           <span>
+            <em className="zsetup-card-tag">05 · MEDIA</em>
             <b>音源フォルダ</b>
             <small>車のプレイヤーで鳴らす音楽ファイル</small>
           </span>
