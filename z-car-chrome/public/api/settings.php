@@ -107,6 +107,15 @@ if (!is_array($incoming)) {
     fail(400, 'invalid settings');
 }
 
+// いま保存されている内容。送られてこなかった項目を消さないために使う。
+$previous = [];
+if (is_file($file)) {
+    $decoded = json_decode((string) file_get_contents($file), true);
+    if (is_array($decoded) && isset($decoded['settings']) && is_array($decoded['settings'])) {
+        $previous = $decoded['settings'];
+    }
+}
+
 $clean = [];
 foreach (ALLOWED_FIELDS as $field => $maxLength) {
     if (!isset($incoming[$field]) || !is_string($incoming[$field])) {
@@ -186,8 +195,8 @@ if (array_key_exists('nowPlaying', $incoming)) {
     }
 }
 
-// 給油記録。消す操作が無いので、送られてきた分をそのまま保存する
-// (取り込む側で id を突き合わせて足し合わせる)。
+// 給油記録。消す操作が無いので、送られてきた分を検査してから
+// 下で「いま保存してある分」と足し合わせる。
 if (isset($incoming['fuelEntries']) && is_array($incoming['fuelEntries'])) {
     $entries = [];
     foreach ($incoming['fuelEntries'] as $entry) {
@@ -217,13 +226,47 @@ if (isset($incoming['fuelEntries']) && is_array($incoming['fuelEntries'])) {
             break;
         }
     }
-    if ($entries !== []) {
-        $clean['fuelEntries'] = $entries;
+    $clean['fuelEntries'] = $entries;
+}
+
+/*
+ * 給油記録は、いま保存してある分と送られてきた分を足し合わせる(idが同じものは1件)。
+ * 端末のどれか1台が「記録なし」の状態で送ってきても、サーバーの記録は消えない。
+ */
+$storedFuel = isset($previous['fuelEntries']) && is_array($previous['fuelEntries'])
+    ? $previous['fuelEntries']
+    : [];
+$mergedFuel = [];
+foreach ([$storedFuel, $clean['fuelEntries'] ?? []] as $list) {
+    foreach ($list as $entry) {
+        if (!is_array($entry) || !isset($entry['id']) || !is_string($entry['id'])) {
+            continue;
+        }
+        $mergedFuel[$entry['id']] = $entry;
     }
+}
+if ($mergedFuel !== []) {
+    $mergedFuel = array_values($mergedFuel);
+    usort($mergedFuel, static function (array $a, array $b): int {
+        $byDate = strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? ''));
+        if ($byDate !== 0) {
+            return $byDate;
+        }
+        return ((int) ($b['createdAt'] ?? 0)) <=> ((int) ($a['createdAt'] ?? 0));
+    });
+    $clean['fuelEntries'] = array_slice($mergedFuel, 0, MAX_FUEL_ENTRIES);
+} else {
+    unset($clean['fuelEntries']);
 }
 
 if ($clean === []) {
     fail(400, 'nothing to save');
+}
+
+// 送られてこなかった項目は、いま保存してある内容をそのまま残す。
+$final = $previous;
+foreach ($clean as $field => $value) {
+    $final[$field] = $value;
 }
 
 $updatedAt = (int) ($body['updatedAt'] ?? 0);
@@ -232,10 +275,21 @@ if ($updatedAt <= 0) {
 }
 
 $payload = json_encode(
-    ['updatedAt' => $updatedAt, 'settings' => $clean],
+    ['updatedAt' => $updatedAt, 'settings' => $final],
     JSON_UNESCAPED_UNICODE,
 );
-if ($payload === false || @file_put_contents($file, $payload, LOCK_EX) === false) {
+if ($payload === false) {
+    fail(500, 'could not save');
+}
+
+// 上書きする前の内容を1世代だけ控えておく(取り違えたときの戻し先)。
+if ($previous !== [] && is_file($file)) {
+    if (@copy($file, $file . '.bak')) {
+        @chmod($file . '.bak', 0600);
+    }
+}
+
+if (@file_put_contents($file, $payload, LOCK_EX) === false) {
     fail(500, 'could not save');
 }
 @chmod($file, 0600);
