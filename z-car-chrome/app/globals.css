@@ -1560,7 +1560,7 @@ button { cursor: pointer; }
 .performance-date strong { color: #f4fff5; text-shadow: 0 0 13px rgba(91, 255, 113, .1); }
 .performance-date span { color: #91b497; }
 
-#app.meter-theme-green.is-fullscreen .solar-clock-card {
+#app.is-fullscreen .solar-clock-card {
   flex: 0 0 128px;
   min-height: 128px;
   padding: 8px 9px 7px;
@@ -3525,7 +3525,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* Green navigation cockpit — heading-up HUD map */
-#app.meter-theme-green.is-fullscreen .green-nav-cluster {
+#app.is-fullscreen .green-nav-cluster {
   grid-template-columns: 196px minmax(420px, 1fr) 196px;
   grid-template-rows: 38px minmax(0, 1fr);
   column-gap: 10px;
@@ -3537,29 +3537,29 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     linear-gradient(180deg, #070b08, #010302 76%);
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster::before {
+#app.is-fullscreen .green-nav-cluster::before {
   display: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left {
+#app.is-fullscreen .green-nav-cluster .performance-left {
   justify-content: center;
   gap: 8px;
   padding: 27px 3px 25px;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-date {
+#app.is-fullscreen .green-nav-cluster .performance-date {
   min-height: 84px;
   padding: 9px 11px 10px;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-fuel {
+#app.is-fullscreen .green-nav-cluster .performance-fuel {
   min-height: 108px;
   padding: 11px 11px 10px;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left > article,
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left > button,
-#app.meter-theme-green.is-fullscreen .green-drive-panel article {
+#app.is-fullscreen .green-nav-cluster .performance-left > article,
+#app.is-fullscreen .green-nav-cluster .performance-left > button,
+#app.is-fullscreen .green-drive-panel article {
   position: relative;
   width: 100%;
   min-height: 0;
@@ -3936,7 +3936,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .green-map-footer a { color: #4b6b50; text-decoration: none; pointer-events: auto; }
 
 /* Round map aperture inside the restored center tachometer */
-#app.meter-theme-green.is-fullscreen .green-map-gauge {
+#app.is-fullscreen .green-map-gauge {
   z-index: 9;
   width: min(100%, 456px);
   align-self: center;
@@ -4186,13 +4186,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   text-decoration: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-drive-panel {
+#app.is-fullscreen .green-drive-panel {
   justify-content: center;
   gap: 8px;
   padding: 27px 3px 25px;
 }
 
-#app.meter-theme-green.is-fullscreen .green-drive-panel article {
+#app.is-fullscreen .green-drive-panel article {
   position: relative;
   min-height: 0;
   border: 1px solid rgba(106, 204, 118, .22);
@@ -4202,20 +4202,20 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: inset 0 1px rgba(255, 255, 255, .025), 0 8px 20px rgba(0, 0, 0, .22);
 }
 
-#app.meter-theme-green.is-fullscreen .green-speed-card {
+#app.is-fullscreen .green-speed-card {
   flex: 0 0 82px;
   padding: 12px 14px 11px;
   overflow: hidden;
 }
-#app.meter-theme-green.is-fullscreen .green-daily-distance-card {
+#app.is-fullscreen .green-daily-distance-card {
   flex: 0 0 64px;
   padding: 9px 12px 8px;
 }
-#app.meter-theme-green.is-fullscreen .green-range-card {
+#app.is-fullscreen .green-range-card {
   flex: 0 0 104px;
   padding: 8px 12px 9px;
 }
-#app.meter-theme-green.is-fullscreen .green-world-times-card {
+#app.is-fullscreen .green-world-times-card {
   flex: 0 0 75px;
   padding: 8px 8px 7px;
   overflow: hidden;
@@ -4224,7 +4224,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     inset 0 1px rgba(255, 255, 255, .025),
     0 8px 20px rgba(0, 0, 0, .22);
 }
-#app.meter-theme-green.is-fullscreen .green-average-fuel-card {
+#app.is-fullscreen .green-average-fuel-card {
   flex: 0 0 75px;
   padding: 9px 10px 8px;
   overflow: hidden;
@@ -4233,18 +4233,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     inset 0 1px rgba(255, 255, 255, .025),
     0 8px 20px rgba(0, 0, 0, .22);
 }
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left .performance-fuel {
+#app.is-fullscreen .green-nav-cluster .performance-left .performance-fuel {
   flex: 0 0 82px;
   min-height: 82px;
   padding: 8px 10px 7px;
 }
-#app.meter-theme-green.is-fullscreen .performance-left .performance-fuel-readout {
+#app.is-fullscreen .performance-left .performance-fuel-readout {
   margin: 2px 0 4px;
 }
-#app.meter-theme-green.is-fullscreen .performance-left .performance-fuel-readout strong {
+#app.is-fullscreen .performance-left .performance-fuel-readout strong {
   font-size: 31px;
 }
-#app.meter-theme-green.is-fullscreen .performance-left .performance-fuel > b {
+#app.is-fullscreen .performance-left .performance-fuel > b {
   margin-top: 4px;
 }
 .green-average-fuel {
@@ -4506,12 +4506,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   margin-bottom: 0;
 }
 .green-speed-scale i { width: var(--green-speed-level); }
-#app.meter-theme-green.is-fullscreen .green-obd-card {
+#app.is-fullscreen .green-obd-card {
   flex: 0 0 83px;
   padding: 10px 12px 8px;
 }
-#app.meter-theme-green.is-fullscreen .green-obd-card p { margin-top: 3px; }
-#app.meter-theme-green.is-fullscreen .green-obd-card strong { font-size: 30px; }
+#app.is-fullscreen .green-obd-card p { margin-top: 3px; }
+#app.is-fullscreen .green-obd-card strong { font-size: 30px; }
 .green-obd-card > span {
   display: block;
   margin-top: 4px;
@@ -4523,7 +4523,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* Unified side instrument towers — replaces the stacked rounded-card treatment. */
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail {
   position: relative;
   justify-content: center;
   gap: 0;
@@ -4537,7 +4537,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px);
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail::after {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail::after {
   content: "";
   position: absolute;
   z-index: 3;
@@ -4549,11 +4549,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   pointer-events: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail::after { left: 0; }
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail::after { right: 0; }
+#app.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail::after { left: 0; }
+#app.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail::after { right: 0; }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail > article,
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail > button {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail > article,
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail > button {
   position: relative;
   width: 100%;
   margin: 0;
@@ -4565,69 +4565,69 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > article,
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > button {
+#app.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > article,
+#app.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > button {
   background: transparent;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail > :first-child { border-top: 0; }
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail > :first-child { border-top: 0; }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail > article::before,
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail > button::before {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail > article::before,
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail > button::before {
   content: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail > article::before,
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail > button::before { left: 0; }
+#app.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail > article::before,
+#app.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail > button::before { left: 0; }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > article::before { right: 0; }
+#app.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > article::before { right: 0; }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail .green-weather-side {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail .green-weather-side {
   box-shadow: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail .green-speed-card::before {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail .green-speed-card::before {
   display: none;
 }
 
 @media (max-height: 520px) {
-  #app.meter-theme-green.is-fullscreen .green-nav-cluster {
+  #app.is-fullscreen .green-nav-cluster {
     grid-template-columns: 174px minmax(355px, 1fr) 174px;
   }
-  #app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left { padding: 18px 2px 16px; gap: 6px; }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel { padding: 18px 2px 16px; gap: 6px; }
-  #app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail { padding: 18px 6px 16px; gap: 0; }
-  #app.meter-theme-green.is-fullscreen .green-map-gauge { width: min(100%, 390px); }
+  #app.is-fullscreen .green-nav-cluster .performance-left { padding: 18px 2px 16px; gap: 6px; }
+  #app.is-fullscreen .green-drive-panel { padding: 18px 2px 16px; gap: 6px; }
+  #app.is-fullscreen .green-nav-cluster .green-instrument-rail { padding: 18px 6px 16px; gap: 0; }
+  #app.is-fullscreen .green-map-gauge { width: min(100%, 390px); }
   .green-map-gauge .performance-needle { height: 135px; }
   .green-gauge-speed { top: 50%; min-width: 150px; padding: 7px 14px 8px; }
   .green-gauge-speed strong { font-size: 70px; }
-  #app.meter-theme-green.is-fullscreen .green-world-times-card { flex-basis: 61px; padding: 5px 6px 4px; }
-  #app.meter-theme-green.is-fullscreen .solar-clock-card { flex-basis: 108px; min-height: 108px; padding: 6px 8px 5px; }
+  #app.is-fullscreen .green-world-times-card { flex-basis: 61px; padding: 5px 6px 4px; }
+  #app.is-fullscreen .solar-clock-card { flex-basis: 108px; min-height: 108px; padding: 6px 8px 5px; }
   .solar-clock-heading time { font-size: 23px; }
   .solar-clock-card .solar-clock-date { margin-top: 1px; }
   .solar-cycle { margin-top: 3px; }
   .solar-orbit { height: 25px; }
-  #app.meter-theme-green.is-fullscreen .green-average-fuel-card { flex-basis: 61px; padding: 5px 7px 4px; }
-  #app.meter-theme-green.is-fullscreen .green-nav-cluster .performance-left .performance-fuel { flex-basis: 66px; min-height: 66px; padding: 5px 8px 4px; }
-  #app.meter-theme-green.is-fullscreen .performance-left .performance-fuel-readout strong { font-size: 26px; }
-  #app.meter-theme-green.is-fullscreen .performance-left .performance-fuel > b { display: none; }
+  #app.is-fullscreen .green-average-fuel-card { flex-basis: 61px; padding: 5px 7px 4px; }
+  #app.is-fullscreen .green-nav-cluster .performance-left .performance-fuel { flex-basis: 66px; min-height: 66px; padding: 5px 8px 4px; }
+  #app.is-fullscreen .performance-left .performance-fuel-readout strong { font-size: 26px; }
+  #app.is-fullscreen .performance-left .performance-fuel > b { display: none; }
   .green-average-fuel { min-height: 48px; }
   .green-average-fuel b { font-size: 22px; }
   .green-world-times-card > small { margin-bottom: 3px; font-size: 5px; }
   .green-world-times { gap: 0; }
   .green-world-times b { font-size: 4px; }
   .green-world-times time { font-size: 12px; }
-  #app.meter-theme-green.is-fullscreen .green-speed-card { flex-basis: 65px; padding: 7px 10px 6px; }
-  #app.meter-theme-green.is-fullscreen .green-daily-distance-card { flex-basis: 52px; padding: 5px 9px 4px; }
-  #app.meter-theme-green.is-fullscreen .green-range-card { flex-basis: 88px; padding: 6px 10px 7px; }
+  #app.is-fullscreen .green-speed-card { flex-basis: 65px; padding: 7px 10px 6px; }
+  #app.is-fullscreen .green-daily-distance-card { flex-basis: 52px; padding: 5px 9px 4px; }
+  #app.is-fullscreen .green-range-card { flex-basis: 88px; padding: 6px 10px 7px; }
   .green-telemetry-graph header { margin-bottom: 4px; }
   .green-graph-track { height: 10px; }
   .green-daily-distance { min-height: 42px; }
   .green-daily-distance strong { font-size: 20px; }
   .green-range-card > span { margin-block: 2px 3px; }
   .green-range-card > span strong { font-size: 24px; }
-  #app.meter-theme-green.is-fullscreen .green-obd-card { flex-basis: 68px; padding: 8px 10px 6px; }
-  #app.meter-theme-green.is-fullscreen .green-obd-card strong { font-size: 25px; }
+  #app.is-fullscreen .green-obd-card { flex-basis: 68px; padding: 8px 10px 6px; }
+  #app.is-fullscreen .green-obd-card strong { font-size: 25px; }
   .green-weather-side { min-height: 76px; padding-block: 4px; gap: 2px; }
   .green-weather-timeline > span { grid-template-rows: 10px 29px 10px; }
   .green-weather-timeline svg { width: 27px; height: 27px; }
@@ -5158,15 +5158,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* ZEST turquoise-blue: fullscreen green meter. Geometry is intentionally untouched. */
-#app.meter-theme-green.is-fullscreen {
+#app.is-fullscreen {
   background:
     radial-gradient(circle at 50% 46%, rgba(24, 186, 198, .12), transparent 45%),
     linear-gradient(145deg, #061013, #010507 74%);
 }
-#app.meter-theme-green.is-fullscreen .performance-cluster {
+#app.is-fullscreen .performance-cluster {
   filter: hue-rotate(48deg) saturate(1.13);
 }
-#app.meter-theme-green.is-fullscreen .performance-main-gauge {
+#app.is-fullscreen .performance-main-gauge {
   border: 3px solid rgba(112, 255, 128, .82);
   outline: 1px solid rgba(67, 137, 76, .62);
   outline-offset: 3px;
@@ -5181,19 +5181,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     0 0 31px rgba(50, 232, 73, .5),
     0 0 58px rgba(31, 178, 49, .27);
 }
-#app.meter-theme-green.is-fullscreen .topbar {
+#app.is-fullscreen .topbar {
   border-bottom-color: rgba(39, 220, 227, .24);
   background: linear-gradient(180deg, rgba(5, 19, 23, .94), rgba(2, 9, 12, .84));
 }
-#app.meter-theme-green.is-fullscreen .brand small,
-#app.meter-theme-green.is-fullscreen .car-id { color: #76cbd0; }
-#app.meter-theme-green.is-fullscreen .clock {
+#app.is-fullscreen .brand small,
+#app.is-fullscreen .car-id { color: #76cbd0; }
+#app.is-fullscreen .clock {
   color: #edffff;
   text-shadow: 0 0 17px rgba(39, 220, 227, .24);
 }
-#app.meter-theme-green.is-fullscreen .meter-view-button,
-#app.meter-theme-green.is-fullscreen .meter-theme-button,
-#app.meter-theme-green.is-fullscreen .obd-connect-compact {
+#app.is-fullscreen .meter-view-button,
+#app.is-fullscreen .meter-theme-button,
+#app.is-fullscreen .obd-connect-compact {
   border-color: rgba(39, 220, 227, .36);
   background: linear-gradient(180deg, rgba(13, 47, 52, .95), rgba(4, 17, 21, .99));
   color: #a6f7f9;
@@ -5207,8 +5207,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .meter-theme-options > button:not(.red) em { color: #4de6eb; }
 .theme-preview.green {
   border-color: #21656b;
+  /* どちらのテーマも同じ盤面なので、見本札も同じ丸い計器の模式図にする。 */
   background:
-    linear-gradient(135deg, rgba(39, 220, 227, .24), transparent 52%),
+    radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(39, 220, 227, .5) 31% 34%, transparent 35%),
+    radial-gradient(circle at 50% 50%, transparent 0 44%, rgba(39, 220, 227, .28) 45% 47%, transparent 48%),
     linear-gradient(160deg, #092a2f, #020708 72%);
 }
 .theme-preview.green span {
@@ -5317,7 +5319,58 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   --z-theme-deep: #401c00;
 }
 #app.meter-theme-eva.is-fullscreen {
-  background: linear-gradient(155deg, #0a0503, #030201 75%);
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 122, 26, .12), transparent 45%),
+    linear-gradient(145deg, #140a04, #070301 74%);
+}
+
+/* 計器はターコイズと同じものを使い、色味だけ回してオレンジにする。
+   ターコイズは下地の緑を +48度 回したもの。ここは -90度 にすると
+   同じ盤面がそのままオレンジになる。 */
+#app.meter-theme-eva.is-fullscreen .performance-cluster {
+  filter: hue-rotate(-90deg) saturate(1.2);
+}
+
+/* 中央の速度だけ、前のオレンジメーターの見せ方を残す。
+   白くて大きく、少し斜めに倒した数字。 */
+#app.meter-theme-eva.is-fullscreen .green-gauge-speed strong {
+  font-family: inherit;
+  font-size: 96px;
+  font-weight: 900;
+  letter-spacing: -.02em;
+  color: #fffaf4;
+  transform: skewX(-6deg);
+}
+
+#app.meter-theme-eva.is-fullscreen .green-gauge-speed {
+  padding-bottom: 14px;
+}
+
+/* 四隅の文字は、色を回した後にオレンジになるよう逆算した色で指定する
+   (計器の中にあるので、盤面と同じ回転がかかる)。 */
+#app.meter-theme-eva.is-fullscreen .gauge-corner small { color: #52c053; }
+#app.meter-theme-eva.is-fullscreen .gauge-corner b { color: #e0ffe2; }
+#app.meter-theme-eva.is-fullscreen .gauge-corner::before {
+  border-color: rgba(82, 224, 79, .5);
+}
+#app.meter-theme-eva.is-fullscreen .gauge-corner:active::before {
+  border-color: rgba(150, 255, 150, .95);
+}
+
+/* 上の状態バーは計器の外にあるので、色は回らない。ここで直に指定する。 */
+#app.meter-theme-eva .meter-status-item i { background: #4a3527; }
+#app.meter-theme-eva .meter-status-item small { color: #b3783f; }
+#app.meter-theme-eva .meter-status-item b { color: #d3a77e; }
+#app.meter-theme-eva .meter-status-item.is-ok i {
+  background: #ff9d47;
+  box-shadow: 0 0 8px rgba(255, 157, 71, .8);
+}
+#app.meter-theme-eva .meter-status-item.is-ok b { color: #fff1e0; }
+#app.meter-theme-eva .meter-status-item.is-off small,
+#app.meter-theme-eva .meter-status-item.is-off b { color: #7b6250; }
+#app.meter-theme-eva .meter-full-button {
+  border-color: rgba(255, 157, 71, .4);
+  color: #ffc48c;
 }
 #app.meter-theme-eva.is-fullscreen .topbar {
   border-bottom-color: rgba(255, 122, 26, .3);
@@ -5337,252 +5390,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #ffcb8c;
 }
 
-.eva-cluster {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 12px 14px 10px;
-  color: #ffe9d2;
-  font-weight: 900;
-  overflow: hidden;
-}
-.eva-cluster::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(255, 210, 160, .028) 0 1px,
-    transparent 1px 3px
-  );
-}
-.eva-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px 7px;
-  border: 1px solid rgba(255, 122, 26, .5);
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
-  background:
-    linear-gradient(180deg, rgba(46, 22, 5, .92), rgba(14, 7, 2, .96));
-  border-top: 6px solid transparent;
-  border-image: repeating-linear-gradient(45deg, #ff7a1a 0 10px, #120902 10px 20px) 6;
-  letter-spacing: .16em;
-  font-size: 11px;
-}
-.eva-topline strong { color: #ffb066; }
-.eva-topline span { display: inline-flex; align-items: center; gap: 7px; color: #ffd9ae; font-size: 10px; }
-.eva-topline span i {
-  width: 8px; height: 8px;
-  background: #ff7a1a;
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  animation: eva-blink 1.1s steps(2, jump-none) infinite;
-}
-.eva-topline.live span i { background: #9dff2f; animation: none; }
-.eva-topline b { color: #ff9d47; font-size: 10px; }
-
-.eva-stage {
-  display: grid;
-  grid-template-columns: minmax(180px, 220px) 1fr minmax(180px, 220px);
-  gap: 12px;
-  min-height: 0;
-}
-.eva-column { display: grid; gap: 12px; align-content: stretch; min-height: 0; }
-
-.eva-box {
-  position: relative;
-  display: grid;
-  align-content: space-between;
-  gap: 6px;
-  padding: 12px 14px;
-  border: 1px solid rgba(255, 122, 26, .46);
-  background: linear-gradient(165deg, rgba(36, 18, 5, .88), rgba(10, 5, 1, .96));
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-}
-.eva-box::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0;
-  width: 34px; height: 4px;
-  background: #ff7a1a;
-}
-.eva-box small {
-  color: #cf8b45;
-  font-size: 12px;
-  letter-spacing: .2em;
-}
-.eva-box small span { color: #8c5c2e; font-size: 9px; margin-left: 6px; }
-.eva-box strong {
-  font-size: 40px;
-  line-height: 1;
-  color: #fff3e4;
-  text-shadow: 0 0 16px rgba(255, 122, 26, .45);
-  font-variant-numeric: tabular-nums;
-}
-.eva-box strong em { font-style: normal; font-size: 15px; color: #ff9d47; margin-left: 5px; }
-.eva-box b { font-size: 10px; letter-spacing: .18em; color: #9dff2f; }
-.eva-bar {
-  height: 9px;
-  border: 1px solid rgba(255, 122, 26, .5);
-  background: rgba(255, 122, 26, .08);
-}
-.eva-bar i {
-  display: block;
-  height: 100%;
-  background: repeating-linear-gradient(90deg, #ff7a1a 0 7px, rgba(255, 122, 26, .18) 7px 10px);
-  transition: width .35s ease;
-}
-.eva-box.warn { border-color: rgba(255, 45, 26, .75); animation: eva-alert 0.9s steps(2, jump-none) infinite; }
-.eva-box.warn::before { background: #ff2d1a; }
-.eva-box.warn strong { color: #ffe1dc; text-shadow: 0 0 18px rgba(255, 45, 26, .6); }
-.eva-box.warn b { color: #ff5f4d; }
-.eva-box.warn .eva-bar i { background: repeating-linear-gradient(90deg, #ff2d1a 0 7px, rgba(255, 45, 26, .2) 7px 10px); }
-
-.eva-signal-state { font-size: 19px !important; letter-spacing: .08em; }
-.eva-status ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
-.eva-status li { font-size: 12px; letter-spacing: .14em; color: #ffd9ae; }
-.eva-status li.bad { color: #ff5f4d; animation: eva-blink 0.9s steps(2, jump-none) infinite; }
-
-.eva-center {
-  position: relative;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  min-height: 0;
-  padding: 10px 16px;
-  border: 1px solid rgba(255, 122, 26, .4);
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 122, 26, .1), transparent 58%),
-    linear-gradient(165deg, rgba(26, 13, 4, .9), rgba(7, 3, 1, .97));
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-.eva-pattern {
-  justify-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 18px;
-  border: 1px solid rgba(255, 122, 26, .55);
-  letter-spacing: .3em;
-  font-size: 12px;
-}
-.eva-pattern-code { font-size: 17px; }
-.eva-pattern.normal { color: #9dff2f; border-color: rgba(157, 255, 47, .55); }
-.eva-pattern.hold { color: #ffb066; animation: eva-blink 1.3s steps(2, jump-none) infinite; }
-.eva-pattern.alert {
-  color: #ff5f4d;
-  border-color: rgba(255, 45, 26, .8);
-  animation: eva-alert 0.7s steps(2, jump-none) infinite;
-}
-.eva-speed {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 14px;
-  align-self: center;
-}
-.eva-speed strong {
-  font-size: clamp(88px, 16vw, 150px);
-  line-height: .9;
-  color: #fff6ec;
-  font-variant-numeric: tabular-nums;
-  text-shadow:
-    0 0 22px rgba(255, 122, 26, .55),
-    0 0 64px rgba(255, 122, 26, .3);
-  transform: skewX(-6deg);
-}
-.eva-speed span {
-  display: grid;
-  gap: 5px;
-  color: #ff9d47;
-  font-size: 19px;
-  letter-spacing: .14em;
-}
-.eva-speed span small { color: #cf8b45; font-size: 10px; letter-spacing: .24em; }
-.eva-rev { display: grid; gap: 6px; }
-.eva-rev small { color: #cf8b45; font-size: 10px; letter-spacing: .24em; }
-.eva-rev-cells { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; height: 22px; }
-.eva-rev-cells i {
-  border: 1px solid rgba(255, 122, 26, .38);
-  background: rgba(255, 122, 26, .07);
-  transform: skewX(-12deg);
-}
-.eva-rev-cells i.on {
-  background: #ff7a1a;
-  box-shadow: 0 0 9px rgba(255, 122, 26, .65);
-}
-.eva-rev-cells i.on.hot {
-  background: #ff2d1a;
-  box-shadow: 0 0 11px rgba(255, 45, 26, .75);
-}
-.eva-rev b { justify-self: end; font-size: 12px; letter-spacing: .18em; color: #ffd9ae; }
-
-/* The global footer rules hide fullscreen footers and force height 20px;
-   re-enable and unclamp ours. */
-#app.is-fullscreen .eva-footer,
-.eva-footer {
-  display: grid;
-  height: auto;
-  text-align: initial;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 122, 26, .4);
-  background: linear-gradient(180deg, rgba(30, 15, 4, .92), rgba(10, 5, 1, .97));
-  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 100%, 0 100%);
-}
-.eva-footer > span { display: grid; gap: 3px; justify-items: center; }
-.eva-footer small { color: #cf8b45; font-size: 9px; letter-spacing: .22em; }
-.eva-footer b { color: #fff3e4; font-size: 17px; letter-spacing: .1em; font-variant-numeric: tabular-nums; }
-.eva-footer > span:first-child { justify-items: start; }
-.eva-footer > span:last-child { justify-items: end; }
-.eva-footer button {
-  position: relative;
-  display: grid;
-  gap: 3px;
-  justify-items: center;
-  min-width: 210px;
-  padding: 6px 18px 9px;
-  border: 1px solid rgba(255, 122, 26, .55);
-  background: rgba(255, 122, 26, .07);
-  color: inherit;
-  font: inherit;
-  font-weight: 900;
-  cursor: pointer;
-  overflow: hidden;
-}
-.eva-footer button i {
-  position: absolute;
-  left: 0; bottom: 0;
-  height: 4px;
-  background: #ff7a1a;
-  transition: width .4s ease;
-}
-.eva-footer button.resetting { animation: eva-alert 0.5s steps(2, jump-none) infinite; }
-/* Activity-limit alarm: blinks red when the remaining range runs low. */
-.eva-footer button.critical {
-  border-color: rgba(255, 45, 26, .8);
-  background: rgba(255, 45, 26, .09);
-  animation: eva-alert 0.8s steps(2, jump-none) infinite;
-}
-.eva-footer button.critical small { color: #ff5f4d; }
-.eva-footer button.critical b { color: #ffe1dc; text-shadow: 0 0 14px rgba(255, 45, 26, .6); }
-.eva-footer button.critical i { background: #ff2d1a; }
-
-@keyframes eva-blink { 50% { opacity: .35; } }
-@keyframes eva-alert {
-  50% {
-    border-color: rgba(255, 45, 26, .25);
-    opacity: .82;
-  }
-}
-
 /* PATTERN ORANGE selector card */
 .meter-theme-options > button.eva.selected {
   border-color: #ff7a1a;
@@ -5593,7 +5400,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .theme-preview.eva {
   border-color: #7a3f10;
   background:
-    repeating-linear-gradient(45deg, rgba(255, 122, 26, .3) 0 6px, transparent 6px 12px) left top / 100% 8px no-repeat,
+    radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(255, 122, 26, .5) 31% 34%, transparent 35%),
+    radial-gradient(circle at 50% 50%, transparent 0 44%, rgba(255, 122, 26, .28) 45% 47%, transparent 48%),
     linear-gradient(160deg, #241104, #070301 72%);
 }
 .theme-preview.eva span {
@@ -5622,7 +5430,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* The global footer rules hide fullscreen footers and force height 20px;
 
 /* Turquoise Google Maps instrument finish */
-#app.meter-theme-green.is-fullscreen .green-gauge-map-window {
+#app.is-fullscreen .green-gauge-map-window {
   border-color: rgba(91, 255, 110, .78);
   background: #000701;
   box-shadow:
@@ -5632,7 +5440,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     0 0 34px rgba(45, 232, 65, .2);
 }
 
-#app.meter-theme-green.is-fullscreen .green-gauge-map-window::before {
+#app.is-fullscreen .green-gauge-map-window::before {
   content: "";
   position: absolute;
   z-index: 1;
@@ -5644,7 +5452,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   pointer-events: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-gauge-map-window::after {
+#app.is-fullscreen .green-gauge-map-window::after {
   content: "";
   position: absolute;
   z-index: 17;
@@ -5660,14 +5468,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   pointer-events: none;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-map-canvas {
+#app.is-fullscreen .green-nav-map-canvas {
   inset: -3%;
   width: 106%;
   height: 106%;
   background: #000701;
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-grid {
+#app.is-fullscreen .green-map-grid {
   opacity: 1;
   background:
     radial-gradient(circle, transparent 0 23%, rgba(87, 255, 105, .07) 23.4% 23.8%, transparent 24.2% 45%, rgba(87, 255, 105, .055) 45.4% 45.8%, transparent 46.2%),
@@ -5677,8 +5485,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   mask-image: radial-gradient(circle, #000 0 68%, transparent 92%);
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-grid::before,
-#app.meter-theme-green.is-fullscreen .green-map-grid::after {
+#app.is-fullscreen .green-map-grid::before,
+#app.is-fullscreen .green-map-grid::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -5689,12 +5497,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: 0 0 9px rgba(60, 242, 80, .09);
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-grid::before {
+#app.is-fullscreen .green-map-grid::before {
   width: 14px;
   height: 14px;
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-grid::after {
+#app.is-fullscreen .green-map-grid::after {
   width: 3px;
   height: 3px;
   border-color: rgba(224, 255, 227, .88);
@@ -5702,7 +5510,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: 0 0 8px rgba(84, 255, 102, .88);
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-vignette {
+#app.is-fullscreen .green-map-vignette {
   background:
     repeating-linear-gradient(180deg, rgba(117, 255, 134, .012) 0 1px, transparent 1px 4px),
     radial-gradient(circle, transparent 0 55%, rgba(0, 8, 1, .12) 73%, rgba(0, 3, 1, .76) 100%);
@@ -5711,11 +5519,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     inset 0 0 0 1px rgba(113, 255, 130, .1);
 }
 
-#app.meter-theme-green.is-fullscreen .green-compass-bearing {
+#app.is-fullscreen .green-compass-bearing {
   border-color: rgba(94, 255, 113, .3);
 }
 
-#app.meter-theme-green.is-fullscreen .green-compass-bearing::before {
+#app.is-fullscreen .green-compass-bearing::before {
   background: repeating-conic-gradient(
     from 0deg,
     rgba(105, 255, 123, .58) 0deg 1deg,
@@ -5723,7 +5531,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   );
 }
 
-#app.meter-theme-green.is-fullscreen .green-compass-bearing::after {
+#app.is-fullscreen .green-compass-bearing::after {
   background: repeating-conic-gradient(
     from 0deg,
     rgba(225, 255, 227, .9) 0deg 1.7deg,
@@ -5731,32 +5539,32 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   );
 }
 
-#app.meter-theme-green.is-fullscreen .green-compass-bearing span {
+#app.is-fullscreen .green-compass-bearing span {
   color: #a9ffb2;
   text-shadow:
     0 0 9px rgba(77, 255, 96, .76),
     0 1px 0 rgba(0, 0, 0, .92);
 }
 
-#app.meter-theme-green.is-fullscreen .green-compass-bearing .north {
+#app.is-fullscreen .green-compass-bearing .north {
   color: #f1fff2;
 }
 
-#app.meter-theme-green.is-fullscreen .green-gauge-speed {
+#app.is-fullscreen .green-gauge-speed {
   border-color: rgba(92, 255, 110, .28);
   background: linear-gradient(90deg, transparent, rgba(0, 11, 1, .42) 26% 74%, transparent);
   text-shadow: 0 0 13px rgba(63, 255, 84, .34);
 }
 
-#app.meter-theme-green.is-fullscreen .green-gauge-speed small {
+#app.is-fullscreen .green-gauge-speed small {
   color: #6fcf79;
 }
 
-#app.meter-theme-green.is-fullscreen .green-gauge-speed strong {
+#app.is-fullscreen .green-gauge-speed strong {
   text-shadow: 0 0 21px rgba(66, 255, 86, .42);
 }
 
-#app.meter-theme-green.is-fullscreen .green-gauge-speed span {
+#app.is-fullscreen .green-gauge-speed span {
   color: #91c896;
 }
 
@@ -5766,7 +5574,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
    so 90deg here lands on the ring accent hue (~174) after both.
    The map is a raster Google map (styles hide the POI icons), so the
    heading-up rotation is done here in CSS instead of the vector camera. */
-#app.meter-theme-green.is-fullscreen .green-nav-map-canvas {
+#app.is-fullscreen .green-nav-map-canvas {
   filter: grayscale(1) sepia(1) hue-rotate(90deg) saturate(3.4) brightness(.92) contrast(1.4);
   transform: rotate(var(--green-map-rotation, 0deg));
   transform-origin: 50% 50%;
@@ -5777,14 +5585,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* TURQUOISE BLUE palette correction
    (colors are pre-shifted -47deg: the cluster-wide hue-rotate(48deg)
    on .performance-cluster brings them back to the intended cyans) */
-#app.meter-theme-green.is-fullscreen {
+#app.is-fullscreen {
   --turquoise-main: #28e746;
   --turquoise-bright: #9cffa9;
   --turquoise-deep: #0a581e;
   --turquoise-muted: #69aa72;
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster {
+#app.is-fullscreen .green-nav-cluster {
   background:
     linear-gradient(90deg, rgba(40, 231, 70, .018) 1px, transparent 1px) 0 0 / 26px 26px,
     linear-gradient(rgba(40, 231, 70, .018) 1px, transparent 1px) 0 0 / 26px 26px,
@@ -5792,7 +5600,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     linear-gradient(180deg, #050b07, #010403 76%);
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail {
   border-color: rgba(63, 218, 88, .22);
   background: rgba(2, 10, 5, .95);
   box-shadow:
@@ -5800,7 +5608,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     0 12px 24px rgba(0, 0, 0, .24);
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail::after {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail::after {
   background: linear-gradient(
     180deg,
     transparent,
@@ -5810,18 +5618,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: 0 0 7px rgba(40, 231, 70, .26);
 }
 
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail > article,
-#app.meter-theme-green.is-fullscreen .green-nav-cluster .green-instrument-rail > button {
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail > article,
+#app.is-fullscreen .green-nav-cluster .green-instrument-rail > button {
   border-top-color: rgba(83, 222, 104, .13);
 }
 
-#app.meter-theme-green.is-fullscreen .green-instrument-rail small,
-#app.meter-theme-green.is-fullscreen .green-instrument-rail > article > span,
-#app.meter-theme-green.is-fullscreen .green-obd-card > span {
+#app.is-fullscreen .green-instrument-rail small,
+#app.is-fullscreen .green-instrument-rail > article > span,
+#app.is-fullscreen .green-obd-card > span {
   color: var(--turquoise-muted);
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-gauge {
+#app.is-fullscreen .green-map-gauge {
   border-color: #11822e;
   box-shadow:
     inset 0 0 68px rgba(0, 0, 0, .96),
@@ -5834,7 +5642,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     0 18px 46px rgba(0, 0, 0, .68);
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-gauge .performance-rpm-track {
+#app.is-fullscreen .green-map-gauge .performance-rpm-track {
   background: repeating-conic-gradient(
     from 210deg,
     rgba(24, 89, 38, .84) 0 4.2deg,
@@ -5843,7 +5651,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   filter: drop-shadow(0 0 4px rgba(40, 231, 70, .28));
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-gauge .performance-rpm-track::after {
+#app.is-fullscreen .green-map-gauge .performance-rpm-track::after {
   background: repeating-conic-gradient(
     from 210deg,
     var(--turquoise-bright) 0 4.2deg,
@@ -5852,36 +5660,36 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   filter: drop-shadow(0 0 5px rgba(77, 255, 103, .86));
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-gauge .performance-rpm-title,
-#app.meter-theme-green.is-fullscreen .green-map-gauge .performance-rpm-labels,
-#app.meter-theme-green.is-fullscreen .green-map-gauge .performance-rpm-digital small,
-#app.meter-theme-green.is-fullscreen .green-map-gauge .performance-rpm-digital span {
+#app.is-fullscreen .green-map-gauge .performance-rpm-title,
+#app.is-fullscreen .green-map-gauge .performance-rpm-labels,
+#app.is-fullscreen .green-map-gauge .performance-rpm-digital small,
+#app.is-fullscreen .green-map-gauge .performance-rpm-digital span {
   color: #79c884;
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-gauge .performance-rpm-digital b {
+#app.is-fullscreen .green-map-gauge .performance-rpm-digital b {
   color: #edffef;
   text-shadow: 0 0 12px rgba(40, 231, 70, .36);
 }
 
-#app.meter-theme-green.is-fullscreen .green-weather .weather-glyph {
+#app.is-fullscreen .green-weather .weather-glyph {
   color: #7eff90;
   filter: drop-shadow(0 0 5px rgba(40, 231, 70, .48));
 }
 
-#app.meter-theme-green.is-fullscreen .green-range-scale i,
-#app.meter-theme-green.is-fullscreen .green-speed-scale i {
+#app.is-fullscreen .green-range-scale i,
+#app.is-fullscreen .green-speed-scale i {
   background: linear-gradient(90deg, #0b6921, #55f56c);
   box-shadow: 0 0 9px rgba(40, 231, 70, .68);
 }
 
-#app.meter-theme-green.is-fullscreen .green-map-footer span i {
+#app.is-fullscreen .green-map-footer span i {
   background: #62f878;
   box-shadow: 0 0 7px rgba(40, 231, 70, .88);
 }
 
-#app.meter-theme-green.is-fullscreen .green-world-times-card,
-#app.meter-theme-green.is-fullscreen .green-average-fuel-card {
+#app.is-fullscreen .green-world-times-card,
+#app.is-fullscreen .green-average-fuel-card {
   box-shadow:
     inset 3px 0 var(--turquoise-main),
     inset 0 1px rgba(255, 255, 255, .025),
@@ -6823,7 +6631,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* --- TURQUOISE BLUE: 右のレールを上に詰めて、空いた右下に YouTube を置く --- */
 
 /* 右のカードは上から順に詰め、いちばん下だけをメディアに使う。 */
-#app.meter-theme-green.is-fullscreen .green-nav-cluster
+#app.is-fullscreen .green-nav-cluster
   .green-drive-panel.green-instrument-rail {
   justify-content: flex-start;
   padding-top: 16px;
@@ -6831,55 +6639,55 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* 右のレールだけ 1.2 倍に広げる(左と中央のゲージはそのまま)。 */
-#app.meter-theme-green.is-fullscreen .green-nav-cluster {
+#app.is-fullscreen .green-nav-cluster {
   --green-rail-left: 196px;
   grid-template-columns:
     var(--green-rail-left) minmax(0, 1fr) calc(var(--green-rail-left) * 1.2);
 }
 
 /* 文字の上下に入る余白を詰めて、広くした分の高さを確保する。 */
-#app.meter-theme-green.is-fullscreen .green-drive-panel > article,
-#app.meter-theme-green.is-fullscreen .green-drive-panel > button { line-height: 1.15; }
+#app.is-fullscreen .green-drive-panel > article,
+#app.is-fullscreen .green-drive-panel > button { line-height: 1.15; }
 
 /* 縦が足りないときは計器側を縮め、いちばん下のメディアは潰さない。 */
-#app.meter-theme-green.is-fullscreen .green-drive-panel > article,
-#app.meter-theme-green.is-fullscreen .green-drive-panel > button { flex-shrink: 1; }
-#app.meter-theme-green.is-fullscreen .media-card { flex-shrink: 0; }
+#app.is-fullscreen .green-drive-panel > article,
+#app.is-fullscreen .green-drive-panel > button { flex-shrink: 1; }
+#app.is-fullscreen .media-card { flex-shrink: 0; }
 
 /* 余白を詰めて、計器の見た目はそのままに高さだけを取り戻す。 */
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-range-card {
+#app.is-fullscreen .green-drive-panel .green-range-card {
   flex-basis: 70px;
   padding: 6px 12px 6px;
 }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-range-card > span strong {
+#app.is-fullscreen .green-drive-panel .green-range-card > span strong {
   font-size: 24px;
 }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-average-fuel-card {
+#app.is-fullscreen .green-drive-panel .green-average-fuel-card {
   flex-basis: 52px;
   padding: 5px 10px 5px;
 }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-average-fuel { min-height: 0; }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-average-fuel b { font-size: 21px; }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-speed-card {
+#app.is-fullscreen .green-drive-panel .green-average-fuel { min-height: 0; }
+#app.is-fullscreen .green-drive-panel .green-average-fuel b { font-size: 21px; }
+#app.is-fullscreen .green-drive-panel .green-speed-card {
   flex-basis: 42px;
   padding: 6px 14px 6px;
 }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card {
+#app.is-fullscreen .green-drive-panel .green-obd-card {
   flex-basis: 62px;
   padding: 6px 12px 6px;
 }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card strong { font-size: 25px; }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card p { margin-top: 1px; }
-#app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card > span { margin-top: 2px; }
+#app.is-fullscreen .green-drive-panel .green-obd-card strong { font-size: 25px; }
+#app.is-fullscreen .green-drive-panel .green-obd-card p { margin-top: 1px; }
+#app.is-fullscreen .green-drive-panel .green-obd-card > span { margin-top: 2px; }
 
 /* メディアカード本体。いちばん下に貼り付ける。 */
-#app.meter-theme-green.is-fullscreen .media-card {
+#app.is-fullscreen .media-card {
   flex: 0 0 auto;
   margin-top: auto;
   padding: 5px 6px 6px;
 }
 
-#app.meter-theme-green.is-fullscreen .media-card header {
+#app.is-fullscreen .media-card header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -6888,7 +6696,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   padding: 0 2px;
 }
 
-#app.meter-theme-green.is-fullscreen .media-card header small {
+#app.is-fullscreen .media-card header small {
   color: #6f9475;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 6px;
@@ -6896,7 +6704,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   letter-spacing: .22em;
 }
 
-#app.meter-theme-green.is-fullscreen .media-card header b {
+#app.is-fullscreen .media-card header b {
   overflow: hidden;
   max-width: 118px;
   color: #cdffd4;
@@ -6913,40 +6721,40 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 縦が狭い画面(ブラウザのアドレスバーで削られたときなど)では、
    補足の一行を省いて計器を薄くし、映像も小さめにして全部を収める。 */
 @media (max-height: 520px) {
-  #app.meter-theme-green.is-fullscreen .green-nav-cluster { --green-rail-left: 174px; }
-  #app.meter-theme-green.is-fullscreen .green-nav-cluster
+  #app.is-fullscreen .green-nav-cluster { --green-rail-left: 174px; }
+  #app.is-fullscreen .green-nav-cluster
     .green-drive-panel.green-instrument-rail {
     padding-top: 10px;
     padding-bottom: 8px;
   }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-range-card {
+  #app.is-fullscreen .green-drive-panel .green-range-card {
     flex-basis: 48px;
     padding: 3px 10px;
   }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-range-card > span strong { font-size: 20px; }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-range-card > small:last-of-type { display: none; }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-average-fuel-card {
+  #app.is-fullscreen .green-drive-panel .green-range-card > span strong { font-size: 20px; }
+  #app.is-fullscreen .green-drive-panel .green-range-card > small:last-of-type { display: none; }
+  #app.is-fullscreen .green-drive-panel .green-average-fuel-card {
     flex-basis: 30px;
     padding: 3px 9px;
   }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-average-fuel b { font-size: 18px; }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-average-fuel i { display: none; }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-speed-card {
+  #app.is-fullscreen .green-drive-panel .green-average-fuel b { font-size: 18px; }
+  #app.is-fullscreen .green-drive-panel .green-average-fuel i { display: none; }
+  #app.is-fullscreen .green-drive-panel .green-speed-card {
     flex-basis: 36px;
     padding: 4px 12px;
   }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card {
+  #app.is-fullscreen .green-drive-panel .green-obd-card {
     flex-basis: 44px;
     padding: 3px 10px;
   }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card strong { font-size: 20px; }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card > span { display: none; }
-  #app.meter-theme-green.is-fullscreen .green-drive-panel .green-obd-card { flex-basis: 46px; }
+  #app.is-fullscreen .green-drive-panel .green-obd-card strong { font-size: 20px; }
+  #app.is-fullscreen .green-drive-panel .green-obd-card > span { display: none; }
+  #app.is-fullscreen .green-drive-panel .green-obd-card { flex-basis: 46px; }
 }
 
 
 /* --- ターコイズメーター右下: シンプルな音楽プレイヤー --- */
-#app.meter-theme-green.is-fullscreen .media-title {
+#app.is-fullscreen .media-title {
   overflow: hidden;
   margin: 0 0 5px;
   padding: 0 2px;
@@ -6961,7 +6769,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* 再生の状態と、いまの位置 / 曲の長さ。 */
-#app.meter-theme-green.is-fullscreen .media-status {
+#app.is-fullscreen .media-status {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -6973,36 +6781,36 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   letter-spacing: .16em;
 }
 
-#app.meter-theme-green.is-fullscreen .media-status span {
+#app.is-fullscreen .media-status span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   color: #6f9475;
 }
 
-#app.meter-theme-green.is-fullscreen .media-status span i {
+#app.is-fullscreen .media-status span i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: #2c5c33;
 }
 
-#app.meter-theme-green.is-fullscreen .media-status span.is-playing {
+#app.is-fullscreen .media-status span.is-playing {
   color: #9cffa9;
 }
 
-#app.meter-theme-green.is-fullscreen .media-status span.is-playing i {
+#app.is-fullscreen .media-status span.is-playing i {
   background: #6cff80;
   box-shadow: 0 0 8px rgba(108, 255, 128, .75);
 }
 
-#app.meter-theme-green.is-fullscreen .media-status em {
+#app.is-fullscreen .media-status em {
   color: #b6ffc1;
   font-size: 8px;
   font-style: normal;
 }
 
-#app.meter-theme-green.is-fullscreen .media-progress {
+#app.is-fullscreen .media-progress {
   overflow: hidden;
   height: 3px;
   margin: 4px 2px 7px;
@@ -7010,7 +6818,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background: rgba(106, 204, 118, .18);
 }
 
-#app.meter-theme-green.is-fullscreen .media-progress i {
+#app.is-fullscreen .media-progress i {
   display: block;
   height: 100%;
   border-radius: inherit;
@@ -7019,7 +6827,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* プレイリストの切り替え。横に並べて、多いときは横スクロールする。 */
-#app.meter-theme-green.is-fullscreen .media-lists {
+#app.is-fullscreen .media-lists {
   display: flex;
   gap: 5px;
   overflow-x: auto;
@@ -7028,11 +6836,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   scrollbar-width: none;
 }
 
-#app.meter-theme-green.is-fullscreen .media-lists::-webkit-scrollbar {
+#app.is-fullscreen .media-lists::-webkit-scrollbar {
   display: none;
 }
 
-#app.meter-theme-green.is-fullscreen .media-lists button {
+#app.is-fullscreen .media-lists button {
   flex: 0 0 auto;
   max-width: 96px;
   overflow: hidden;
@@ -7052,13 +6860,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   -webkit-tap-highlight-color: transparent;
 }
 
-#app.meter-theme-green.is-fullscreen .media-lists button.is-active {
+#app.is-fullscreen .media-lists button.is-active {
   border-color: rgba(122, 255, 138, .7);
   background: linear-gradient(180deg, rgba(38, 116, 50, .8), rgba(8, 26, 12, .9));
   color: #eaffee;
 }
 
-#app.meter-theme-green.is-fullscreen .media-controls {
+#app.is-fullscreen .media-controls {
   display: grid;
   grid-template-columns: 1fr 1.25fr 1fr;
   align-items: center;
@@ -7066,7 +6874,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   padding: 0 2px 2px;
 }
 
-#app.meter-theme-green.is-fullscreen .media-controls button {
+#app.is-fullscreen .media-controls button {
   display: grid;
   place-items: center;
   min-height: 40px;
@@ -7079,19 +6887,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   -webkit-tap-highlight-color: transparent;
 }
 
-#app.meter-theme-green.is-fullscreen .media-controls button.is-primary {
+#app.is-fullscreen .media-controls button.is-primary {
   min-height: 46px;
   border-color: rgba(122, 255, 138, .6);
   background: linear-gradient(180deg, rgba(38, 116, 50, .78), rgba(8, 26, 12, .92));
   color: #eaffee;
 }
 
-#app.meter-theme-green.is-fullscreen .media-controls button:disabled {
+#app.is-fullscreen .media-controls button:disabled {
   opacity: .35;
   cursor: default;
 }
 
-#app.meter-theme-green.is-fullscreen .media-controls svg {
+#app.is-fullscreen .media-controls svg {
   width: 18px;
   height: 18px;
   fill: none;
@@ -7102,7 +6910,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* ▶ と ⏸ は塗りのほうが見やすい。 */
-#app.meter-theme-green.is-fullscreen .media-controls button.is-primary svg {
+#app.is-fullscreen .media-controls button.is-primary svg {
   width: 20px;
   height: 20px;
   fill: currentColor;
@@ -7275,23 +7083,23 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 縦が狭い画面では、進み具合のバーを省いてボタンを少し小さくする。
    (基本のスタイルより後ろに置く必要があるので、ここにまとめている) */
 @media (max-height: 520px) {
-  #app.meter-theme-green.is-fullscreen .media-card { padding: 3px 5px 4px; }
-  #app.meter-theme-green.is-fullscreen .media-card header { margin-bottom: 2px; }
-  #app.meter-theme-green.is-fullscreen .media-title {
+  #app.is-fullscreen .media-card { padding: 3px 5px 4px; }
+  #app.is-fullscreen .media-card header { margin-bottom: 2px; }
+  #app.is-fullscreen .media-title {
     margin-bottom: 3px;
     font-size: 11px;
   }
-  #app.meter-theme-green.is-fullscreen .media-progress { display: none; }
-  #app.meter-theme-green.is-fullscreen .media-controls { gap: 5px; }
-  #app.meter-theme-green.is-fullscreen .media-controls button { min-height: 32px; }
-  #app.meter-theme-green.is-fullscreen .media-controls button.is-primary { min-height: 36px; }
-  #app.meter-theme-green.is-fullscreen .media-controls svg { width: 15px; height: 15px; }
-  #app.meter-theme-green.is-fullscreen .media-controls button.is-primary svg {
+  #app.is-fullscreen .media-progress { display: none; }
+  #app.is-fullscreen .media-controls { gap: 5px; }
+  #app.is-fullscreen .media-controls button { min-height: 32px; }
+  #app.is-fullscreen .media-controls button.is-primary { min-height: 36px; }
+  #app.is-fullscreen .media-controls svg { width: 15px; height: 15px; }
+  #app.is-fullscreen .media-controls button.is-primary svg {
     width: 17px;
     height: 17px;
   }
-  #app.meter-theme-green.is-fullscreen .media-lists { margin-top: 5px; }
-  #app.meter-theme-green.is-fullscreen .media-lists button {
+  #app.is-fullscreen .media-lists { margin-top: 5px; }
+  #app.is-fullscreen .media-lists button {
     min-height: 22px;
     padding: 0 8px;
     font-size: 8px;
@@ -7299,7 +7107,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* 端末に保存済みの曲に付ける印(通信なしで鳴らせる)。 */
-#app.meter-theme-green.is-fullscreen .media-status span b {
+#app.is-fullscreen .media-status span b {
   margin-left: 5px;
   color: #7dff92;
   font-size: 7px;
@@ -7811,6 +7619,44 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background: #000;
 }
 
+/* 全画面に戻すボタン。帯の左端に、状態の並びとは別に置く。 */
+.meter-full-button {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid rgba(92, 230, 198, .4);
+  border-radius: 6px;
+  background: transparent;
+  color: #9fe9db;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .18em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.meter-full-button svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.meter-full-button:active {
+  border-color: rgba(150, 255, 240, .95);
+  color: #ffffff;
+}
+
 .meter-status-item {
   display: flex;
   align-items: baseline;
@@ -7858,6 +7704,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 @media (max-height: 520px) {
   .meter-status { height: 21px; gap: 20px; }
+  .meter-full-button { left: 10px; height: 17px; padding: 0 6px; font-size: 7px; }
+  .meter-full-button svg { width: 9px; height: 9px; }
   .meter-status-item { gap: 6px; }
   .meter-status-item small { font-size: 7px; letter-spacing: .18em; }
   .meter-status-item b { font-size: 11px; letter-spacing: .1em; }
@@ -7871,7 +7719,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 /* 上の帯(NAVIGATION SYSTEM / TANTO / OBD2)をやめたので、
    計器の枠は1段だけにする。 */
-#app.meter-theme-green.is-fullscreen .green-nav-cluster {
+#app.is-fullscreen .green-nav-cluster {
   grid-template-rows: minmax(0, 1fr);
 }
 

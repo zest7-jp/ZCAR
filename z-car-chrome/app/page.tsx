@@ -339,139 +339,6 @@ function WeatherGlyph({
   );
 }
 
-function EvaCockpit({
-  rpm,
-  speed,
-  coolant,
-  voltage,
-  status,
-}: {
-  rpm: number | null;
-  speed: number | null;
-  coolant: number | null;
-  voltage: number | null;
-  status: ObdConnectionStatus;
-}) {
-  const live = status === "live";
-  const linking =
-    status === "requesting" ||
-    status === "connecting" ||
-    status === "connected" ||
-    status === "initializing";
-  const coolantWarn = coolant !== null && coolant >= 100;
-  const voltageWarn = voltage !== null && voltage <= 11.8;
-  const anyWarn = coolantWarn || voltageWarn;
-  const pattern = anyWarn
-    ? { code: "赤", label: "PATTERN RED", tone: "alert" }
-    : live
-      ? { code: "緑", label: "PATTERN GREEN", tone: "normal" }
-      : { code: "橙", label: "PATTERN ORANGE", tone: "hold" };
-  const revCells = 24;
-  const revActive = Math.round(
-    Math.max(0, Math.min(1, (rpm ?? 0) / 8000)) * revCells,
-  );
-  const coolantLevel =
-    coolant === null
-      ? 0
-      : Math.max(0, Math.min(100, ((coolant - 40) / 80) * 100));
-  const voltageLevel =
-    voltage === null
-      ? 0
-      : Math.max(0, Math.min(100, ((voltage - 10) / 5) * 100));
-  const signalLabel = live
-    ? "回線接続 LINK ACTIVE"
-    : linking
-      ? "同期中 SYNCING"
-      : "信号消失 NO SIGNAL";
-
-  return (
-    <div className={`eva-stage ${pattern.tone}`}>
-      <div className="eva-column">
-        <article className={`eva-box${coolantWarn ? " warn" : ""}`}>
-          <small>水温 <span>COOLANT</span></small>
-          <strong>
-            {coolant ?? "--"}
-            <em>°C</em>
-          </strong>
-          <div className="eva-bar" aria-hidden="true">
-            <i style={{ width: `${coolantLevel}%` }} />
-          </div>
-          <b>{coolantWarn ? "警告 OVERHEAT" : "正常 NOMINAL"}</b>
-        </article>
-        <article className={`eva-box${voltageWarn ? " warn" : ""}`}>
-          <small>電圧 <span>VOLTAGE</span></small>
-          <strong>
-            {voltage ?? "--"}
-            <em>V</em>
-          </strong>
-          <div className="eva-bar" aria-hidden="true">
-            <i style={{ width: `${voltageLevel}%` }} />
-          </div>
-          <b>{voltageWarn ? "警告 LOW VOLT" : "正常 NOMINAL"}</b>
-        </article>
-      </div>
-
-      <div className="eva-center">
-        <header className={`eva-pattern ${pattern.tone}`}>
-          <span className="eva-pattern-code">{pattern.code}</span>
-          <span className="eva-pattern-label">{pattern.label}</span>
-        </header>
-        <div
-          className="eva-speed"
-          aria-label={`Speed ${speed ?? 0} kilometers per hour`}
-        >
-          <strong>{speed === null ? "--" : Math.round(speed)}</strong>
-          <span>
-            km/h<small>速度 VELOCITY</small>
-          </span>
-        </div>
-        <div
-          className="eva-rev"
-          aria-label={`Engine ${rpm ?? 0} RPM`}
-        >
-          <small>回転 REV</small>
-          <div className="eva-rev-cells" aria-hidden="true">
-            {Array.from({ length: revCells }, (_, index) => (
-              <i
-                key={index}
-                className={
-                  index < revActive
-                    ? index >= revCells - 4
-                      ? "on hot"
-                      : "on"
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-          <b>{rpm === null ? "---- rpm" : `${rpm} rpm`}</b>
-        </div>
-      </div>
-
-      <div className="eva-column">
-        <article className={`eva-box eva-signal${live ? "" : " warn"}`}>
-          <small>信号 <span>SIGNAL</span></small>
-          <strong className="eva-signal-state">{signalLabel}</strong>
-          <b>{live ? "OBD2 TELEMETRY" : "TOUCH OBD2 TO LINK"}</b>
-        </article>
-        <article className={`eva-box eva-status${anyWarn ? " warn" : ""}`}>
-          <small>状態 <span>STATUS</span></small>
-          <ul>
-            <li className={coolantWarn ? "bad" : undefined}>
-              {coolantWarn ? "▲ 機関温度上昇" : "・機関温度 安定"}
-            </li>
-            <li className={voltageWarn ? "bad" : undefined}>
-              {voltageWarn ? "▲ 電圧低下" : "・電源系 安定"}
-            </li>
-            <li>{live ? "・遠隔測定 良好" : "・遠隔測定 待機"}</li>
-          </ul>
-        </article>
-      </div>
-    </div>
-  );
-}
-
-// ビルド時刻(JST)。反映確認用に起動画面の隅に表示する。
 const BUILD_STAMP = (() => {
   const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
   if (!iso) return null;
@@ -535,6 +402,8 @@ export default function Home() {
   const [isOnline, setIsOnline] = useState(true);
   const [ready, setReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // このブラウザで全画面にできるか(できない端末ではボタンを出さない)。
+  const [canFullscreen, setCanFullscreen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [showFuel, setShowFuel] = useState(false);
   // 給油記録は設定と同じ入れ物に置き、スマホと共有する。
@@ -961,6 +830,7 @@ export default function Home() {
   useEffect(() => {
     const syncFullscreen = () =>
       setIsFullscreen(Boolean(document.fullscreenElement));
+    setCanFullscreen(Boolean(document.fullscreenEnabled));
     document.addEventListener("fullscreenchange", syncFullscreen);
     syncFullscreen();
     return () =>
@@ -1038,15 +908,18 @@ export default function Home() {
     if (ready && hasStarted) requestLocation();
   }, [ready, hasStarted]);
 
-  // Zのボタンを押したらメーターへ。全画面もここで頼む(画面に触れた
-  // ときしか頼めないため)。
+  // 全画面にする。画面に触れたときしか頼めないので、必ずボタンから呼ぶ。
+  const goFullscreen = () => {
+    if (document.fullscreenElement) return;
+    void document.documentElement.requestFullscreen().catch(() => {
+      // 全画面にできないブラウザでも、そのまま使える。
+    });
+  };
+
+  // Zのボタンを押したらメーターへ。全画面もここで頼む。
   const launchZCar = () => {
     setHasStarted(true);
-    if (!document.fullscreenElement) {
-      void document.documentElement.requestFullscreen().catch(() => {
-        // 全画面にできないブラウザでも、そのまま使える。
-      });
-    }
+    goFullscreen();
   };
 
   // 「戻る」でメーターに帰れるよう、最初の履歴に印を付けておく。
@@ -1138,19 +1011,15 @@ export default function Home() {
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
 
+  // 燃費画面へ移ると地図の器が外れるので、次に戻ったとき作り直す。
   useEffect(() => {
-    if (!showFuel && settings.meterTheme === "green") return;
+    if (!showFuel) return;
     greenGmapRef.current = null;
     setGreenMapReady(false);
-  }, [showFuel, settings.meterTheme]);
+  }, [showFuel]);
 
   useEffect(() => {
-    if (
-      showFuel ||
-      settings.meterTheme !== "green" ||
-      !mapsApiKey ||
-      !greenMapElementRef.current
-    ) return;
+    if (showFuel || !mapsApiKey || !greenMapElementRef.current) return;
     let cancelled = false;
     const focusPoint = location
       ? { lat: location.lat, lng: location.lng }
@@ -1205,7 +1074,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [showFuel, location, settings.meterTheme, mapsApiKey]);
+  }, [showFuel, location, mapsApiKey]);
 
 
   const hour = new Date().getHours();
@@ -1265,9 +1134,9 @@ export default function Home() {
   const solarPointX = 4 + 82 * (solarProgress ?? 0.5);
   const solarPointY = 24 - 22 * Math.sin(Math.PI * (solarProgress ?? 0.5));
   const obdStatusLabelEn = obdConnectionLabel;
-  // ターコイズのメーターだけ、操作用の上のバーを消して、
-  // かわりに状態だけを出す細いバーにする。
-  const hideTopbar = !showFuel && settings.meterTheme === "green";
+  // メーターはどちらのテーマも四隅の操作だけで完結するので、操作用の
+  // 上のバーは出さず、状態だけの細いバーにする。
+  const hideTopbar = !showFuel;
 
   // 上のバーに出す4つの状態。表記は英語。
   // tone は色(ok=通っている / warn=途中 / off=つながっていない)。
@@ -1994,6 +1863,21 @@ export default function Home() {
         {/* 操作用のバーのかわりに、状態だけを出す細いバー。 */}
         {hideTopbar && (
           <header className="meter-status" aria-label="接続の状態">
+            {/* ナビから戻ると全画面が解除されるので、押して戻せるようにする。
+                すでに全画面なら出さない。 */}
+            {canFullscreen && !isFullscreen ? (
+              <button
+                type="button"
+                className="meter-full-button"
+                onClick={goFullscreen}
+                aria-label="画面を最大化する"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+                </svg>
+                <span>FULL</span>
+              </button>
+            ) : null}
             {meterStatusItems.map((item) => (
               <span key={item.key} className={`meter-status-item is-${item.tone}`}>
                 <i aria-hidden="true" />
@@ -2012,63 +1896,6 @@ export default function Home() {
 
         {!showFuel && (
           <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
-            {settings.meterTheme === "eva" ? (
-              <section className="eva-cluster" aria-label="Pattern orange command cockpit">
-                <header className={`eva-topline ${obdStatus}`}>
-                  <strong>特別警戒 DRIVE MONITOR</strong>
-                  <span><i aria-hidden="true" />{obdStatusLabelEn}</span>
-                  <b>
-                    {routeMinutesRemaining === null
-                      ? "ETA --"
-                      : `DESTINATION ${routeMinutesRemaining} MIN`}
-                  </b>
-                </header>
-
-                <EvaCockpit
-                  rpm={obdData.rpm}
-                  speed={displaySpeed}
-                  coolant={obdData.coolant}
-                  voltage={obdData.voltage}
-                  status={obdStatus}
-                />
-
-                <footer className="eva-footer">
-                  <span><small>時刻 LOCAL TIME</small><b>{clock}</b></span>
-                  <button
-                    type="button"
-                    className={
-                      [
-                        fuelResetting ? "resetting" : "",
-                        estimatedRemainingLiters !== null &&
-                        estimatedRemainingLiters <= FUEL_RESERVE_L
-                          ? "critical"
-                          : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ") || undefined
-                    }
-                    onPointerDown={startFuelReset}
-                    onPointerUp={cancelFuelReset}
-                    onPointerLeave={cancelFuelReset}
-                    onPointerCancel={cancelFuelReset}
-                    onContextMenu={(event) => event.preventDefault()}
-                    aria-label={`Estimated range ${Math.round(fuelRangeKm)} kilometers. Hold to refuel.`}
-                  >
-                    <small>活動限界 ACTIVITY LIMIT</small>
-                    <b>{Math.round(fuelRangeKm)} km</b>
-                    <i style={{ width: `${fuelPercent}%` }} aria-hidden="true" />
-                  </button>
-                  <span>
-                    <small>平均燃費 FUEL AVG</small>
-                    <b>
-                      {monthlyFuelEconomy === null
-                        ? "-- km/L"
-                        : `${monthlyFuelEconomy.toFixed(1)} km/L`}
-                    </b>
-                  </span>
-                </footer>
-              </section>
-            ) : (
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
@@ -2319,7 +2146,6 @@ export default function Home() {
                 )}
               </aside>
               </section>
-            )}
           </main>
         )}
 
