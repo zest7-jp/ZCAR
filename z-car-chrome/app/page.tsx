@@ -1138,46 +1138,73 @@ export default function Home() {
   // 上のバーは出さず、状態だけの細いバーにする。
   const hideTopbar = !showFuel;
 
-  // 上のバーに出す4つの状態。表記は英語。
+  // 上のバーに出す4つの状態。
+  // 見た目は前のオレンジ計器と同じ「日本語 + 英語」の二段組み。
+  // 上段が何の状態か(回線 NET など)、下段がいまの状態(接続 LINK ACTIVE など)。
   // tone は色(ok=通っている / warn=途中 / off=つながっていない)。
   const meterStatusItems: {
     key: string;
-    label: string;
-    value: string;
+    nameJa: string;
+    nameEn: string;
+    stateJa: string;
+    stateEn: string;
     tone: "ok" | "warn" | "off";
   }[] = [
     {
       key: "net",
-      label: "NET",
-      value: isOnline ? "ONLINE" : "OFFLINE",
+      nameJa: "回線",
+      nameEn: "NET",
+      stateJa: isOnline ? "接続" : "圏外",
+      stateEn: isOnline ? "ONLINE" : "OFFLINE",
       tone: isOnline ? "ok" : "off",
     },
     {
       key: "phone",
-      label: "PHONE",
-      value: !syncKey
+      nameJa: "端末",
+      nameEn: "PHONE",
+      stateJa: !syncKey
+        ? "未登録"
+        : phoneLinkOk === false
+          ? "同期不可"
+          : phoneLinkOk === null
+            ? "同期中"
+            : "接続",
+      stateEn: !syncKey
         ? "UNPAIRED"
         : phoneLinkOk === false
           ? "NO LINK"
           : phoneLinkOk === null
             ? "SYNCING"
-            : "LINKED",
+            : "LINK ACTIVE",
       tone: !syncKey ? "off" : phoneLinkOk === true ? "ok" : "warn",
     },
     {
       key: "obd",
-      label: "OBD2",
-      value:
+      nameJa: "車両",
+      nameEn: "OBD2",
+      stateJa:
         obdStatus === "live"
-          ? "LIVE"
+          ? "受信中"
+          : obdStatus === "connected" || obdStatus === "initializing"
+            ? "起動中"
+            : obdStatus === "connecting" || obdStatus === "requesting"
+              ? "接続中"
+              : obdStatus === "unsupported"
+                ? "非対応"
+                : obdStatus === "error" || obdStatus === "disconnected"
+                  ? "信号消失"
+                  : "待機",
+      stateEn:
+        obdStatus === "live"
+          ? "LIVE DATA"
           : obdStatus === "connected" || obdStatus === "initializing"
             ? "INIT"
             : obdStatus === "connecting" || obdStatus === "requesting"
               ? "LINKING"
               : obdStatus === "unsupported"
-                ? "N/A"
+                ? "NOT AVAIL"
                 : obdStatus === "error" || obdStatus === "disconnected"
-                  ? "LOST"
+                  ? "NO SIGNAL"
                   : "STANDBY",
       tone:
         obdStatus === "live"
@@ -1191,12 +1218,19 @@ export default function Home() {
     },
     {
       key: "gps",
-      label: "GPS",
-      value:
+      nameJa: "測位",
+      nameEn: "GPS",
+      stateJa:
         locationStatus === "ready"
-          ? "LOCK"
+          ? "測位"
           : locationStatus === "locating"
-            ? "SEARCH"
+            ? "捕捉中"
+            : "未測位",
+      stateEn:
+        locationStatus === "ready"
+          ? "GPS LOCK"
+          : locationStatus === "locating"
+            ? "SEARCHING"
             : "NO FIX",
       tone:
         locationStatus === "ready"
@@ -1881,8 +1915,16 @@ export default function Home() {
             {meterStatusItems.map((item) => (
               <span key={item.key} className={`meter-status-item is-${item.tone}`}>
                 <i aria-hidden="true" />
-                <small>{item.label}</small>
-                <b>{item.value}</b>
+                <span className="meter-status-text">
+                  <small>
+                    {item.nameJa}
+                    <span>{item.nameEn}</span>
+                  </small>
+                  <b>
+                    {item.stateJa}
+                    <span>{item.stateEn}</span>
+                  </b>
+                </span>
               </span>
             ))}
             {/* 反映確認用のビルド時刻。帯の右端に薄く出す。 */}
