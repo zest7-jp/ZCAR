@@ -7811,6 +7811,44 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background: #000;
 }
 
+/* 全画面に戻すボタン。帯の左端に、状態の並びとは別に置く。 */
+.meter-full-button {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid rgba(92, 230, 198, .4);
+  border-radius: 6px;
+  background: transparent;
+  color: #9fe9db;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .18em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.meter-full-button svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.meter-full-button:active {
+  border-color: rgba(150, 255, 240, .95);
+  color: #ffffff;
+}
+
 .meter-status-item {
   display: flex;
   align-items: baseline;
@@ -7858,6 +7896,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 @media (max-height: 520px) {
   .meter-status { height: 21px; gap: 20px; }
+  .meter-full-button { left: 10px; height: 17px; padding: 0 6px; font-size: 7px; }
+  .meter-full-button svg { width: 9px; height: 9px; }
   .meter-status-item { gap: 6px; }
   .meter-status-item small { font-size: 7px; letter-spacing: .18em; }
   .meter-status-item b { font-size: 11px; letter-spacing: .1em; }

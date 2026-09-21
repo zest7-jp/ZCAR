@@ -535,6 +535,8 @@ export default function Home() {
   const [isOnline, setIsOnline] = useState(true);
   const [ready, setReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // このブラウザで全画面にできるか(できない端末ではボタンを出さない)。
+  const [canFullscreen, setCanFullscreen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [showFuel, setShowFuel] = useState(false);
   // 給油記録は設定と同じ入れ物に置き、スマホと共有する。
@@ -961,6 +963,7 @@ export default function Home() {
   useEffect(() => {
     const syncFullscreen = () =>
       setIsFullscreen(Boolean(document.fullscreenElement));
+    setCanFullscreen(Boolean(document.fullscreenEnabled));
     document.addEventListener("fullscreenchange", syncFullscreen);
     syncFullscreen();
     return () =>
@@ -1038,15 +1041,18 @@ export default function Home() {
     if (ready && hasStarted) requestLocation();
   }, [ready, hasStarted]);
 
-  // Zのボタンを押したらメーターへ。全画面もここで頼む(画面に触れた
-  // ときしか頼めないため)。
+  // 全画面にする。画面に触れたときしか頼めないので、必ずボタンから呼ぶ。
+  const goFullscreen = () => {
+    if (document.fullscreenElement) return;
+    void document.documentElement.requestFullscreen().catch(() => {
+      // 全画面にできないブラウザでも、そのまま使える。
+    });
+  };
+
+  // Zのボタンを押したらメーターへ。全画面もここで頼む。
   const launchZCar = () => {
     setHasStarted(true);
-    if (!document.fullscreenElement) {
-      void document.documentElement.requestFullscreen().catch(() => {
-        // 全画面にできないブラウザでも、そのまま使える。
-      });
-    }
+    goFullscreen();
   };
 
   // 「戻る」でメーターに帰れるよう、最初の履歴に印を付けておく。
@@ -1994,6 +2000,21 @@ export default function Home() {
         {/* 操作用のバーのかわりに、状態だけを出す細いバー。 */}
         {hideTopbar && (
           <header className="meter-status" aria-label="接続の状態">
+            {/* ナビから戻ると全画面が解除されるので、押して戻せるようにする。
+                すでに全画面なら出さない。 */}
+            {canFullscreen && !isFullscreen ? (
+              <button
+                type="button"
+                className="meter-full-button"
+                onClick={goFullscreen}
+                aria-label="画面を最大化する"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+                </svg>
+                <span>FULL</span>
+              </button>
+            ) : null}
             {meterStatusItems.map((item) => (
               <span key={item.key} className={`meter-status-item is-${item.tone}`}>
                 <i aria-hidden="true" />
