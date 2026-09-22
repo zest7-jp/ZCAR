@@ -5331,21 +5331,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   filter: hue-rotate(-90deg) saturate(1.2);
 }
 
-/* 中央の速度だけ、前のオレンジメーターの見せ方を残す。
-   白くて大きく、少し斜めに倒した数字。 */
-#app.meter-theme-eva.is-fullscreen .green-gauge-speed strong {
-  font-family: inherit;
-  font-size: 96px;
-  font-weight: 900;
-  letter-spacing: -.02em;
-  color: #fffaf4;
-  transform: skewX(-6deg);
-}
-
-#app.meter-theme-eva.is-fullscreen .green-gauge-speed {
-  padding-bottom: 14px;
-}
-
 /* 四隅の文字は、色を回した後にオレンジになるよう逆算した色で指定する
    (計器の中にあるので、盤面と同じ回転がかかる)。 */
 #app.meter-theme-eva.is-fullscreen .gauge-corner small { color: #52c053; }
@@ -5569,8 +5554,27 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #6fcf79;
 }
 
+/* 中央の速度は、前のオレンジメーターの見せ方に揃える。
+   白くて大きく、少し斜めに倒した数字(どちらのテーマも同じ)。 */
 #app.is-fullscreen .green-gauge-speed strong {
+  font-family: inherit;
+  font-size: 96px;
+  font-weight: 900;
+  letter-spacing: -.02em;
+  color: #fffaf4;
+  transform: skewX(-6deg);
   text-shadow: 0 0 21px rgba(66, 255, 86, .42);
+}
+
+#app.is-fullscreen .green-gauge-speed {
+  padding-bottom: 14px;
+}
+
+/* 画面が低いときは、同じ見せ方のまま数字だけ小さくする。
+   (上の規則より後に置かないと効かない) */
+@media (max-height: 520px) {
+  #app.is-fullscreen .green-gauge-speed { padding-bottom: 11px; }
+  #app.is-fullscreen .green-gauge-speed strong { font-size: 76px; }
 }
 
 #app.is-fullscreen .green-gauge-speed span {
