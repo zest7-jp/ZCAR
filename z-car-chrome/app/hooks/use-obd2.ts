@@ -39,6 +39,8 @@ type ObdGattServer = {
 type ObdDevice = EventTarget & {
   id?: string;
   name?: string;
+  /** 近くに来たことを知らせてもらう(実験機能。無い場合もある)。 */
+  watchAdvertisements?: (options?: { signal?: AbortSignal }) => Promise<void>;
   gatt?: {
     connect: () => Promise<ObdGattServer>;
     disconnect: () => void;
@@ -83,6 +85,8 @@ const WRITE_UUID = 0xfff2;
 const AUTO_CONNECT_DELAY = 5_000;
 /** 失敗したときに、次を試すまでの間隔。 */
 const AUTO_CONNECT_RETRY_MS = 15_000;
+/** 機器が近くに来たと分かるまで待つ上限。 */
+const ADVERTISEMENT_TIMEOUT = 8_000;
 /** 自動で試す回数の上限(これを超えたら手動で押してもらう)。 */
 const AUTO_CONNECT_MAX_TRIES = 20;
 /** 前に選んだ機器を覚えておく場所。 */
@@ -177,11 +181,16 @@ export function useObd2() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   /**
-   * 押さずにつなげる環境かどうか。
-   * Chrome の getDevices() があるかで判断する(flagが要る実験機能)。
-   * null は「まだ調べていない」。
+   * 自動接続がいまどうなっているか。画面に出して原因を見えるようにする。
+   *  checking    … 調べている最中
+   *  unsupported … この Chrome では自動接続できない(getDevices が無い)
+   *  no-device   … 使えるが、覚えている機器が見つからない(未許可など)
+   *  ready       … 覚えている機器があり、つなぎに行ける
+   *  retrying    … つなぎに行ったが届かず、待ってからやり直す
    */
-  const [autoSupported, setAutoSupported] = useState<boolean | null>(null);
+  const [autoState, setAutoState] = useState<
+    "checking" | "unsupported" | "no-device" | "ready" | "retrying"
+  >("checking");
 
   const sessionRef = useRef(0);
   const connectingRef = useRef(false);
@@ -756,6 +765,33 @@ export function useObd2() {
     }
   }, []);
 
+  /**
+   * 覚えている機器が近くに来るのを待つ。
+   * watchAdvertisements があるときだけ。無ければ待たずに進む。
+   */
+  const waitForDevice = useCallback(async (device: ObdDevice) => {
+    if (typeof device.watchAdvertisements !== "function") return;
+    const controller = new AbortController();
+    try {
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          device.removeEventListener("advertisementreceived", done);
+          window.clearTimeout(timer);
+          resolve();
+        };
+        const timer = window.setTimeout(done, ADVERTISEMENT_TIMEOUT);
+        device.addEventListener("advertisementreceived", done);
+        device
+          .watchAdvertisements?.({ signal: controller.signal })
+          .catch(() => done());
+      });
+    } catch {
+      // 対応していない場合は、そのままつなぎに行く。
+    } finally {
+      controller.abort();
+    }
+  }, []);
+
   /** 覚えている機器へ、押さずにつなぎに行く。 */
   const autoConnect = useCallback(async () => {
     if (autoStoppedRef.current) return;
@@ -763,11 +799,25 @@ export function useObd2() {
 
     const now = statusRef.current;
     if (now === "live" || now === "connected" || now === "initializing") return;
-    if (!(navigator as BluetoothNavigator).bluetooth) return;
+
+    const bluetooth = (navigator as BluetoothNavigator).bluetooth;
+    if (!bluetooth) return;
+    if (typeof bluetooth.getDevices !== "function" && !knownDeviceRef.current) {
+      setAutoState("unsupported");
+      return;
+    }
 
     const device = await findKnownDevice();
     // 覚えている機器が無いときは、最初の1回だけ手で選んでもらう必要がある。
-    if (!device || !device.gatt) return;
+    if (!device || !device.gatt) {
+      setAutoState("no-device");
+      return;
+    }
+    if (autoStoppedRef.current || connectingRef.current) return;
+
+    setAutoState("ready");
+    // 近くに来るのを待ってからつなぐ(対応している場合)。
+    await waitForDevice(device);
     if (autoStoppedRef.current || connectingRef.current) return;
 
     autoTriesRef.current += 1;
@@ -775,14 +825,12 @@ export function useObd2() {
     connectingRef.current = true;
 
     const connected = await openConnection(session, Promise.resolve(device), false);
-    if (
-      !connected &&
-      !autoStoppedRef.current &&
-      autoTriesRef.current < AUTO_CONNECT_MAX_TRIES
-    ) {
+    if (connected) return;
+    if (!autoStoppedRef.current && autoTriesRef.current < AUTO_CONNECT_MAX_TRIES) {
+      setAutoState("retrying");
       scheduleAutoConnectRef.current?.(AUTO_CONNECT_RETRY_MS);
     }
-  }, [clearTransport, findKnownDevice, openConnection]);
+  }, [clearTransport, findKnownDevice, openConnection, waitForDevice]);
 
   const scheduleAutoConnect = useCallback((delay: number) => {
     if (autoStoppedRef.current) return;
@@ -806,7 +854,7 @@ export function useObd2() {
 
   useEffect(() => {
     const bluetooth = (navigator as BluetoothNavigator).bluetooth;
-    setAutoSupported(typeof bluetooth?.getDevices === "function");
+    if (typeof bluetooth?.getDevices !== "function") setAutoState("unsupported");
   }, []);
 
   // 起動して少ししたら、覚えている機器に自動でつなぎに行く。
@@ -840,7 +888,7 @@ export function useObd2() {
 
   return {
     status,
-    autoSupported,
+    autoState,
     metrics,
     deviceName,
     connectionLabel,
