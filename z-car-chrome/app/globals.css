@@ -6536,83 +6536,182 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 音楽プレイヤーをやめたので、残りの計器で塔を下まで埋める。 */
 #app.is-fullscreen .green-drive-panel > article { flex-grow: 1; }
 
-/* 右下のナビ開始ボタン(Googleマップを開く)。
-   計器の読みではなく操作なので、少し明るくして押せると分かるようにする。 */
+/* ------------------------------------------------------------------
+   右下のナビ開始ボタン(Googleマップを開く)。
+   計器の読みではなく「押すところ」なので、枠と光で一段目立たせる。
+   ------------------------------------------------------------------ */
 #app.is-fullscreen .green-drive-panel .green-navi-card {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 11px 12px 11px 14px;
-  box-shadow: inset 3px 0 var(--turquoise-main);
+  margin: 7px 8px 2px;
+  padding: 12px 11px 12px 12px;
+  width: auto;
+  border-top: 0;
+  background:
+    linear-gradient(104deg, rgba(74, 255, 116, .13), rgba(74, 255, 116, .03) 58%, transparent),
+    rgba(2, 16, 6, .5);
+  /* 角を1つ落として、計器盤のスイッチらしい形にする。 */
+  clip-path: polygon(13px 0, 100% 0, 100% calc(100% - 13px), calc(100% - 13px) 100%, 0 100%, 0 13px);
+  box-shadow: none;
+  transition: background .15s ease;
 }
 
-#app.is-fullscreen .green-drive-panel .green-navi-card svg {
+/* 枠。角を落とした形に沿わせたいので、線は内側に重ねて引く。 */
+#app.is-fullscreen .green-drive-panel .green-navi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(104, 235, 130, .42);
+  clip-path: polygon(13px 0, 100% 0, 100% calc(100% - 13px), calc(100% - 13px) 100%, 0 100%, 0 13px);
+  pointer-events: none;
+}
+
+/* 落とした角の切り口に、短い光の線を1本入れる。 */
+#app.is-fullscreen .green-drive-panel .green-navi-card::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, transparent 48%, rgba(135, 255, 160, .85) 49% 52%, transparent 53%);
+  pointer-events: none;
+}
+
+/* 地図のピン。丸い台に載せて、ゆっくり脈打たせる。 */
+.green-navi-mark {
+  position: relative;
   flex: 0 0 auto;
-  width: 23px;
-  height: 23px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(118, 240, 142, .45);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, rgba(86, 255, 124, .22), transparent 68%);
+  animation: green-navi-pulse 2.6s ease-out infinite;
+}
+
+.green-navi-mark svg {
+  width: 19px;
+  height: 19px;
   fill: none;
-  stroke: #8dffa0;
+  stroke: #b6ffc6;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
+@keyframes green-navi-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(86, 255, 124, .34); }
+  70%, 100% { box-shadow: 0 0 0 9px rgba(86, 255, 124, 0); }
+}
+
 .green-navi-text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   line-height: 1;
   text-align: left;
 }
 
-#app.is-fullscreen .green-drive-panel .green-navi-card small {
-  color: #4f9a58;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 7px;
-  font-weight: 900;
-  letter-spacing: .22em;
-}
-
 #app.is-fullscreen .green-drive-panel .green-navi-card strong {
-  color: #ecfff0;
-  font-size: 17px;
+  color: #f2fff5;
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: .1em;
+  letter-spacing: .12em;
+  text-shadow: 0 0 14px rgba(86, 255, 124, .45);
 }
 
 #app.is-fullscreen .green-drive-panel .green-navi-card em {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
-  color: #7fd98d;
+  color: #74d583;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
+  font-size: 7px;
   font-style: normal;
   font-weight: 900;
-  letter-spacing: .14em;
-  text-overflow: ellipsis;
+  letter-spacing: .2em;
   white-space: nowrap;
 }
 
+/* 英語表記と行き先のあいだの区切り。 */
+.green-navi-card em i {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 3px;
+  transform: rotate(45deg);
+  background: currentColor;
+}
+
+/* 右端の「進む」印。押せることが一目で分かるように、ゆっくり動かす。 */
+.green-navi-go {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  animation: green-navi-go 1.9s ease-in-out infinite;
+}
+
+.green-navi-go svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: #7ff09a;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes green-navi-go {
+  0%, 100% { opacity: .5; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(3px); }
+}
+
 #app.is-fullscreen .green-drive-panel .green-navi-card:active {
-  background: rgba(93, 226, 208, .12);
+  background:
+    linear-gradient(104deg, rgba(120, 255, 150, .3), rgba(120, 255, 150, .08) 58%, transparent),
+    rgba(6, 30, 12, .6);
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card:active::before {
+  border-color: rgba(168, 255, 190, .95);
 }
 
 #app.is-fullscreen .green-drive-panel .green-navi-card:disabled {
-  box-shadow: inset 3px 0 rgba(111, 224, 126, .22);
+  background: rgba(2, 16, 6, .4);
   cursor: default;
-  opacity: .45;
+  opacity: .42;
 }
 
-/* 縦が狭いときは、アイコンと文字を少し小さくする。 */
+#app.is-fullscreen .green-drive-panel .green-navi-card:disabled .green-navi-mark,
+#app.is-fullscreen .green-drive-panel .green-navi-card:disabled .green-navi-go {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .green-navi-mark,
+  .green-navi-go { animation: none; }
+}
+
+/* 縦が狭いときは、丸と文字を少し小さくする。 */
 @media (max-height: 520px) {
   #app.is-fullscreen .green-drive-panel .green-navi-card {
     gap: 9px;
-    padding: 8px 10px 8px 12px;
+    margin: 5px 7px 1px;
+    padding: 9px 9px 9px 10px;
   }
-  #app.is-fullscreen .green-drive-panel .green-navi-card svg { width: 19px; height: 19px; }
-  #app.is-fullscreen .green-drive-panel .green-navi-card strong { font-size: 15px; }
-  #app.is-fullscreen .green-drive-panel .green-navi-card em { font-size: 7px; }
+  .green-navi-mark { width: 29px; height: 29px; }
+  .green-navi-mark svg { width: 16px; height: 16px; }
+  #app.is-fullscreen .green-drive-panel .green-navi-card strong { font-size: 16px; }
+  #app.is-fullscreen .green-drive-panel .green-navi-card em { font-size: 6px; letter-spacing: .16em; }
+  .green-navi-go svg { width: 15px; height: 15px; }
 }
 
 /* 右のレールだけ 1.2 倍に広げる(左と中央のゲージはそのまま)。 */

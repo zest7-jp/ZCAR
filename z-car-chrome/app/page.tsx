@@ -1802,14 +1802,25 @@ export default function Home() {
                       : "目的地が設定されていません"
                   }
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
-                    <circle cx="12" cy="10" r="2.6" />
-                  </svg>
+                  <span className="green-navi-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 21.5s6.6-6.1 6.6-10.7a6.6 6.6 0 1 0-13.2 0c0 4.6 6.6 10.7 6.6 10.7z" />
+                      <circle cx="12" cy="10.6" r="2.4" />
+                    </svg>
+                  </span>
                   <span className="green-navi-text">
-                    <small>START NAVI</small>
                     <strong>ナビ開始</strong>
-                    <em>{navTarget ? navTarget.label : "NO DEST"}</em>
+                    <em>
+                      START NAVI
+                      <i aria-hidden="true" />
+                      {navTarget ? navTarget.label : "NO DEST"}
+                    </em>
+                  </span>
+                  <span className="green-navi-go" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="m8 5 7 7-7 7" />
+                      <path d="m14 5 5 7-5 7" />
+                    </svg>
                   </span>
                 </button>
               </aside>
