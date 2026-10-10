@@ -48,7 +48,8 @@ type ObdDevice = EventTarget & {
 type BluetoothNavigator = Navigator & {
   bluetooth?: {
     requestDevice: (options: {
-      acceptAllDevices: boolean;
+      acceptAllDevices?: boolean;
+      filters?: Array<{ namePrefix?: string; services?: number[] }>;
       optionalServices: number[];
     }) => Promise<ObdDevice>;
     /**
@@ -67,6 +68,12 @@ type PendingCommand = {
   reject: (error: Error) => void;
   timer: number;
 };
+
+/**
+ * Bluetoothの一覧に出てくるアダプタの名前。
+ * 実機(CARISTA)の一覧表示が「Carista」だったので、これで絞り込む。
+ */
+const DEVICE_NAME_PREFIX = "Carista";
 
 const SERVICE_UUID = 0xfff0;
 const NOTIFY_UUID = 0xfff1;
@@ -184,6 +191,8 @@ export function useObd2() {
   const autoTriesRef = useRef(0);
   /** 画面を閉じたあとに自動接続が動かないようにする印。 */
   const autoStoppedRef = useRef(false);
+  /** 絞り込みで見つからなかったときに、次の1回だけ全部出すための印。 */
+  const showAllDevicesRef = useRef(false);
   /** 下で作る関数を、それより前の場所から呼ぶための入れ物。 */
   const autoConnectRef = useRef<(() => Promise<void>) | null>(null);
   const scheduleAutoConnectRef = useRef<((delay: number) => void) | null>(null);
@@ -670,10 +679,20 @@ export function useObd2() {
 
     let selection: Promise<ObdDevice>;
     try {
-      selection = bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [SERVICE_UUID],
-      });
+      // ふだんは Carista だけを出す(周りの機器が並ぶと押し間違える)。
+      // 見つからなかった次の1回だけは、全部出して選べるようにする。
+      selection = showAllDevicesRef.current
+        ? bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [SERVICE_UUID],
+          })
+        : bluetooth.requestDevice({
+            filters: [
+              { namePrefix: DEVICE_NAME_PREFIX },
+              { services: [SERVICE_UUID] },
+            ],
+            optionalServices: [SERVICE_UUID],
+          });
     } catch (error) {
       connectingRef.current = false;
       setStatus("error");
@@ -684,7 +703,9 @@ export function useObd2() {
       return;
     }
 
-    await openConnection(session, selection, true);
+    const connected = await openConnection(session, selection, true);
+    // 絞り込みで選べなかったときは、次の1回だけ全部出す。
+    showAllDevicesRef.current = connected ? false : !showAllDevicesRef.current;
   }, [clearTransport, openConnection]);
 
   /**
@@ -713,6 +734,15 @@ export function useObd2() {
         ? devices.find((device) => device.id === savedId)
         : undefined;
       if (matched) return matched;
+
+      // 名前が Carista のものがあれば、それを選ぶ。
+      const named = devices.filter((device) =>
+        (device.name || "")
+          .toLowerCase()
+          .startsWith(DEVICE_NAME_PREFIX.toLowerCase()),
+      );
+      if (named.length === 1) return named[0];
+
       // 許可した機器が1台だけなら、それで間違いない。
       return devices.length === 1 ? devices[0] : null;
     } catch {
