@@ -1409,7 +1409,10 @@ export default function Home() {
 
         {/* 操作用のバーのかわりに、状態だけを出す細いバー。 */}
         {hideTopbar && (
-          <header className="meter-status" aria-label="接続の状態">
+          <header
+            className={`meter-status${canFullscreen && !isFullscreen ? " has-full" : ""}`}
+            aria-label="接続の状態"
+          >
             {/* ナビから戻ると全画面が解除されるので、押して戻せるようにする。
                 すでに全画面なら出さない。 */}
             {canFullscreen && !isFullscreen ? (
@@ -1425,6 +1428,13 @@ export default function Home() {
                 <span>FULL</span>
               </button>
             ) : null}
+            {/* 帯の空いているところに、OBD2のいまの中身をそのまま出す。
+                つながらないときの手がかりにする。 */}
+            <span className="meter-status-detail" aria-hidden="true">
+              {obdConnected ? `${obdDeviceName} · ` : ""}
+              {obdConnectionLabel}
+              {obdErrorMessage ? ` · ${obdErrorMessage}` : ""}
+            </span>
             {meterStatusItems.map((item) => (
               <span key={item.key} className={`meter-status-item is-${item.tone}`}>
                 <i aria-hidden="true" />

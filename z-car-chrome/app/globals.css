@@ -5347,6 +5347,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 #app.meter-theme-eva .meter-status-item + .meter-status-item::before {
   background: rgba(255, 157, 71, .14);
 }
+#app.meter-theme-eva .meter-status-detail { color: #7b5636; }
 #app.meter-theme-eva .meter-status-item i { background: #4a3527; }
 #app.meter-theme-eva .meter-status-item small { color: #94643a; }
 #app.meter-theme-eva .meter-status-item small span { color: #b3783f; }
@@ -7318,6 +7319,26 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   border-color: rgba(150, 255, 240, .95);
   color: #ffffff;
 }
+
+/* 帯の左の空きに出す、OBD2の細かい状況。読めれば十分なので控えめに。 */
+.meter-status-detail {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 26%;
+  overflow: hidden;
+  color: #3f6f68;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 全画面に戻すボタンが出ているときは、その右へずらす。 */
+.meter-status.has-full .meter-status-detail { left: 76px; max-width: 22%; }
 
 .meter-status-item {
   position: relative;
