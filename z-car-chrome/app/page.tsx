@@ -1809,7 +1809,7 @@ export default function Home() {
                     </svg>
                   </span>
                   <span className="green-navi-text">
-                    <small>START NAVI</small>
+                    <small>START</small>
                     <strong>{navTarget ? navTarget.label : "NO DEST"}</strong>
                   </span>
                   <span className="green-navi-go" aria-hidden="true">
