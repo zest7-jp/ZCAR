@@ -1809,17 +1809,12 @@ export default function Home() {
                     </svg>
                   </span>
                   <span className="green-navi-text">
-                    <strong>ナビ開始</strong>
-                    <em>
-                      START NAVI
-                      <i aria-hidden="true" />
-                      {navTarget ? navTarget.label : "NO DEST"}
-                    </em>
+                    <small>START NAVI</small>
+                    <strong>{navTarget ? navTarget.label : "NO DEST"}</strong>
                   </span>
                   <span className="green-navi-go" aria-hidden="true">
                     <svg viewBox="0 0 24 24">
-                      <path d="m8 5 7 7-7 7" />
-                      <path d="m14 5 5 7-5 7" />
+                      <path d="m9 5 7 7-7 7" />
                     </svg>
                   </span>
                 </button>
