@@ -37,6 +37,7 @@ type ObdGattServer = {
 };
 
 type ObdDevice = EventTarget & {
+  id?: string;
   name?: string;
   gatt?: {
     connect: () => Promise<ObdGattServer>;
@@ -47,9 +48,16 @@ type ObdDevice = EventTarget & {
 type BluetoothNavigator = Navigator & {
   bluetooth?: {
     requestDevice: (options: {
-      acceptAllDevices: boolean;
+      acceptAllDevices?: boolean;
+      filters?: Array<{ namePrefix?: string; services?: number[] }>;
       optionalServices: number[];
     }) => Promise<ObdDevice>;
+    /**
+     * 一度許可した機器の一覧。Chrome では実験機能なので、無い場合もある。
+     * (chrome://flags の experimental-web-platform-features と
+     *  web-bluetooth-new-permissions-backend を有効にすると使える)
+     */
+    getDevices?: () => Promise<ObdDevice[]>;
   };
 };
 
@@ -61,9 +69,24 @@ type PendingCommand = {
   timer: number;
 };
 
+/**
+ * Bluetoothの一覧に出てくるアダプタの名前。
+ * 実機(CARISTA)の一覧表示が「Carista」だったので、これで絞り込む。
+ */
+const DEVICE_NAME_PREFIX = "Carista";
+
 const SERVICE_UUID = 0xfff0;
 const NOTIFY_UUID = 0xfff1;
 const WRITE_UUID = 0xfff2;
+
+/** 起動してから最初に自動接続を試すまでの待ち時間。 */
+const AUTO_CONNECT_DELAY = 5_000;
+/** 失敗したときに、次を試すまでの間隔。 */
+const AUTO_CONNECT_RETRY_MS = 15_000;
+/** 自動で試す回数の上限(これを超えたら手動で押してもらう)。 */
+const AUTO_CONNECT_MAX_TRIES = 20;
+/** 前に選んだ機器を覚えておく場所。 */
+const OBD_DEVICE_ID_KEY = "zcar-obd-device-id";
 
 const GATT_TIMEOUT = 10_000;
 const WRITE_TIMEOUT = 4_000;
@@ -162,6 +185,18 @@ export function useObd2() {
   const disconnectHandlerRef = useRef<((event: Event) => void) | null>(null);
   const bufferRef = useRef("");
   const pendingRef = useRef<PendingCommand | null>(null);
+  /** 一度つながった機器。clearTransport で消さずに覚えておく(自動再接続用)。 */
+  const knownDeviceRef = useRef<ObdDevice | null>(null);
+  const autoTimerRef = useRef<number | null>(null);
+  const autoTriesRef = useRef(0);
+  /** 画面を閉じたあとに自動接続が動かないようにする印。 */
+  const autoStoppedRef = useRef(false);
+  /** 絞り込みで見つからなかったときに、次の1回だけ全部出すための印。 */
+  const showAllDevicesRef = useRef(false);
+  /** 下で作る関数を、それより前の場所から呼ぶための入れ物。 */
+  const autoConnectRef = useRef<(() => Promise<void>) | null>(null);
+  const scheduleAutoConnectRef = useRef<((delay: number) => void) | null>(null);
+  const statusRef = useRef<ObdConnectionStatus>("idle");
 
   const handleNotification = useCallback((event: Event) => {
     if (event.target !== notifyRef.current) return;
@@ -458,7 +493,8 @@ export function useObd2() {
         if (session !== sessionRef.current) return;
         clearTransport("OBD_DATA_SESSION_ENDED");
         setStatus("error");
-        setConnectionLabel("VEHICLE DATA LOST - TAP OBD2");
+        setConnectionLabel("OBD2 RECONNECTING");
+        scheduleAutoConnectRef.current?.(3_000);
         setErrorMessage(
           error instanceof Error ? error.message : "OBD_POLLING_FAILED",
         );
@@ -467,6 +503,159 @@ export function useObd2() {
     [clearTransport, markVehicleData, sendCommand, setPhase],
   );
 
+  /**
+   * 機器が決まってからの接続処理。手動(機器を選んでもらう)と
+   * 自動(覚えている機器につなぐ)で共通。
+   */
+  const openConnection = useCallback(
+    async (
+      session: number,
+      selection: Promise<ObdDevice>,
+      manual: boolean,
+    ): Promise<boolean> => {
+      setMetrics(EMPTY_METRICS);
+      setLastUpdatedAt(null);
+      setStatus("requesting");
+      setConnectionLabel(manual ? "SELECT CARISTA" : "OBD2 AUTO CONNECT");
+      setErrorMessage(null);
+
+      try {
+        const device = await selection;
+        if (session !== sessionRef.current) return false;
+        if (!device.gatt) {
+          throw new ObdStageError(
+            "BLUETOOTH_GATT_UNAVAILABLE",
+            "CARISTA GATT UNAVAILABLE - TAP OBD2",
+          );
+        }
+
+        deviceRef.current = device;
+        setDeviceName(device.name || "CARISTA OBD2");
+        setPhase(session, "connecting", "BLUETOOTH CONNECTING");
+
+        const handleDisconnect = () => {
+          if (session !== sessionRef.current) return;
+          clearTransport("BLUETOOTH_DISCONNECTED");
+          setStatus("disconnected");
+          setConnectionLabel("OBD2 RECONNECTING");
+          setErrorMessage("BLUETOOTH_DISCONNECTED");
+          // 切れたら、覚えている機器につなぎ直しに行く。
+          scheduleAutoConnectRef.current?.(1_500);
+        };
+        disconnectHandlerRef.current = handleDisconnect;
+        device.addEventListener("gattserverdisconnected", handleDisconnect);
+
+        const server = await withTimeout(
+          device.gatt.connect(),
+          GATT_TIMEOUT,
+          "BLUETOOTH_CONNECT_TIMEOUT",
+        );
+        if (session !== sessionRef.current) return false;
+
+        setPhase(session, "connecting", "CARISTA SERVICE");
+        const service = await withTimeout(
+          server.getPrimaryService(SERVICE_UUID),
+          GATT_TIMEOUT,
+          "CARISTA_SERVICE_TIMEOUT",
+        );
+        if (session !== sessionRef.current) return false;
+
+        setPhase(session, "connecting", "CARISTA NOTIFY");
+        const notify = await withTimeout(
+          service.getCharacteristic(NOTIFY_UUID),
+          GATT_TIMEOUT,
+          "CARISTA_NOTIFY_CHARACTERISTIC_TIMEOUT",
+        );
+        const write = await withTimeout(
+          service.getCharacteristic(WRITE_UUID),
+          GATT_TIMEOUT,
+          "CARISTA_WRITE_CHARACTERISTIC_TIMEOUT",
+        );
+        if (session !== sessionRef.current) return false;
+
+        notifyRef.current = notify;
+        writeRef.current = write;
+        notify.addEventListener("characteristicvaluechanged", handleNotification);
+        await withTimeout(
+          notify.startNotifications(),
+          GATT_TIMEOUT,
+          "CARISTA_NOTIFY_START_TIMEOUT",
+        );
+        if (session !== sessionRef.current) return false;
+
+        await wait(300);
+        if (session !== sessionRef.current) return false;
+
+        setPhase(session, "connected", "CARISTA READY");
+        await initializeAdapter(session);
+        if (session !== sessionRef.current) return false;
+
+        connectingRef.current = false;
+        knownDeviceRef.current = device;
+        autoTriesRef.current = 0;
+        try {
+          if (device.id) localStorage.setItem(OBD_DEVICE_ID_KEY, device.id);
+        } catch {
+          // 保存できなくても、この画面を開いている間は覚えている。
+        }
+        void pollVehicle(session);
+        return true;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "NotFoundError") {
+          if (session === sessionRef.current) {
+            clearTransport("BLUETOOTH_SELECTION_CANCELLED");
+            setStatus("idle");
+            setConnectionLabel("OBD2 STANDBY");
+            setErrorMessage(null);
+          }
+          return false;
+        }
+        if (session !== sessionRef.current) return false;
+
+        // 自動接続の失敗は、まだ車に近づいていないだけのことが多いので
+        // 赤い失敗表示にせず、静かに次を待つ。
+        if (!manual) {
+          clearTransport("OBD_AUTO_CONNECT_FAILED");
+          setStatus("idle");
+          setConnectionLabel("OBD2 AUTO RETRY");
+          setErrorMessage(null);
+          return false;
+        }
+
+        const label =
+          error instanceof ObdStageError
+            ? error.label
+            : error instanceof Error && error.message.includes("SERVICE")
+              ? "CARISTA SERVICE FAILED - TAP OBD2"
+              : error instanceof Error && error.message.includes("NOTIFY")
+                ? "CARISTA NOTIFY FAILED - TAP OBD2"
+                : error instanceof Error && error.message.includes("WRITE")
+                  ? "CARISTA WRITE FAILED - TAP OBD2"
+                  : error instanceof Error && error.message.includes("ATZ")
+                    ? "CARISTA RESET TIMEOUT - TAP OBD2"
+                    : error instanceof Error && error.message.includes("0100")
+                      ? "TANTO ECU TIMEOUT - TAP OBD2"
+                      : "CARISTA CONNECTION FAILED - TAP OBD2";
+
+        clearTransport("OBD_CONNECTION_ABORTED");
+        setStatus("error");
+        setConnectionLabel(label);
+        setErrorMessage(
+          error instanceof Error ? error.message : "OBD_CONNECTION_FAILED",
+        );
+        return false;
+      } finally {
+        connectingRef.current = false;
+      }
+    }, [
+    clearTransport,
+    handleNotification,
+    initializeAdapter,
+    pollVehicle,
+    setPhase,
+  ]);
+
+  /** 手動でつなぐ(四隅の CONNECT から呼ばれる)。機器を選ぶ画面が出る。 */
   const connect = useCallback(async () => {
     const bluetooth = (navigator as BluetoothNavigator).bluetooth;
     if (!bluetooth) {
@@ -478,15 +667,32 @@ export function useObd2() {
 
     if (connectingRef.current) return;
 
+    // 手動で押したときは、自動接続の待ち回数をやり直す。
+    autoTriesRef.current = 0;
+    if (autoTimerRef.current !== null) {
+      window.clearTimeout(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+
     const session = clearTransport("OBD_RECONNECTING");
     connectingRef.current = true;
 
     let selection: Promise<ObdDevice>;
     try {
-      selection = bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [SERVICE_UUID],
-      });
+      // ふだんは Carista だけを出す(周りの機器が並ぶと押し間違える)。
+      // 見つからなかった次の1回だけは、全部出して選べるようにする。
+      selection = showAllDevicesRef.current
+        ? bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [SERVICE_UUID],
+          })
+        : bluetooth.requestDevice({
+            filters: [
+              { namePrefix: DEVICE_NAME_PREFIX },
+              { services: [SERVICE_UUID] },
+            ],
+            optionalServices: [SERVICE_UUID],
+          });
     } catch (error) {
       connectingRef.current = false;
       setStatus("error");
@@ -497,126 +703,114 @@ export function useObd2() {
       return;
     }
 
-    setMetrics(EMPTY_METRICS);
-    setLastUpdatedAt(null);
-    setStatus("requesting");
-    setConnectionLabel("SELECT CARISTA");
-    setErrorMessage(null);
+    const connected = await openConnection(session, selection, true);
+    // 絞り込みで選べなかったときは、次の1回だけ全部出す。
+    showAllDevicesRef.current = connected ? false : !showAllDevicesRef.current;
+  }, [clearTransport, openConnection]);
+
+  /**
+   * 覚えている機器を探す。
+   * 1) この画面で一度つないだ機器
+   * 2) Chrome が覚えている許可済みの機器(getDevices。実験機能なので無い場合もある)
+   */
+  const findKnownDevice = useCallback(async (): Promise<ObdDevice | null> => {
+    if (knownDeviceRef.current) return knownDeviceRef.current;
+
+    const bluetooth = (navigator as BluetoothNavigator).bluetooth;
+    if (!bluetooth?.getDevices) return null;
 
     try {
-      const device = await selection;
-      if (session !== sessionRef.current) return;
-      if (!device.gatt) {
-        throw new ObdStageError(
-          "BLUETOOTH_GATT_UNAVAILABLE",
-          "CARISTA GATT UNAVAILABLE - TAP OBD2",
-        );
+      const devices = await bluetooth.getDevices();
+      if (devices.length === 0) return null;
+
+      let savedId = "";
+      try {
+        savedId = localStorage.getItem(OBD_DEVICE_ID_KEY) || "";
+      } catch {
+        // 読めなくても、下の「1台だけなら」で拾える。
       }
 
-      deviceRef.current = device;
-      setDeviceName(device.name || "CARISTA OBD2");
-      setPhase(session, "connecting", "BLUETOOTH CONNECTING");
+      const matched = savedId
+        ? devices.find((device) => device.id === savedId)
+        : undefined;
+      if (matched) return matched;
 
-      const handleDisconnect = () => {
-        if (session !== sessionRef.current) return;
-        clearTransport("BLUETOOTH_DISCONNECTED");
-        setStatus("disconnected");
-        setConnectionLabel("CARISTA DISCONNECTED - TAP OBD2");
-        setErrorMessage("BLUETOOTH_DISCONNECTED");
-      };
-      disconnectHandlerRef.current = handleDisconnect;
-      device.addEventListener("gattserverdisconnected", handleDisconnect);
-
-      const server = await withTimeout(
-        device.gatt.connect(),
-        GATT_TIMEOUT,
-        "BLUETOOTH_CONNECT_TIMEOUT",
+      // 名前が Carista のものがあれば、それを選ぶ。
+      const named = devices.filter((device) =>
+        (device.name || "")
+          .toLowerCase()
+          .startsWith(DEVICE_NAME_PREFIX.toLowerCase()),
       );
-      if (session !== sessionRef.current) return;
+      if (named.length === 1) return named[0];
 
-      setPhase(session, "connecting", "CARISTA SERVICE");
-      const service = await withTimeout(
-        server.getPrimaryService(SERVICE_UUID),
-        GATT_TIMEOUT,
-        "CARISTA_SERVICE_TIMEOUT",
-      );
-      if (session !== sessionRef.current) return;
-
-      setPhase(session, "connecting", "CARISTA NOTIFY");
-      const notify = await withTimeout(
-        service.getCharacteristic(NOTIFY_UUID),
-        GATT_TIMEOUT,
-        "CARISTA_NOTIFY_CHARACTERISTIC_TIMEOUT",
-      );
-      const write = await withTimeout(
-        service.getCharacteristic(WRITE_UUID),
-        GATT_TIMEOUT,
-        "CARISTA_WRITE_CHARACTERISTIC_TIMEOUT",
-      );
-      if (session !== sessionRef.current) return;
-
-      notifyRef.current = notify;
-      writeRef.current = write;
-      notify.addEventListener("characteristicvaluechanged", handleNotification);
-      await withTimeout(
-        notify.startNotifications(),
-        GATT_TIMEOUT,
-        "CARISTA_NOTIFY_START_TIMEOUT",
-      );
-      if (session !== sessionRef.current) return;
-
-      await wait(300);
-      if (session !== sessionRef.current) return;
-
-      setPhase(session, "connected", "CARISTA READY");
-      await initializeAdapter(session);
-      if (session !== sessionRef.current) return;
-
-      connectingRef.current = false;
-      void pollVehicle(session);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "NotFoundError") {
-        if (session === sessionRef.current) {
-          clearTransport("BLUETOOTH_SELECTION_CANCELLED");
-          setStatus("idle");
-          setConnectionLabel("OBD2 STANDBY");
-          setErrorMessage(null);
-        }
-        return;
-      }
-      if (session !== sessionRef.current) return;
-
-      const label =
-        error instanceof ObdStageError
-          ? error.label
-          : error instanceof Error && error.message.includes("SERVICE")
-            ? "CARISTA SERVICE FAILED - TAP OBD2"
-            : error instanceof Error && error.message.includes("NOTIFY")
-              ? "CARISTA NOTIFY FAILED - TAP OBD2"
-              : error instanceof Error && error.message.includes("WRITE")
-                ? "CARISTA WRITE FAILED - TAP OBD2"
-                : error instanceof Error && error.message.includes("ATZ")
-                  ? "CARISTA RESET TIMEOUT - TAP OBD2"
-                  : error instanceof Error && error.message.includes("0100")
-                    ? "TANTO ECU TIMEOUT - TAP OBD2"
-                    : "CARISTA CONNECTION FAILED - TAP OBD2";
-
-      clearTransport("OBD_CONNECTION_ABORTED");
-      setStatus("error");
-      setConnectionLabel(label);
-      setErrorMessage(
-        error instanceof Error ? error.message : "OBD_CONNECTION_FAILED",
-      );
-    } finally {
-      connectingRef.current = false;
+      // 許可した機器が1台だけなら、それで間違いない。
+      return devices.length === 1 ? devices[0] : null;
+    } catch {
+      return null;
     }
-  }, [
-    clearTransport,
-    handleNotification,
-    initializeAdapter,
-    pollVehicle,
-    setPhase,
-  ]);
+  }, []);
+
+  /** 覚えている機器へ、押さずにつなぎに行く。 */
+  const autoConnect = useCallback(async () => {
+    if (autoStoppedRef.current) return;
+    if (connectingRef.current) return;
+
+    const now = statusRef.current;
+    if (now === "live" || now === "connected" || now === "initializing") return;
+    if (!(navigator as BluetoothNavigator).bluetooth) return;
+
+    const device = await findKnownDevice();
+    // 覚えている機器が無いときは、最初の1回だけ手で選んでもらう必要がある。
+    if (!device || !device.gatt) return;
+    if (autoStoppedRef.current || connectingRef.current) return;
+
+    autoTriesRef.current += 1;
+    const session = clearTransport("OBD_AUTO_RECONNECTING");
+    connectingRef.current = true;
+
+    const connected = await openConnection(session, Promise.resolve(device), false);
+    if (
+      !connected &&
+      !autoStoppedRef.current &&
+      autoTriesRef.current < AUTO_CONNECT_MAX_TRIES
+    ) {
+      scheduleAutoConnectRef.current?.(AUTO_CONNECT_RETRY_MS);
+    }
+  }, [clearTransport, findKnownDevice, openConnection]);
+
+  const scheduleAutoConnect = useCallback((delay: number) => {
+    if (autoStoppedRef.current) return;
+    if (autoTimerRef.current !== null) {
+      window.clearTimeout(autoTimerRef.current);
+    }
+    autoTimerRef.current = window.setTimeout(() => {
+      autoTimerRef.current = null;
+      void autoConnectRef.current?.();
+    }, delay);
+  }, []);
+
+  useEffect(() => {
+    autoConnectRef.current = autoConnect;
+    scheduleAutoConnectRef.current = scheduleAutoConnect;
+  }, [autoConnect, scheduleAutoConnect]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // 起動して少ししたら、覚えている機器に自動でつなぎに行く。
+  // つながらなければ少し待ってまた試す(上限あり)。
+  useEffect(() => {
+    autoStoppedRef.current = false;
+    scheduleAutoConnect(AUTO_CONNECT_DELAY);
+    return () => {
+      autoStoppedRef.current = true;
+      if (autoTimerRef.current !== null) {
+        window.clearTimeout(autoTimerRef.current);
+        autoTimerRef.current = null;
+      }
+    };
+  }, [scheduleAutoConnect]);
 
   const disconnect = useCallback(() => {
     clearTransport("OBD_DISCONNECTED");
@@ -627,6 +821,7 @@ export function useObd2() {
 
   useEffect(
     () => () => {
+      autoStoppedRef.current = true;
       clearTransport("OBD_UNMOUNTED");
     },
     [clearTransport],

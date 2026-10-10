@@ -6186,131 +6186,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* --- 車側: スマホから指定された音楽のプレイヤー ---
    メーター表示中でも操作できるよう、画面の右下に固定で出す。
    映像は見せる必要がないが、非表示にすると再生が止まる場合があるので
-   小さく表示したままにしておく。 */
-.car-player {
-  position: fixed;
-  z-index: 60;
-  right: 14px;
-  bottom: 14px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  max-width: min(92vw, 420px);
-  padding: 7px 9px;
-  border: 1px solid #2f7f84;
-  border-radius: 12px;
-  background: rgba(6, 12, 14, .94);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, .55);
-  backdrop-filter: blur(10px);
-}
+   小さく表示したままにしておく。 *
+@media (max-width: 720px), (max-height: 470px) {}
 
-.car-player iframe {
-  width: 104px;
-  height: 59px;
-  border: 0;
-  border-radius: 7px;
-  background: #000;
-}
-
-.car-player-name {
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .06em;
-  color: #cfeff1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.car-player-actions { display: flex; gap: 7px; flex: none; }
-
-.car-player-actions button {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: transparent;
-  color: #cfd8e0;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.car-player-actions button:first-child {
-  border-color: #39ccd4;
-  background: rgba(57, 204, 212, .16);
-  color: #ddfbfd;
-}
-
-@media (max-width: 720px), (max-height: 470px) {
-  .car-player { right: 8px; bottom: 8px; gap: 8px; padding: 6px 7px; }
-  .car-player iframe { width: 84px; height: 47px; }
-  .car-player-actions button { min-height: 32px; padding: 0 9px; font-size: 11px; }
-}
-
-/* メーター表示中は計器を隠しすぎないよう、ひとまわり小さくする。 */
-#app.is-fullscreen .car-player {
-  right: 10px;
-  bottom: 10px;
-  gap: 8px;
-  padding: 5px 7px;
-  opacity: .92;
-}
-
-#app.is-fullscreen .car-player iframe { width: 76px; height: 43px; }
-#app.is-fullscreen .car-player-name { font-size: 11px; }
-
-#app.is-fullscreen .car-player-actions button {
-  min-height: 32px;
-  padding: 0 10px;
-  font-size: 11px;
-}
-
+/* メーター表示中は計器を隠しすぎないよう、ひとまわり小さくする。 *
 /* 「▶ 再生」を押したあとは、♪ の小さなボタンだけ残して畳む。
    iframe を消したり display:none にすると音まで止まるので、
-   1pxの透明なまま残しておく。 */
-.car-player.is-collapsed {
-  grid-template-columns: auto;
-  gap: 0;
-  padding: 0;
-  border-color: rgba(47, 127, 132, .5);
-  background: rgba(6, 12, 14, .8);
-}
-
-.car-player.is-collapsed iframe {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.car-player-badge {
-  height: 44px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 11px;
-  background: transparent;
-  color: #7fe3e9;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: .18em;
-  line-height: 1;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#app.is-fullscreen .car-player.is-collapsed { padding: 0; opacity: .8; }
-#app.is-fullscreen .car-player-badge { height: 38px; padding: 0 12px; font-size: 10px; }
-
-/* 畳んだときのサイズ指定が、メーター表示中の指定に負けないようにする。 */
-#app .car-player.is-collapsed iframe { width: 1px; height: 1px; }
-
+   1pxの透明なまま残しておく。 *
+/* 畳んだときのサイズ指定が、メーター表示中の指定に負けないようにする。 *
 /* --- ホーム画面の待機YouTubeプレイヤー --- */
 /* --- 設定ページ: 満タン法の燃費記録 --- */
 .zsetup-fuel-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
@@ -6641,14 +6524,124 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   text-decoration: none;
 }
 
-/* --- TURQUOISE BLUE: 右のレールを上に詰めて、空いた右下に YouTube を置く --- */
+/* --- TURQUOISE BLUE: 右のレールの組み方 --- */
 
-/* 右のカードは上から順に詰め、いちばん下だけをメディアに使う。 */
 #app.is-fullscreen .green-nav-cluster
   .green-drive-panel.green-instrument-rail {
   justify-content: flex-start;
   padding-top: 16px;
   padding-bottom: 14px;
+}
+
+/* 音楽プレイヤーをやめたので、残りの計器で塔を下まで埋める。 */
+#app.is-fullscreen .green-drive-panel > article { flex-grow: 1; }
+
+/* ------------------------------------------------------------------
+   右下のナビ開始ボタン(Googleマップを開く)。
+   計器の並びになじませたいので、飾りは最小限にして線と文字だけで示す。
+   ------------------------------------------------------------------ */
+#app.is-fullscreen .green-drive-panel .green-navi-card {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px 11px 13px;
+  background: transparent;
+  box-shadow: none;
+  transition: background .15s ease;
+}
+
+/* 地図のピン。輪郭だけの静かな丸に載せる。 */
+.green-navi-mark {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid rgba(111, 224, 126, .24);
+  border-radius: 50%;
+}
+
+.green-navi-mark svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: #8fd89b;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.green-navi-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1;
+  text-align: left;
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card small {
+  color: #4f9a58;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .22em;
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card strong {
+  overflow: hidden;
+  color: #d4f3da;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右端の「進む」印。動かさず、薄く置くだけ。 */
+.green-navi-go {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+}
+
+.green-navi-go svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: rgba(130, 220, 145, .55);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card:active {
+  background: rgba(93, 226, 208, .1);
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card:active .green-navi-mark {
+  border-color: rgba(150, 255, 170, .8);
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card:disabled {
+  cursor: default;
+  opacity: .42;
+}
+
+/* 縦が狭いときは、丸と文字を少し小さくする。 */
+@media (max-height: 520px) {
+  #app.is-fullscreen .green-drive-panel .green-navi-card {
+    gap: 8px;
+    padding: 8px 10px 8px 11px;
+  }
+  .green-navi-mark { width: 23px; height: 23px; }
+  .green-navi-mark svg { width: 13px; height: 13px; }
+  #app.is-fullscreen .green-drive-panel .green-navi-card small { font-size: 6px; letter-spacing: .18em; }
+  #app.is-fullscreen .green-drive-panel .green-navi-card strong { font-size: 13px; }
+  .green-navi-go svg { width: 12px; height: 12px; }
 }
 
 /* 右のレールだけ 1.2 倍に広げる(左と中央のゲージはそのまま)。 */
@@ -6662,11 +6655,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 #app.is-fullscreen .green-drive-panel > article,
 #app.is-fullscreen .green-drive-panel > button { line-height: 1.15; }
 
-/* 縦が足りないときは計器側を縮め、いちばん下のメディアは潰さない。 */
+/* 縦が足りないときは計器側を縮める。 */
 #app.is-fullscreen .green-drive-panel > article,
 #app.is-fullscreen .green-drive-panel > button { flex-shrink: 1; }
-#app.is-fullscreen .media-card { flex-shrink: 0; }
-
 /* 余白を詰めて、計器の見た目はそのままに高さだけを取り戻す。 */
 #app.is-fullscreen .green-drive-panel .green-range-card {
   flex-basis: 70px;
@@ -6693,42 +6684,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 #app.is-fullscreen .green-drive-panel .green-obd-card p { margin-top: 1px; }
 #app.is-fullscreen .green-drive-panel .green-obd-card > span { margin-top: 2px; }
 
-/* メディアカード本体。いちばん下に貼り付ける。 */
-#app.is-fullscreen .media-card {
-  flex: 0 0 auto;
-  margin-top: auto;
-  padding: 5px 6px 6px;
-}
-
-#app.is-fullscreen .media-card header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 4px;
-  padding: 0 2px;
-}
-
-#app.is-fullscreen .media-card header small {
-  color: #6f9475;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 6px;
-  font-weight: 900;
-  letter-spacing: .22em;
-}
-
-#app.is-fullscreen .media-card header b {
-  overflow: hidden;
-  max-width: 118px;
-  color: #cdffd4;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* メディアカード本体。いちばん下に貼り付ける。 *
 
 
 /* 縦が狭い画面(ブラウザのアドレスバーで削られたときなど)では、
@@ -6766,171 +6722,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 
-/* --- ターコイズメーター右下: シンプルな音楽プレイヤー --- */
-#app.is-fullscreen .media-title {
-  overflow: hidden;
-  margin: 0 0 5px;
-  padding: 0 2px;
-  color: #dbffe0;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 再生の状態と、いまの位置 / 曲の長さ。 */
-#app.is-fullscreen .media-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 2px;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 7px;
-  font-weight: 900;
-  letter-spacing: .16em;
-}
-
-#app.is-fullscreen .media-status span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #6f9475;
-}
-
-#app.is-fullscreen .media-status span i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #2c5c33;
-}
-
-#app.is-fullscreen .media-status span.is-playing {
-  color: #9cffa9;
-}
-
-#app.is-fullscreen .media-status span.is-playing i {
-  background: #6cff80;
-  box-shadow: 0 0 8px rgba(108, 255, 128, .75);
-}
-
-#app.is-fullscreen .media-status em {
-  color: #b6ffc1;
-  font-size: 8px;
-  font-style: normal;
-}
-
-#app.is-fullscreen .media-progress {
-  overflow: hidden;
-  height: 3px;
-  margin: 4px 2px 7px;
-  border-radius: 999px;
-  background: rgba(106, 204, 118, .18);
-}
-
-#app.is-fullscreen .media-progress i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #2c8f3c, #7dff92);
-  transition: width .3s linear;
-}
-
-/* プレイリストの切り替え。横に並べて、多いときは横スクロールする。 */
-#app.is-fullscreen .media-lists {
-  display: flex;
-  gap: 5px;
-  overflow-x: auto;
-  margin-top: 7px;
-  padding: 0 2px 2px;
-  scrollbar-width: none;
-}
-
-#app.is-fullscreen .media-lists::-webkit-scrollbar {
-  display: none;
-}
-
-#app.is-fullscreen .media-lists button {
-  flex: 0 0 auto;
-  max-width: 96px;
-  overflow: hidden;
-  min-height: 26px;
-  padding: 0 10px;
-  border: 1px solid rgba(106, 204, 118, .3);
-  border-radius: 999px;
-  background: rgba(9, 22, 12, .8);
-  color: #8fc79a;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: .06em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#app.is-fullscreen .media-lists button.is-active {
-  border-color: rgba(122, 255, 138, .7);
-  background: linear-gradient(180deg, rgba(38, 116, 50, .8), rgba(8, 26, 12, .9));
-  color: #eaffee;
-}
-
-#app.is-fullscreen .media-controls {
-  display: grid;
-  grid-template-columns: 1fr 1.25fr 1fr;
-  align-items: center;
-  gap: 6px;
-  padding: 0 2px 2px;
-}
-
-#app.is-fullscreen .media-controls button {
-  display: grid;
-  place-items: center;
-  min-height: 40px;
-  padding: 0;
-  border: 1px solid rgba(106, 204, 118, .34);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(23, 56, 28, .7), rgba(4, 10, 5, .9));
-  color: #b6ffc1;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#app.is-fullscreen .media-controls button.is-primary {
-  min-height: 46px;
-  border-color: rgba(122, 255, 138, .6);
-  background: linear-gradient(180deg, rgba(38, 116, 50, .78), rgba(8, 26, 12, .92));
-  color: #eaffee;
-}
-
-#app.is-fullscreen .media-controls button:disabled {
-  opacity: .35;
-  cursor: default;
-}
-
-#app.is-fullscreen .media-controls svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* ▶ と ⏸ は塗りのほうが見やすい。 */
-#app.is-fullscreen .media-controls button.is-primary svg {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
-  stroke: currentColor;
-  stroke-width: 2.4;
-}
-
+/* --- ターコイズメーター右下: シンプルな音楽プレイヤー --- *
+/* 再生の状態と、いまの位置 / 曲の長さ。 *
+/* プレイリストの切り替え。横に並べて、多いときは横スクロールする。 *
+/* ▶ と ⏸ は塗りのほうが見やすい。 *
 /* --- スマホ設定: 音源フォルダ --- */
 .zsetup-upload { position: relative; display: block; margin-bottom: 10px; }
 
@@ -7095,40 +6890,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 /* 縦が狭い画面では、進み具合のバーを省いてボタンを少し小さくする。
    (基本のスタイルより後ろに置く必要があるので、ここにまとめている) */
-@media (max-height: 520px) {
-  #app.is-fullscreen .media-card { padding: 3px 5px 4px; }
-  #app.is-fullscreen .media-card header { margin-bottom: 2px; }
-  #app.is-fullscreen .media-title {
-    margin-bottom: 3px;
-    font-size: 11px;
-  }
-  #app.is-fullscreen .media-progress { display: none; }
-  #app.is-fullscreen .media-controls { gap: 5px; }
-  #app.is-fullscreen .media-controls button { min-height: 32px; }
-  #app.is-fullscreen .media-controls button.is-primary { min-height: 36px; }
-  #app.is-fullscreen .media-controls svg { width: 15px; height: 15px; }
-  #app.is-fullscreen .media-controls button.is-primary svg {
-    width: 17px;
-    height: 17px;
-  }
-  #app.is-fullscreen .media-lists { margin-top: 5px; }
-  #app.is-fullscreen .media-lists button {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: 8px;
-  }
-}
+@media (max-height: 520px) {}
 
-/* 端末に保存済みの曲に付ける印(通信なしで鳴らせる)。 */
-#app.is-fullscreen .media-status span b {
-  margin-left: 5px;
-  color: #7dff92;
-  font-size: 7px;
-  font-weight: 900;
-  letter-spacing: .14em;
-  line-height: 1;
-}
-
+/* 端末に保存済みの曲に付ける印(通信なしで鳴らせる)。 *
 /* スマホと接続するだけの小さなダイアログ。 */
 .sync-card { width: min(420px, 92vw); text-align: center; }
 .sync-card h2 { margin-bottom: 16px; }
@@ -7143,203 +6907,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   text-align: center;
 }
 
-/* --- ホーム画面の音楽プレイヤー(右パネルの一番下) --- */
-.home-music-card {
-  grid-row: 3;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: 12px 14px 12px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: linear-gradient(160deg, rgba(18, 38, 42, .55), rgba(7, 9, 11, .9));
-  box-shadow: inset 0 0 24px rgba(0, 0, 0, .45);
-}
-
-.home-music-card header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.home-music-card header small {
-  overflow: hidden;
-  max-width: 60%;
-  color: #55e0c8;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .2em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-music-card header b {
-  color: #8fb4bb;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .08em;
-}
-
-.home-music-card .media-title {
-  overflow: hidden;
-  margin: 0 0 8px;
-  color: #eaf6f8;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-music-card .media-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .16em;
-}
-
-.home-music-card .media-status span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #6f8c93;
-}
-
-.home-music-card .media-status span i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #2b4a4e;
-}
-
-.home-music-card .media-status span.is-playing { color: #6fe3ea; }
-
-.home-music-card .media-status span.is-playing i {
-  background: #55e0c8;
-  box-shadow: 0 0 9px rgba(85, 224, 200, .75);
-}
-
-.home-music-card .media-status span b {
-  margin-left: 2px;
-  color: #55e0c8;
-  font-size: 10px;
-  line-height: 1;
-}
-
-.home-music-card .media-status em {
-  color: #cfe9ec;
-  font-size: 10px;
-  font-style: normal;
-}
-
-.home-music-card .media-progress {
-  overflow: hidden;
-  height: 4px;
-  margin: 6px 0 10px;
-  border-radius: 999px;
-  background: rgba(85, 224, 200, .16);
-}
-
-.home-music-card .media-progress i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #2f7f84, #6fe3ea);
-  transition: width .3s linear;
-}
-
-.home-music-card .media-controls {
-  display: grid;
-  grid-template-columns: 1fr 1.3fr 1fr;
-  align-items: center;
-  gap: 8px;
-}
-
-.home-music-card .media-controls button {
-  display: grid;
-  place-items: center;
-  min-height: 44px;
-  padding: 0;
-  border: 1px solid rgba(85, 224, 200, .28);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(20, 46, 50, .8), rgba(6, 12, 14, .9));
-  color: #9fe7ec;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.home-music-card .media-controls button.is-primary {
-  min-height: 50px;
-  border-color: rgba(111, 227, 234, .6);
-  background: linear-gradient(180deg, rgba(35, 106, 112, .85), rgba(8, 24, 26, .92));
-  color: #eafcff;
-}
-
-.home-music-card .media-controls button:disabled { opacity: .35; cursor: default; }
-
-.home-music-card .media-controls svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.home-music-card .media-controls button.is-primary svg {
-  width: 22px;
-  height: 22px;
-  fill: currentColor;
-  stroke-width: 2.4;
-}
-
-.home-music-card .media-lists {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  margin-top: 10px;
-  padding-bottom: 2px;
-  scrollbar-width: none;
-}
-
-.home-music-card .media-lists::-webkit-scrollbar { display: none; }
-
-.home-music-card .media-lists button {
-  flex: 0 0 auto;
-  overflow: hidden;
-  max-width: 120px;
-  min-height: 28px;
-  padding: 0 12px;
-  border: 1px solid rgba(85, 224, 200, .26);
-  border-radius: 999px;
-  background: rgba(9, 20, 22, .8);
-  color: #8fb4bb;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .06em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.home-music-card .media-lists button.is-active {
-  border-color: rgba(111, 227, 234, .7);
-  background: linear-gradient(180deg, rgba(35, 106, 112, .85), rgba(8, 24, 26, .9));
-  color: #eafcff;
-}
-
+/* --- ホーム画面の音楽プレイヤー(右パネルの一番下) --- *
 /* --- 車のホーム: 目的地を選ぶダイアログ --- */
 .dest-card { width: min(520px, 92vw); }
 .dest-card h2 { margin-bottom: 14px; }
@@ -7381,6 +6949,85 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .dest-choices button.is-active b { color: #6fe3ea; }
+
+/* 目的地ダイアログの「選ぶ / 場所を直す」切り替え。 */
+.dest-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dest-tabs button {
+  padding: 10px 8px;
+  border: 1px solid #2c3540;
+  border-radius: 10px;
+  background: #131a20;
+  color: #8b97a3;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dest-tabs button.is-active {
+  border-color: #2f7f84;
+  background: linear-gradient(180deg, rgba(20, 46, 50, .9), rgba(9, 18, 20, .95));
+  color: #6fe3ea;
+}
+
+/* 枠の番号は、名前の右に小さく添える。 */
+.dest-choices button b i {
+  margin-left: 8px;
+  color: #6c7a86;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* 場所を直す画面。車の画面で打ちやすいよう、入力欄は大きめ。 */
+.dest-editor { display: grid; gap: 10px; }
+
+.dest-editor .settings-hint { margin: 0; }
+
+.dest-editor label {
+  display: grid;
+  gap: 6px;
+  color: #8b97a3;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dest-editor input {
+  width: 100%;
+  padding: 12px 12px;
+  border: 1px solid #2c3540;
+  border-radius: 10px;
+  background: #0d1419;
+  color: #e7f2f4;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.dest-editor input:focus {
+  border-color: #2f7f84;
+  outline: none;
+}
+
+.dest-editor .two-actions { margin-top: 2px; }
+
+.dest-clear {
+  margin-top: 2px;
+  padding: 10px;
+  border: 1px solid #4a2f33;
+  border-radius: 10px;
+  background: transparent;
+  color: #c98a8a;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 /* --- スマホ設定: 車と接続(カメラでQRを読む) --- */
 .zsetup-scan {
