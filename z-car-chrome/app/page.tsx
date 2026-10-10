@@ -3,19 +3,12 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import {
-  buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
   defaults,
-  fetchSharedSettings,
-  generateSyncKey,
-  MIN_SYNC_KEY_LENGTH,
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
   PHONE_LONG_EDGE_MAX,
-  sanitizeSyncedSettings,
-  pickSyncedFields,
   mergeFuelEntries,
-  pushSharedSettings,
   readSettings,
   SETTINGS_STORAGE_KEY,
   writeSettings,
@@ -179,11 +172,7 @@ const loadGoogleMaps = (key: string) => {
   }
   return w.__gmapsPromise;
 };
-// 接続用QRを出しておく秒数。合言葉そのものなので出しっぱなしにしない。
-const PAIRING_AUTO_CLOSE_S = 10;
 
-// 他の端末での設定変更を取りに行く間隔。
-const SYNC_POLL_MS = 30000;
 const FUEL_LOG_STORAGE_KEY = "zcar-fuel-log-v1";
 const DAILY_TRIP_STORAGE_KEY = "zcar-daily-trip-v1";
 const IMPORTED_FUEL_ENTRIES: FuelEntry[] = [
@@ -420,18 +409,6 @@ export default function Home() {
   const [destMode, setDestMode] = useState<"pick" | "edit">("pick");
   const [destEditKey, setDestEditKey] = useState<string | null>(null);
   const [destDraft, setDestDraft] = useState({ label: "", destination: "" });
-  const connectDialog = useRef<HTMLDialogElement>(null);
-  const settingsDialog = useRef<HTMLDialogElement>(null);
-  // QRを出しっぱなしにしない(合言葉そのものなので)。表示してから
-  // PAIRING_AUTO_CLOSE_S 秒で自動的に閉じる。
-  const pairingTimerRef = useRef<number | null>(null);
-  const [pairingLeft, setPairingLeft] = useState(0);
-  // スマホと接続するためのQR(設定ダイアログの中で表示する)。
-  const [pairingQr, setPairingQr] = useState<string | null>(null);
-  const [pairingError, setPairingError] = useState(false);
-  // 同期用: 最新の設定と、最後にサーバーへ送った内容を覚えておく。
-  const settingsRef = useRef<Settings>(defaults);
-  const lastPushedRef = useRef<string | null>(null);
   const themeDialog = useRef<HTMLDialogElement>(null);
   const fuelMotionRef = useRef<{
     speed: number | null;
@@ -580,85 +557,6 @@ export default function Home() {
   useEffect(() => {
     if (ready) writeSettings(settings);
   }, [ready, settings]);
-
-  useEffect(() => {
-    settingsRef.current = settings;
-  });
-
-  // --- 設定の同期 ---
-  // 合言葉を入れておくと、スマホ側で変えたメーターの色などをここでも取り込む。
-  // 走行状態やAPIキーは端末ごとの値なので同期しない(settings-store の SYNCED_FIELDS)。
-  const syncKey = settings.syncKey.trim();
-  const syncEnabled = ready && syncKey.length >= MIN_SYNC_KEY_LENGTH;
-  // スマホとのやりとりが通っているか(上のステータス表示用)。
-  const [phoneLinkOk, setPhoneLinkOk] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!syncEnabled) return;
-    let active = true;
-
-    const pull = async () => {
-      try {
-        const result = await fetchSharedSettings(syncKey);
-        if (!active) return;
-        setPhoneLinkOk(result.ok);
-        if (!result.ok) return;
-        const current = settingsRef.current;
-        if (!result.settings) {
-          // サーバーにまだ何も無ければ、この端末の設定を最初の1件として置く。
-          const seeded = await pushSharedSettings(syncKey, current);
-          if (!active || !seeded.updatedAt) return;
-          lastPushedRef.current = JSON.stringify(pickSyncedFields(current));
-          setSettings((now) => ({ ...now, syncedAt: seeded.updatedAt as number }));
-          return;
-        }
-        const updatedAt = result.updatedAt ?? 0;
-        if (updatedAt <= current.syncedAt) return;
-        const shared = sanitizeSyncedSettings(result.settings);
-        const merged = {
-          ...current,
-          ...shared,
-          // 給油記録はどちらの端末の分も残す(消す操作が無いので足し合わせる)。
-          fuelEntries: mergeFuelEntries(current.fuelEntries, shared.fuelEntries ?? []),
-          syncedAt: updatedAt,
-        };
-        // 取り込んだ内容をそのまま送り返さないよう、送信済みとして覚えておく。
-        lastPushedRef.current = JSON.stringify(pickSyncedFields(merged));
-        setSettings(merged);
-      } catch {
-        // 圏外や一時的なエラーは次の周期に任せる。
-        if (active) setPhoneLinkOk(false);
-      }
-    };
-
-    void pull();
-    const timer = window.setInterval(pull, SYNC_POLL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [syncEnabled, syncKey]);
-
-  useEffect(() => {
-    if (!syncEnabled) {
-      lastPushedRef.current = null;
-      return;
-    }
-    const payload = JSON.stringify(pickSyncedFields(settings));
-    if (lastPushedRef.current === null) {
-      lastPushedRef.current = payload;
-      return;
-    }
-    if (lastPushedRef.current === payload) return;
-    lastPushedRef.current = payload;
-    void pushSharedSettings(syncKey, settings)
-      .then((result) => {
-        if (result.updatedAt) {
-          setSettings((now) => ({ ...now, syncedAt: result.updatedAt as number }));
-        }
-      })
-      .catch(() => undefined);
-  }, [syncEnabled, syncKey, settings]);
 
   // 給油記録は設定と一緒に保存されるが、旧キーにも書いておく(古い版に戻しても読める)。
   useEffect(() => {
@@ -1096,26 +994,6 @@ export default function Home() {
       tone: isOnline ? "ok" : "off",
     },
     {
-      key: "phone",
-      nameJa: "端末",
-      nameEn: "PHONE",
-      stateJa: !syncKey
-        ? "未登録"
-        : phoneLinkOk === false
-          ? "同期不可"
-          : phoneLinkOk === null
-            ? "同期中"
-            : "接続",
-      stateEn: !syncKey
-        ? "UNPAIRED"
-        : phoneLinkOk === false
-          ? "NO LINK"
-          : phoneLinkOk === null
-            ? "SYNCING"
-            : "LINK ACTIVE",
-      tone: !syncKey ? "off" : phoneLinkOk === true ? "ok" : "warn",
-    },
-    {
       key: "obd",
       nameJa: "車両",
       nameEn: "OBD2",
@@ -1195,71 +1073,6 @@ export default function Home() {
       fuelResetTimerRef.current = null;
       navigator.vibrate?.(60);
     }, 900);
-  };
-
-  const stopPairingTimer = () => {
-    if (pairingTimerRef.current !== null) {
-      window.clearInterval(pairingTimerRef.current);
-      pairingTimerRef.current = null;
-    }
-  };
-
-  const closePairing = () => {
-    stopPairingTimer();
-    setPairingLeft(0);
-    settingsDialog.current?.close();
-  };
-
-  /** 表示してからの残り秒を数え、0になったら自動で閉じる。 */
-  const armPairingTimer = () => {
-    stopPairingTimer();
-    setPairingLeft(PAIRING_AUTO_CLOSE_S);
-    pairingTimerRef.current = window.setInterval(() => {
-      setPairingLeft((left) => {
-        if (left <= 1) {
-          stopPairingTimer();
-          settingsDialog.current?.close();
-          return 0;
-        }
-        return left - 1;
-      });
-    }, 1000);
-  };
-
-  const openPairing = () => {
-    setPairingQr(null);
-    setPairingError(false);
-    settingsDialog.current?.showModal();
-    void startPairing();
-  };
-
-  /**
-   * スマホと接続する。合言葉がまだ無ければここで作り、それを入れたURLの
-   * QRを出す。合言葉は「#」より後ろに置くのでサーバーには送信されない。
-   * QRの生成は使うときだけ読み込む(車載機の起動を重くしないため)。
-   */
-  const startPairing = async () => {
-    setPairingError(false);
-    let key = settings.syncKey.trim();
-    if (key.length < MIN_SYNC_KEY_LENGTH) {
-      key = generateSyncKey();
-      const next = { ...settings, syncKey: key, syncedAt: 0 };
-      setSettings(next);
-    }
-    try {
-      const QRCode = (await import("qrcode")).default;
-      const image = await QRCode.toDataURL(buildSyncHandoffUrl(key), {
-        // 実寸より大きめに作り、CSS側で縮小して表示する(粗さが出ないように)。
-        width: 720,
-        margin: 1,
-        errorCorrectionLevel: "M",
-        color: { dark: "#04110c", light: "#e6fbf7" },
-      });
-      setPairingQr(image);
-      armPairingTimer();
-    } catch {
-      setPairingError(true);
-    }
   };
 
   // 車の画面から直せる場所。出発・帰宅と、登録枠の1〜5。
@@ -1751,10 +1564,10 @@ export default function Home() {
                   <button
                     type="button"
                     className={`gauge-corner gauge-corner-tr obd-${obdStatus}`}
-                    onClick={() => connectDialog.current?.showModal()}
+                    onClick={() => void connectObd()}
                   >
-                    <small>DEVICES</small>
-                    <b>CONNECT</b>
+                    <small>VEHICLE</small>
+                    <b>OBD2</b>
                   </button>
                   <button
                     type="button"
@@ -2210,70 +2023,6 @@ export default function Home() {
         </div>
       </dialog>
 
-      <dialog ref={connectDialog}>
-        <div className="dialog-card dest-card">
-          <h2>接続</h2>
-          <div className="dest-choices">
-            <button
-              type="button"
-              onClick={() => {
-                connectDialog.current?.close();
-                void connectObd();
-              }}
-            >
-              <b>車のOBD2につなぐ</b>
-              <small>{obdDeviceName} · {obdStatusLabelEn}</small>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                connectDialog.current?.close();
-                openPairing();
-              }}
-            >
-              <b>スマホとつなぐ</b>
-              <small>QRを出して、スマホのカメラで読み取ります</small>
-            </button>
-          </div>
-          <div className="two-actions">
-            <button onClick={() => connectDialog.current?.close()}>閉じる</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog ref={settingsDialog} onClose={stopPairingTimer}>
-        <div className="dialog-card sync-card">
-          <h2>スマホと接続</h2>
-          {pairingQr ? (
-            <div className="pairing-qr">
-              <img src={pairingQr} alt="接続用QRコード" width={720} height={720} />
-              <p>スマホのカメラで読み取ってください</p>
-              <p className="pairing-warn">他の人には見せないでください</p>
-              <p className="pairing-countdown" role="status">
-                あと {pairingLeft} 秒で閉じます
-              </p>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="pairing-start"
-                onClick={() => void startPairing()}
-              >
-                QRを表示する
-              </button>
-              <p className="settings-hint">
-                {pairingError
-                  ? "QRを作れませんでした。もう一度押してください。"
-                  : "QRを読み取ると、スマホからメーターの色・ナビの目的地・音楽を変えられます。"}
-              </p>
-            </>
-          )}
-          <div className="two-actions">
-            <button onClick={closePairing}>閉じる</button>
-          </div>
-        </div>
-      </dialog>
     </div>
   );
 }
