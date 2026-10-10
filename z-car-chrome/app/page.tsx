@@ -6,28 +6,17 @@ import {
   buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
   defaults,
-  fetchMusicTracks,
   fetchSharedSettings,
-  saveMusicPlaylists,
   generateSyncKey,
   MIN_SYNC_KEY_LENGTH,
-  MUSIC_CACHE_NAME,
-  musicTrackUrl,
-  readStoredLibrary,
-  writeStoredLibrary,
   PHONE_LONG_EDGE_MAX,
   sanitizeSyncedSettings,
   pickSyncedFields,
-  PLAY_COMMAND_MAX_AGE_MS,
   mergeFuelEntries,
-  readHandledPlayAt,
-  writeHandledPlayAt,
   pushSharedSettings,
   readSettings,
   SETTINGS_STORAGE_KEY,
   writeSettings,
-  type MusicPlaylist,
-  type MusicTrack,
   type Settings,
 } from "./settings-store";
 
@@ -188,15 +177,6 @@ const loadGoogleMaps = (key: string) => {
   }
   return w.__gmapsPromise;
 };
-/** 再生位置の表示(秒 -> 0:00)。 */
-const formatMusicTime = (seconds: number) => {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const total = Math.floor(seconds);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-};
-
-/** 音源置き場の一覧を見に行く間隔(設定より頻度は低くてよい)。 */
-const MUSIC_POLL_MS = 120000;
 // 接続用QRを出しておく秒数。合言葉そのものなので出しっぱなしにしない。
 const PAIRING_AUTO_CLOSE_S = 10;
 
@@ -357,19 +337,6 @@ const BUILD_STAMP = (() => {
 
 export default function Home() {
   const [settings, setSettings] = useState<Settings>(defaults);
-  // スマホから送られてきた再生指示で鳴らしているプレイリスト。
-  // reloadKey は「音が出ないときのタップ」で作り直すための目印。
-  // ホーム画面の待機プレイヤー。設定したプレイリストからランダムに選ぶ。
-  const [carPlaying, setCarPlaying] = useState<{
-    playlistId: string;
-    label: string;
-    reloadKey: number;
-    /** 再生を押したあとは表示を畳んで、音だけ鳴らし続ける。 */
-    collapsed: boolean;
-  } | null>(null);
-  // 一度反応した指示を覚えておき、同じものを繰り返し再生しないようにする。
-  const handledPlayRef = useRef(0);
-
   // マップ画面の 1〜5 のナビ目的地。設定ページから編集できる。
   const mapDestinations = settings.mapDestinations;
   // 案内開始で使う行き先。「目的地設定」から選ぶ。
@@ -453,23 +420,6 @@ export default function Home() {
   // PAIRING_AUTO_CLOSE_S 秒で自動的に閉じる。
   const pairingTimerRef = useRef<number | null>(null);
   const [pairingLeft, setPairingLeft] = useState(0);
-  // 音源置き場の曲(スマホから預けたもの)と、車で直接選んだ曲(USBなど)。
-  const [serverTracks, setServerTracks] = useState<MusicTrack[]>([]);
-  const [musicPlaylists, setMusicPlaylists] = useState<MusicPlaylist[]>([]);
-  const [activePlaylistId, setActivePlaylistId] = useState("");
-  const [trackIndex, setTrackIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioTime, setAudioTime] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  // 車に貯めた曲(オフラインでも鳴らせる)。中身は曲のURL。
-  const [savedTracks, setSavedTracks] = useState<Set<string>>(new Set());
-  const [savingCount, setSavingCount] = useState(0);
-  // いま鳴らすURL。貯めてあれば端末の中から、無ければサーバーから読む。
-  const [playUrl, setPlayUrl] = useState<string | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
-  // 曲を変えたあと、読み込みが終わってから鳴らすための印。
-  const wantPlayRef = useRef(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
   // スマホと接続するためのQR(設定ダイアログの中で表示する)。
   const [pairingQr, setPairingQr] = useState<string | null>(null);
   const [pairingError, setPairingError] = useState(false);
@@ -628,25 +578,6 @@ export default function Home() {
   useEffect(() => {
     settingsRef.current = settings;
   });
-
-  // スマホからの再生指示を受け取る。開き直したときに古い指示で急に音が
-  // 鳴らないよう、新しくて期限内のものだけを対象にする。
-  useEffect(() => {
-    const command = settings.nowPlaying;
-    if (!command) return;
-    // 反応済みの指示は端末にも記録してあるので、開き直しても鳴り直さない。
-    const handled = Math.max(handledPlayRef.current, readHandledPlayAt());
-    if (command.requestedAt <= handled) return;
-    handledPlayRef.current = command.requestedAt;
-    writeHandledPlayAt(command.requestedAt);
-    if (Date.now() - command.requestedAt > PLAY_COMMAND_MAX_AGE_MS) return;
-    setCarPlaying({
-      playlistId: command.playlistId,
-      label: command.label,
-      reloadKey: command.requestedAt,
-      collapsed: false,
-    });
-  }, [settings.nowPlaying]);
 
   // --- 設定の同期 ---
   // 合言葉を入れておくと、スマホ側で変えたメーターの色などをここでも取り込む。
@@ -1260,218 +1191,6 @@ export default function Home() {
     }, 900);
   };
 
-  // --- 音楽プレイヤー ---
-  // 鳴らす曲: スマホで選んだプレイリストがあればその順番で、
-  // 無ければ置いてある曲を全部その並びのまま鳴らす。
-  const activePlaylist =
-    musicPlaylists.find((list) => list.id === activePlaylistId) ?? null;
-  const playlistTracks = (
-    activePlaylist
-      ? activePlaylist.trackIds.flatMap((id) => {
-          const track = serverTracks.find((entry) => entry.id === id);
-          return track ? [track] : [];
-        })
-      : serverTracks
-  ).map((track) => ({
-    id: track.id,
-    title: track.title,
-    url: musicTrackUrl(track),
-  }));
-  const currentTrack = playlistTracks[trackIndex] ?? null;
-
-  // 起動時は、前に見た一覧を端末から読む(圏外でもそのまま鳴らせる)。
-  useEffect(() => {
-    if (!ready) return;
-    const stored = readStoredLibrary();
-    if (stored.tracks.length) {
-      setServerTracks(stored.tracks);
-      setMusicPlaylists(stored.playlists);
-      setActivePlaylistId(stored.activePlaylistId);
-    }
-  }, [ready]);
-
-  // どの曲を貯め終えているかを調べ、まだの曲を順番に貯める。
-  useEffect(() => {
-    if (!ready || typeof caches === "undefined" || !serverTracks.length) return;
-    let active = true;
-
-    const store = async () => {
-      const cache = await caches.open(MUSIC_CACHE_NAME);
-      const wanted = serverTracks.map((track) => musicTrackUrl(track));
-      // 消された曲は端末からも消す(容量を空ける)。
-      const keys = await cache.keys();
-      await Promise.all(
-        keys
-          .filter((request) => !wanted.some((url) => request.url.endsWith(url)))
-          .map((request) => cache.delete(request)),
-      );
-
-      const done = new Set<string>();
-      for (const url of wanted) {
-        if (await cache.match(url)) done.add(url);
-      }
-      if (!active) return;
-      setSavedTracks(new Set(done));
-
-      // まだ貯めていない曲を、1曲ずつ落としてくる(通信を細く使う)。
-      const missing = wanted.filter((url) => !done.has(url));
-      setSavingCount(missing.length);
-      for (const url of missing) {
-        if (!active) return;
-        try {
-          await cache.add(url);
-          done.add(url);
-          setSavedTracks(new Set(done));
-        } catch {
-          // 圏外などで落とせなければ、次に開いたときに試す。
-        }
-        if (!active) return;
-        setSavingCount((current) => Math.max(0, current - 1));
-      }
-    };
-
-    void store().catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [ready, serverTracks]);
-
-  // 鳴らすURLを決める。貯めてあれば端末の中から読む(通信を使わない)。
-  useEffect(() => {
-    let active = true;
-    const release = () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = null;
-      }
-    };
-    if (!currentTrack) {
-      release();
-      setPlayUrl(null);
-      return;
-    }
-    const url = currentTrack.url;
-    const resolve = async () => {
-      if (typeof caches !== "undefined") {
-        try {
-          const cache = await caches.open(MUSIC_CACHE_NAME);
-          const hit = await cache.match(url);
-          if (hit) {
-            const blob = await hit.blob();
-            if (!active) return;
-            release();
-            const objectUrl = URL.createObjectURL(blob);
-            objectUrlRef.current = objectUrl;
-            setPlayUrl(objectUrl);
-            return;
-          }
-        } catch {
-          // 取り出せなければサーバーから読む。
-        }
-      }
-      if (!active) return;
-      release();
-      setPlayUrl(url);
-    };
-    void resolve();
-    return () => {
-      active = false;
-    };
-  }, [currentTrack?.url]);
-
-  // 曲を切り替えたときは、読み込みが終わってから鳴らす。
-  useEffect(() => {
-    if (!playUrl || !wantPlayRef.current) return;
-    wantPlayRef.current = false;
-    const audio = audioRef.current;
-    if (!audio) return;
-    void audio.play().catch(() => setIsPlaying(false));
-  }, [playUrl]);
-
-  // 置き場の曲を読みに行く(合言葉があるときだけ)。
-  useEffect(() => {
-    if (!syncEnabled) return;
-    let active = true;
-    const load = () => {
-      fetchMusicTracks(syncKey)
-        .then((result) => {
-          if (!active || !result.ok) return;
-          setServerTracks((current) => {
-            const same =
-              current.length === result.tracks.length &&
-              current.every((track, index) => track.id === result.tracks[index]?.id);
-            return same ? current : result.tracks;
-          });
-          setMusicPlaylists((current) => {
-            const same = JSON.stringify(current) === JSON.stringify(result.playlists);
-            return same ? current : result.playlists;
-          });
-          setActivePlaylistId(result.activePlaylistId);
-          writeStoredLibrary({
-            tracks: result.tracks,
-            playlists: result.playlists,
-            activePlaylistId: result.activePlaylistId,
-          });
-        })
-        .catch(() => {
-          // 圏外などは次の周期に任せる。
-        });
-    };
-    load();
-    const timer = window.setInterval(load, MUSIC_POLL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [syncEnabled, syncKey]);
-
-  // スマホから再生を頼まれたら、こちらの音楽は止める(音が二重にならないように)。
-  useEffect(() => {
-    if (carPlaying) audioRef.current?.pause();
-  }, [carPlaying]);
-
-  // プレイリストを切り替えられたら、その1曲目から始める。
-  useEffect(() => {
-    setTrackIndex(0);
-  }, [activePlaylistId]);
-
-  // 曲が減ったときに、選択位置が範囲の外へ出ないようにする。
-  useEffect(() => {
-    setTrackIndex((current) =>
-      playlistTracks.length === 0
-        ? 0
-        : Math.min(current, playlistTracks.length - 1),
-    );
-  }, [playlistTracks.length]);
-
-  const playTrack = (index: number, autoPlay = true) => {
-    if (!playlistTracks.length) return;
-    const next = (index + playlistTracks.length) % playlistTracks.length;
-    setTrackIndex(next);
-    if (!autoPlay) return;
-    // 曲の読み込み先が決まってから鳴らす(貯めた曲は端末の中から読む)。
-    wantPlayRef.current = true;
-  };
-
-  /** 車の画面からプレイリストを切り替える(スマホにも反映される)。 */
-  const selectPlaylist = (id: string) => {
-    if (id === activePlaylistId) return;
-    setActivePlaylistId(id);
-    setTrackIndex(0);
-    if (!syncEnabled) return;
-    void saveMusicPlaylists(syncKey, musicPlaylists, id).catch(() => undefined);
-  };
-
-  const toggleMusic = () => {
-    const audio = audioRef.current;
-    if (!audio || !currentTrack) return;
-    if (audio.paused) {
-        void audio.play().catch(() => setIsPlaying(false));
-    } else {
-      audio.pause();
-    }
-  };
-
   const stopPairingTimer = () => {
     if (pairingTimerRef.current !== null) {
       window.clearInterval(pairingTimerRef.current);
@@ -1698,117 +1417,6 @@ export default function Home() {
       amountYen: "",
     });
   };
-
-  // 音楽プレイヤーの中身。ホームとメーターの両方で同じものを出す。
-  const musicPanel = (
-    <>
-                <header>
-                  <small>
-                    {activePlaylist ? activePlaylist.name : "MUSIC"}
-                    {savingCount > 0 ? ` · 保存中 ${savingCount}` : ""}
-                  </small>
-                  <b>
-                    {playlistTracks.length
-                      ? `${trackIndex + 1} / ${playlistTracks.length}`
-                      : "NO TRACK"}
-                  </b>
-                </header>
-                <p className="media-title">
-                  {currentTrack
-                    ? currentTrack.title
-                    : "スマホの設定「音源フォルダ」に曲を入れてください"}
-                </p>
-                <div className="media-status">
-                  <span className={isPlaying ? "is-playing" : undefined}>
-                    <i aria-hidden="true" />
-                    {currentTrack
-                      ? isPlaying
-                        ? "PLAYING"
-                        : "PAUSED"
-                      : "STOPPED"}
-                    {currentTrack && savedTracks.has(currentTrack.url) ? (
-                      <b title="この端末に保存済み(通信なしで鳴ります)">SAVED</b>
-                    ) : null}
-                  </span>
-                  <em>
-                    {formatMusicTime(audioTime)} / {formatMusicTime(audioDuration)}
-                  </em>
-                </div>
-                <div
-                  className="media-progress"
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={Math.round(audioDuration)}
-                  aria-valuenow={Math.round(audioTime)}
-                >
-                  <i
-                    style={{
-                      width: `${audioDuration > 0 ? Math.min(100, (audioTime / audioDuration) * 100) : 0}%`,
-                    }}
-                  />
-                </div>
-                <div className="media-controls">
-                  <button
-                    type="button"
-                    onClick={() => playTrack(trackIndex - 1)}
-                    disabled={!currentTrack}
-                    aria-label="前の曲"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M7 5v14M20 5 9 12l11 7z" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    className="is-primary"
-                    onClick={toggleMusic}
-                    disabled={!currentTrack}
-                    aria-label={isPlaying ? "一時停止" : "再生"}
-                  >
-                    {isPlaying ? (
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M8 5v14M16 5v14" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M7 4.5 20 12 7 19.5z" />
-                      </svg>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => playTrack(trackIndex + 1)}
-                    disabled={!currentTrack}
-                    aria-label="次の曲"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M17 5v14M4 5l11 7-11 7z" />
-                    </svg>
-                  </button>
-                </div>
-                {musicPlaylists.length ? (
-                  <div className="media-lists" aria-label="プレイリスト">
-                    <button
-                      type="button"
-                      className={activePlaylistId === "" ? "is-active" : undefined}
-                      onClick={() => selectPlaylist("")}
-                    >
-                      すべて
-                    </button>
-                    {musicPlaylists.map((list) => (
-                      <button
-                        key={list.id}
-                        type="button"
-                        className={activePlaylistId === list.id ? "is-active" : undefined}
-                        onClick={() => selectPlaylist(list.id)}
-                      >
-                        {list.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-    </>
-  );
 
   if (!hasStarted) {
     return (
@@ -2179,13 +1787,6 @@ export default function Home() {
                   <p><strong>{obdData.voltage?.toFixed(1) ?? "—"}</strong><em>V</em></p>
                   <span>BATTERY SYSTEM</span>
                 </article>
-                {/* 右下のYouTube。スマホから指定された曲を鳴らしている間は、
-                    右下に出るプレイヤーと重なるので出さない(音も二重になる)。 */}
-                {carPlaying ? null : (
-                  <article className="media-card" aria-label="音楽プレイヤー">
-                    {musicPanel}
-                  </article>
-                )}
               </aside>
               </section>
           </main>
@@ -2324,74 +1925,6 @@ export default function Home() {
           安全運転を最優先してください
         </footer>
 
-        {/* 音の実体。画面を切り替えても止まらないよう、ここに1つだけ置く。 */}
-        <audio
-          ref={audioRef}
-          src={playUrl ?? undefined}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => playTrack(trackIndex + 1)}
-          onError={() => setIsPlaying(false)}
-          onTimeUpdate={(event) => setAudioTime(event.currentTarget.currentTime)}
-          onLoadedMetadata={(event) => {
-            const length = event.currentTarget.duration;
-            setAudioDuration(Number.isFinite(length) ? length : 0);
-            setAudioTime(0);
-          }}
-        />
-
-        {/* メーター表示中でも消えないよう、画面の切り替えとは別のところに置く。
-            ここで消すと iframe が作り直されて音が止まってしまう。 */}
-        {carPlaying ? (
-          <aside
-            className={`car-player${carPlaying.collapsed ? " is-collapsed" : ""}`}
-            aria-label="スマホから指定された音楽"
-          >
-            {/* 畳んでいる間も iframe は残す。消すと音まで止まってしまう。 */}
-            <iframe
-              key={carPlaying.reloadKey}
-              src={`https://www.youtube.com/embed/videoseries?list=${carPlaying.playlistId}&autoplay=1&playsinline=1&rel=0&loop=1&controls=0&iv_load_policy=3&modestbranding=1&fs=0&disablekb=1`}
-              title={`${carPlaying.label || "MUSIC"} プレイリスト`}
-              allow="autoplay; encrypted-media; picture-in-picture"
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-            {carPlaying.collapsed ? (
-              <button
-                type="button"
-                className="car-player-badge"
-                aria-label={`再生中: ${carPlaying.label || "MUSIC"} の操作を開く`}
-                onClick={() =>
-                  setCarPlaying((current) =>
-                    current ? { ...current, collapsed: false } : current,
-                  )
-                }
-              >
-                MUSIC
-              </button>
-            ) : (
-              <>
-                <span className="car-player-name">{carPlaying.label || "MUSIC"}</span>
-                <div className="car-player-actions">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCarPlaying((current) =>
-                        current
-                          ? { ...current, reloadKey: Date.now(), collapsed: true }
-                          : current,
-                      )
-                    }
-                  >
-                    再生
-                  </button>
-                  <button type="button" onClick={() => setCarPlaying(null)}>
-                    停止
-                  </button>
-                </div>
-              </>
-            )}
-          </aside>
-        ) : null}
 
       </div>
 
