@@ -1787,6 +1787,31 @@ export default function Home() {
                   <p><strong>{obdData.voltage?.toFixed(1) ?? "—"}</strong><em>V</em></p>
                   <span>BATTERY SYSTEM</span>
                 </article>
+                {/* 右下はGoogleマップの起動ボタン。行き先は「DEST」で選んだもの。 */}
+                <button
+                  type="button"
+                  className="green-navi-card green-card-button"
+                  onClick={() =>
+                    navTarget &&
+                    void beginNavigation(navTarget.destination, "DESTINATION")
+                  }
+                  disabled={!navTarget}
+                  aria-label={
+                    navTarget
+                      ? `${navTarget.note}のナビをGoogleマップで開始する`
+                      : "目的地が設定されていません"
+                  }
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
+                    <circle cx="12" cy="10" r="2.6" />
+                  </svg>
+                  <span className="green-navi-text">
+                    <small>START NAVI</small>
+                    <strong>ナビ開始</strong>
+                    <em>{navTarget ? navTarget.label : "NO DEST"}</em>
+                  </span>
+                </button>
               </aside>
               </section>
           </main>

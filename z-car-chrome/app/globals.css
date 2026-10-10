@@ -6536,6 +6536,85 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 音楽プレイヤーをやめたので、残りの計器で塔を下まで埋める。 */
 #app.is-fullscreen .green-drive-panel > article { flex-grow: 1; }
 
+/* 右下のナビ開始ボタン(Googleマップを開く)。
+   計器の読みではなく操作なので、少し明るくして押せると分かるようにする。 */
+#app.is-fullscreen .green-drive-panel .green-navi-card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px 11px 14px;
+  box-shadow: inset 3px 0 var(--turquoise-main);
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card svg {
+  flex: 0 0 auto;
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: #8dffa0;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.green-navi-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  line-height: 1;
+  text-align: left;
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card small {
+  color: #4f9a58;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .22em;
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card strong {
+  color: #ecfff0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card em {
+  overflow: hidden;
+  color: #7fd98d;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card:active {
+  background: rgba(93, 226, 208, .12);
+}
+
+#app.is-fullscreen .green-drive-panel .green-navi-card:disabled {
+  box-shadow: inset 3px 0 rgba(111, 224, 126, .22);
+  cursor: default;
+  opacity: .45;
+}
+
+/* 縦が狭いときは、アイコンと文字を少し小さくする。 */
+@media (max-height: 520px) {
+  #app.is-fullscreen .green-drive-panel .green-navi-card {
+    gap: 9px;
+    padding: 8px 10px 8px 12px;
+  }
+  #app.is-fullscreen .green-drive-panel .green-navi-card svg { width: 19px; height: 19px; }
+  #app.is-fullscreen .green-drive-panel .green-navi-card strong { font-size: 15px; }
+  #app.is-fullscreen .green-drive-panel .green-navi-card em { font-size: 7px; }
+}
+
 /* 右のレールだけ 1.2 倍に広げる(左と中央のゲージはそのまま)。 */
 #app.is-fullscreen .green-nav-cluster {
   --green-rail-left: 196px;
