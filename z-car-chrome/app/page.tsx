@@ -969,6 +969,11 @@ export default function Home() {
   const solarPointX = 4 + 82 * (solarProgress ?? 0.5);
   const solarPointY = 24 - 22 * Math.sin(Math.PI * (solarProgress ?? 0.5));
   const obdStatusLabelEn = obdConnectionLabel;
+  // OBD2がつながっている間だけ、機器の名前を角に出す。
+  const obdConnected =
+    obdStatus === "live" ||
+    obdStatus === "connected" ||
+    obdStatus === "initializing";
   // メーターはどちらのテーマも四隅の操作だけで完結するので、操作用の
   // 上のバーは出さず、状態だけの細いバーにする。
   const hideTopbar = !showFuel;
@@ -1566,7 +1571,8 @@ export default function Home() {
                     className={`gauge-corner gauge-corner-tr obd-${obdStatus}`}
                     onClick={() => void connectObd()}
                   >
-                    <small>VEHICLE</small>
+                    {/* つながったら、Bluetoothの一覧に出ているその機器の名前を出す。 */}
+                    <small>{obdConnected ? obdDeviceName : "VEHICLE"}</small>
                     <b>OBD2</b>
                   </button>
                   <button
