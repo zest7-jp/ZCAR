@@ -379,6 +379,7 @@ export default function Home() {
     connectionLabel: obdConnectionLabel,
     errorMessage: obdErrorMessage,
     connect: connectObd,
+    autoSupported: obdAutoSupported,
   } = useObd2();
   const [displaySpeed, setDisplaySpeed] = useState<number | null>(null);
   const [fuelTripKm, setFuelTripKm] = useState(0);
@@ -1013,7 +1014,9 @@ export default function Home() {
                 ? "非対応"
                 : obdStatus === "error" || obdStatus === "disconnected"
                   ? "信号消失"
-                  : "待機",
+                  : obdAutoSupported === false
+                    ? "手動"
+                    : "待機",
       stateEn:
         obdStatus === "live"
           ? "LIVE DATA"
@@ -1025,7 +1028,9 @@ export default function Home() {
                 ? "NOT AVAIL"
                 : obdStatus === "error" || obdStatus === "disconnected"
                   ? "NO SIGNAL"
-                  : "STANDBY",
+                  : obdAutoSupported === false
+                    ? "MANUAL ONLY"
+                    : "STANDBY",
       tone:
         obdStatus === "live"
           ? "ok"

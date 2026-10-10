@@ -176,6 +176,12 @@ export function useObd2() {
   const [connectionLabel, setConnectionLabel] = useState("OBD2 STANDBY");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  /**
+   * 押さずにつなげる環境かどうか。
+   * Chrome の getDevices() があるかで判断する(flagが要る実験機能)。
+   * null は「まだ調べていない」。
+   */
+  const [autoSupported, setAutoSupported] = useState<boolean | null>(null);
 
   const sessionRef = useRef(0);
   const connectingRef = useRef(false);
@@ -798,6 +804,11 @@ export function useObd2() {
     statusRef.current = status;
   }, [status]);
 
+  useEffect(() => {
+    const bluetooth = (navigator as BluetoothNavigator).bluetooth;
+    setAutoSupported(typeof bluetooth?.getDevices === "function");
+  }, []);
+
   // 起動して少ししたら、覚えている機器に自動でつなぎに行く。
   // つながらなければ少し待ってまた試す(上限あり)。
   useEffect(() => {
@@ -829,6 +840,7 @@ export function useObd2() {
 
   return {
     status,
+    autoSupported,
     metrics,
     deviceName,
     connectionLabel,
