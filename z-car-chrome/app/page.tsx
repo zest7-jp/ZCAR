@@ -379,6 +379,7 @@ export default function Home() {
     connectionLabel: obdConnectionLabel,
     errorMessage: obdErrorMessage,
     connect: connectObd,
+    autoState: obdAutoState,
   } = useObd2();
   const [displaySpeed, setDisplaySpeed] = useState<number | null>(null);
   const [fuelTripKm, setFuelTripKm] = useState(0);
@@ -1013,7 +1014,13 @@ export default function Home() {
                 ? "非対応"
                 : obdStatus === "error" || obdStatus === "disconnected"
                   ? "信号消失"
-                  : "待機",
+                  : obdAutoState === "unsupported"
+                    ? "手動"
+                    : obdAutoState === "no-device"
+                      ? "未登録"
+                      : obdAutoState === "retrying"
+                        ? "再試行"
+                        : "待機",
       stateEn:
         obdStatus === "live"
           ? "LIVE DATA"
@@ -1025,7 +1032,13 @@ export default function Home() {
                 ? "NOT AVAIL"
                 : obdStatus === "error" || obdStatus === "disconnected"
                   ? "NO SIGNAL"
-                  : "STANDBY",
+                  : obdAutoState === "unsupported"
+                    ? "MANUAL ONLY"
+                    : obdAutoState === "no-device"
+                      ? "NOT PAIRED"
+                      : obdAutoState === "retrying"
+                        ? "AUTO RETRY"
+                        : "STANDBY",
       tone:
         obdStatus === "live"
           ? "ok"
@@ -1396,7 +1409,10 @@ export default function Home() {
 
         {/* 操作用のバーのかわりに、状態だけを出す細いバー。 */}
         {hideTopbar && (
-          <header className="meter-status" aria-label="接続の状態">
+          <header
+            className={`meter-status${canFullscreen && !isFullscreen ? " has-full" : ""}`}
+            aria-label="接続の状態"
+          >
             {/* ナビから戻ると全画面が解除されるので、押して戻せるようにする。
                 すでに全画面なら出さない。 */}
             {canFullscreen && !isFullscreen ? (
@@ -1412,6 +1428,13 @@ export default function Home() {
                 <span>FULL</span>
               </button>
             ) : null}
+            {/* 帯の空いているところに、OBD2のいまの中身をそのまま出す。
+                つながらないときの手がかりにする。 */}
+            <span className="meter-status-detail" aria-hidden="true">
+              {obdConnected ? `${obdDeviceName} · ` : ""}
+              {obdConnectionLabel}
+              {obdErrorMessage ? ` · ${obdErrorMessage}` : ""}
+            </span>
             {meterStatusItems.map((item) => (
               <span key={item.key} className={`meter-status-item is-${item.tone}`}>
                 <i aria-hidden="true" />
