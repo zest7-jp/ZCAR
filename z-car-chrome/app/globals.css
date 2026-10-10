@@ -6950,6 +6950,85 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 .dest-choices button.is-active b { color: #6fe3ea; }
 
+/* 目的地ダイアログの「選ぶ / 場所を直す」切り替え。 */
+.dest-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dest-tabs button {
+  padding: 10px 8px;
+  border: 1px solid #2c3540;
+  border-radius: 10px;
+  background: #131a20;
+  color: #8b97a3;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dest-tabs button.is-active {
+  border-color: #2f7f84;
+  background: linear-gradient(180deg, rgba(20, 46, 50, .9), rgba(9, 18, 20, .95));
+  color: #6fe3ea;
+}
+
+/* 枠の番号は、名前の右に小さく添える。 */
+.dest-choices button b i {
+  margin-left: 8px;
+  color: #6c7a86;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* 場所を直す画面。車の画面で打ちやすいよう、入力欄は大きめ。 */
+.dest-editor { display: grid; gap: 10px; }
+
+.dest-editor .settings-hint { margin: 0; }
+
+.dest-editor label {
+  display: grid;
+  gap: 6px;
+  color: #8b97a3;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dest-editor input {
+  width: 100%;
+  padding: 12px 12px;
+  border: 1px solid #2c3540;
+  border-radius: 10px;
+  background: #0d1419;
+  color: #e7f2f4;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.dest-editor input:focus {
+  border-color: #2f7f84;
+  outline: none;
+}
+
+.dest-editor .two-actions { margin-top: 2px; }
+
+.dest-clear {
+  margin-top: 2px;
+  padding: 10px;
+  border: 1px solid #4a2f33;
+  border-radius: 10px;
+  background: transparent;
+  color: #c98a8a;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* --- スマホ設定: 車と接続(カメラでQRを読む) --- */
 .zsetup-scan {
   width: 100%;

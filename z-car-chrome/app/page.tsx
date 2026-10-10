@@ -9,6 +9,8 @@ import {
   fetchSharedSettings,
   generateSyncKey,
   MIN_SYNC_KEY_LENGTH,
+  MAX_DESTINATION_LABEL,
+  MAX_DESTINATION_TEXT,
   PHONE_LONG_EDGE_MAX,
   sanitizeSyncedSettings,
   pickSyncedFields,
@@ -414,6 +416,10 @@ export default function Home() {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const destDialog = useRef<HTMLDialogElement>(null);
+  // 目的地ダイアログ: 「選ぶ」か「編集」か。編集中はどの場所かも覚える。
+  const [destMode, setDestMode] = useState<"pick" | "edit">("pick");
+  const [destEditKey, setDestEditKey] = useState<string | null>(null);
+  const [destDraft, setDestDraft] = useState({ label: "", destination: "" });
   const connectDialog = useRef<HTMLDialogElement>(null);
   const settingsDialog = useRef<HTMLDialogElement>(null);
   // QRを出しっぱなしにしない(合言葉そのものなので)。表示してから
@@ -1256,6 +1262,74 @@ export default function Home() {
     }
   };
 
+  // 車の画面から直せる場所。出発・帰宅と、登録枠の1〜5。
+  const destSlots = [
+    {
+      key: "work",
+      label: "DEPART",
+      note: "出発(店舗)",
+      // 「選ぶ」側と同じ中身を出す(未入力なら1番・2番で代用している)。
+      destination: workDestination,
+      canRename: false,
+    },
+    {
+      key: "home",
+      label: "RETURN",
+      note: "帰宅",
+      destination: homeDestination,
+      canRename: false,
+    },
+    ...mapDestinations.map((entry, index) => ({
+      key: `dest-${index}`,
+      label: entry.label.trim() || `${index + 1}番`,
+      note: `${index + 1}番`,
+      destination: entry.destination.trim(),
+      canRename: true,
+    })),
+  ];
+
+  const destEditSlot = destSlots.find((slot) => slot.key === destEditKey) ?? null;
+
+  const openDestEditor = (slot: (typeof destSlots)[number]) => {
+    setDestEditKey(slot.key);
+    setDestDraft({
+      label: slot.canRename ? slot.label : "",
+      destination: slot.destination,
+    });
+  };
+
+  /** 編集した場所を保存する。住所を空にすると、その枠は未登録に戻る。 */
+  const saveDestDraft = (clear = false) => {
+    const key = destEditKey;
+    if (!key) return;
+    const destination = clear
+      ? ""
+      : destDraft.destination.trim().slice(0, MAX_DESTINATION_TEXT);
+    const label = clear
+      ? ""
+      : destDraft.label.trim().slice(0, MAX_DESTINATION_LABEL);
+
+    setSettings((current) => {
+      if (key === "work") return { ...current, storeDest: destination };
+      if (key === "home") return { ...current, homeDest: destination };
+      const index = Number.parseInt(key.slice("dest-".length), 10);
+      if (!Number.isInteger(index)) return current;
+      return {
+        ...current,
+        mapDestinations: current.mapDestinations.map((entry, position) =>
+          position === index ? { label, destination } : entry,
+        ),
+      };
+    });
+    setDestEditKey(null);
+  };
+
+  const closeDestDialog = () => {
+    destDialog.current?.close();
+    setDestMode("pick");
+    setDestEditKey(null);
+  };
+
   const beginNavigation = async (
     destination: string,
     destinationLabel: RouteEta["destination"],
@@ -2009,31 +2083,129 @@ export default function Home() {
 
       <dialog ref={destDialog}>
         <div className="dialog-card dest-card">
-          <h2>目的地を選ぶ</h2>
-          {navChoices.length ? (
-            <div className="dest-choices">
-              {navChoices.map((choice) => (
+          <h2>目的地</h2>
+          <div className="dest-tabs">
+            <button
+              type="button"
+              className={destMode === "pick" ? "is-active" : undefined}
+              onClick={() => {
+                setDestMode("pick");
+                setDestEditKey(null);
+              }}
+            >
+              選ぶ
+            </button>
+            <button
+              type="button"
+              className={destMode === "edit" ? "is-active" : undefined}
+              onClick={() => setDestMode("edit")}
+            >
+              場所を直す
+            </button>
+          </div>
+
+          {destMode === "pick" ? (
+            navChoices.length ? (
+              <div className="dest-choices">
+                {navChoices.map((choice) => (
+                  <button
+                    key={choice.key}
+                    type="button"
+                    className={choice.key === navTarget?.key ? "is-active" : undefined}
+                    onClick={() => {
+                      setNavTargetKey(choice.key);
+                      closeDestDialog();
+                    }}
+                  >
+                    <b>{choice.label}</b>
+                    <small>{choice.destination}</small>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="settings-hint">
+                目的地がまだありません。「場所を直す」から登録してください。
+              </p>
+            )
+          ) : destEditSlot ? (
+            <form
+              className="dest-editor"
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveDestDraft();
+              }}
+            >
+              <p className="settings-hint">{destEditSlot.note} の場所を直します</p>
+              {destEditSlot.canRename ? (
+                <label>
+                  名前({MAX_DESTINATION_LABEL}文字まで)
+                  <input
+                    type="text"
+                    value={destDraft.label}
+                    maxLength={MAX_DESTINATION_LABEL}
+                    placeholder="例: 鳥"
+                    onChange={(event) =>
+                      setDestDraft((current) => ({
+                        ...current,
+                        label: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ) : null}
+              <label>
+                住所、または場所の名前
+                <input
+                  type="text"
+                  value={destDraft.destination}
+                  maxLength={MAX_DESTINATION_TEXT}
+                  placeholder="例: 大阪府枚方市出口3丁目1-1"
+                  onChange={(event) =>
+                    setDestDraft((current) => ({
+                      ...current,
+                      destination: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <div className="two-actions">
+                <button type="button" onClick={() => setDestEditKey(null)}>
+                  やめる
+                </button>
+                <button type="submit" disabled={!destDraft.destination.trim()}>
+                  保存する
+                </button>
+              </div>
+              {destEditSlot.destination ? (
                 <button
-                  key={choice.key}
                   type="button"
-                  className={choice.key === navTarget?.key ? "is-active" : undefined}
-                  onClick={() => {
-                    setNavTargetKey(choice.key);
-                    destDialog.current?.close();
-                  }}
+                  className="dest-clear"
+                  onClick={() => saveDestDraft(true)}
                 >
-                  <b>{choice.label}</b>
-                  <small>{choice.destination}</small>
+                  この場所を消す
+                </button>
+              ) : null}
+            </form>
+          ) : (
+            <div className="dest-choices">
+              {destSlots.map((slot) => (
+                <button
+                  key={slot.key}
+                  type="button"
+                  onClick={() => openDestEditor(slot)}
+                >
+                  <b>
+                    {slot.label}
+                    <i>{slot.note}</i>
+                  </b>
+                  <small>{slot.destination || "未登録"}</small>
                 </button>
               ))}
             </div>
-          ) : (
-            <p className="settings-hint">
-              目的地がまだありません。スマホの設定「ナビ」から登録してください。
-            </p>
           )}
+
           <div className="two-actions">
-            <button onClick={() => destDialog.current?.close()}>閉じる</button>
+            <button onClick={closeDestDialog}>閉じる</button>
           </div>
         </div>
       </dialog>
