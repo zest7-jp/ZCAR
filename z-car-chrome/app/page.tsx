@@ -12,6 +12,8 @@ import {
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
   MAX_PLACES,
+  METER_THEMES,
+  meterThemeInfo,
   MIN_SYNC_KEY_LENGTH,
   NEW_PLACE_KEY,
   PHONE_LONG_EDGE_MAX,
@@ -1036,9 +1038,10 @@ export default function Home() {
     obdStatus === "live" ||
     obdStatus === "connected" ||
     obdStatus === "initializing";
-  // メーターはどちらのテーマも四隅の操作だけで完結するので、操作用の
+  // メーターはどの色も四隅の操作だけで完結するので、操作用の
   // 上のバーは出さず、状態だけの細いバーにする。
   const hideTopbar = !showFuel;
+  const activeTheme = meterThemeInfo(settings.meterTheme);
 
   // 上のバーに出す4つの状態。
   // 見た目は前のオレンジ計器と同じ「日本語 + 英語」の二段組み。
@@ -1142,8 +1145,8 @@ export default function Home() {
       key: "theme",
       nameJa: "配色",
       nameEn: "THEME",
-      stateJa: settings.meterTheme === "eva" ? "オレンジ" : "ターコイズ",
-      stateEn: settings.meterTheme === "eva" ? "ORANGE" : "TURQUOISE",
+      stateJa: activeTheme.shortJa,
+      stateEn: activeTheme.shortEn,
       tone: "ok",
       pressLabel: "メーターの色を選ぶ",
     },
@@ -1490,7 +1493,7 @@ export default function Home() {
     <div className="screen-shell">
       <div
         id="app"
-        className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}meter-theme-${settings.meterTheme}`}
+        className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}meter-theme-${activeTheme.id}${activeTheme.tinted ? ` meter-tinted zt-${activeTheme.id}` : ""}`}
         aria-label="Z CAR"
       >
         {/* ターコイズのメーターは四隅の操作だけで完結するので、上のバーは
@@ -2074,35 +2077,31 @@ export default function Home() {
               CLOSE
             </button>
           </header>
+          {/* 8色。どれも同じ盤面で、ターコイズとオレンジは専用の CSS、
+              ほかは globals.css の .zt-<名前> の色を共通の決まりで使う。 */}
           <div className="meter-theme-options">
-            <button
-              type="button"
-              className={settings.meterTheme === "green" ? "selected" : undefined}
-              onClick={() => {
-                setSettings({ ...settings, meterTheme: "green" });
-                themeDialog.current?.close();
-              }}
-            >
-              <i className="theme-preview green" aria-hidden="true">
-                <span className="turquoise-label">TURQUOISE BLUE</span>
-              </i>
-              <span><b>TURQUOISE BLUE</b><small>TURQUOISE COCKPIT THEME</small></span>
-              <em>{settings.meterTheme === "green" ? "ACTIVE" : "SELECT"}</em>
-            </button>
-            <button
-              type="button"
-              className={settings.meterTheme === "eva" ? "selected eva" : "eva"}
-              onClick={() => {
-                setSettings({ ...settings, meterTheme: "eva" });
-                themeDialog.current?.close();
-              }}
-            >
-              <i className="theme-preview eva" aria-hidden="true">
-                <span>PATTERN ORANGE</span>
-              </i>
-              <span><b>PATTERN ORANGE</b><small>COMMAND ROOM COCKPIT</small></span>
-              <em>{settings.meterTheme === "eva" ? "ACTIVE" : "SELECT"}</em>
-            </button>
+            {METER_THEMES.map((theme) => {
+              const selected = activeTheme.id === theme.id;
+              const tint = theme.tinted ? ` is-tinted zt-${theme.id}` : "";
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className={`${theme.id}${tint}${selected ? " selected" : ""}`}
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setSettings({ ...settings, meterTheme: theme.id });
+                    themeDialog.current?.close();
+                  }}
+                >
+                  <i className={`theme-preview ${theme.id}${tint}`} aria-hidden="true">
+                    <span>{theme.name}</span>
+                  </i>
+                  <span><b>{theme.name}</b><small>{theme.captionEn}</small></span>
+                  <em>{selected ? "ACTIVE" : "SELECT"}</em>
+                </button>
+              );
+            })}
           </div>
         </div>
       </dialog>

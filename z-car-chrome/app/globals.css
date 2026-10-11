@@ -3532,7 +3532,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: inset 0 0 12px rgba(55, 205, 80, .08), 0 0 12px rgba(55, 205, 80, .08);
 }
 
-.meter-theme-dialog { width: min(620px, 92vw); }
+.meter-theme-dialog { width: min(780px, 94vw); }
 .meter-theme-dialog > header {
   display: flex;
   align-items: center;
@@ -3559,9 +3559,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 .meter-theme-options {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 15px;
+}
+@media (max-width: 720px) {
+  .meter-theme-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .meter-theme-options > button {
@@ -5267,8 +5270,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .theme-preview.green span {
   color: #5af1f4;
   text-shadow: 0 0 14px rgba(39, 220, 227, .65);
-}
-.theme-preview.green .turquoise-label {
   font-size: 11px;
   letter-spacing: .12em;
   white-space: nowrap;
@@ -5355,10 +5356,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #8be9ed;
   box-shadow: inset 0 0 12px rgba(39, 204, 212, .1), 0 0 10px rgba(39, 204, 212, .06);
 }
-
-/* ZEST aurora-violet: turquoise cockpit layout re-tinted with a violet neon
-   palette. The #app element carries meter-theme-green alongside
-   meter-theme-aurora so all structural rules apply;
 
 /* PATTERN ORANGE: command-room cockpit built from scratch.
    Black ground, signal orange, hazard stripes, scanlines, blinking alerts. */
@@ -5459,22 +5456,253 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   white-space: nowrap;
 }
 
-/* AURORA VIOLET driving cockpit: navigation map + big speed for glancing
-   while driving; quiet vitals that only light up on anomalies; a bottom
-   band with the ambient info (clock, sun, weather, world time{
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 12px 14px 10px;
-  color: #efe4ff;
-  font-weight: 900;
-  overflow: hidden;
+/* ------------------------------------------------------------------
+   色を足したテーマ(ブルー・バイオレット・ピンク・レッド・グリーン・シルバー)
+   盤面はターコイズと同じものを使い、計器全体に filter をかけて色を変える。
+   計器の部品は緑で塗ってあり、ターコイズはそれを +48度、オレンジは -90度
+   回したもの。ここの色も同じやり方で作る。
+   テーマごとの色の値は .zt-<名前> にまとめ、その下の共通の決まりが使う。
+   .zt-<名前> は、車の #app・色選びのボタン・スマホの画面とボタンに付ける。
+   ------------------------------------------------------------------ */
+/* COBALT BLUE */
+.zt-blue {
+  --zt-filter: hue-rotate(105deg) saturate(1.7);
+  --zt-rgb: 61, 145, 255;
+  --zt-accent: #3d91ff;
+  --zt-soft: #add1ff;
+  --zt-ink: #e0eeff;
+  --zt-text-hi: #9cb8dd;
+  --zt-text: #7d9cc5;
+  --zt-label-hi: #5585c3;
+  --zt-label: #4573b0;
+  --zt-faint: #6485af;
+  --zt-dim: #436898;
+  --zt-off: #617794;
+  --zt-dot: #2e4057;
+  --zt-muted: #7e91a9;
+  --zt-edge: #12478c;
+  --zt-swatch: #041225;
+  --zt-bg1: #040b14;
+  --zt-bg2: #020407;
+  --zt-field: #03060a;
+  --zt-panel: rgba(7, 12, 18, .88);
+  --zt-tabs: rgba(2, 4, 7, .86);
+  --zt-on-accent: #000c1c;
+}
+/* ULTRA VIOLET */
+.zt-violet {
+  --zt-filter: hue-rotate(140deg) saturate(1.6);
+  --zt-rgb: 173, 102, 255;
+  --zt-accent: #ad66ff;
+  --zt-soft: #d3adff;
+  --zt-ink: #efe0ff;
+  --zt-text-hi: #c0a4e0;
+  --zt-text: #a384c8;
+  --zt-label-hi: #8e5dc6;
+  --zt-label: #7c47b8;
+  --zt-faint: #8c6bb3;
+  --zt-dim: #7046a0;
+  --zt-off: #7e659a;
+  --zt-dot: #43305a;
+  --zt-muted: #9885ad;
+  --zt-edge: #4d1390;
+  --zt-swatch: #130425;
+  --zt-bg1: #0b0414;
+  --zt-bg2: #040207;
+  --zt-field: #06030a;
+  --zt-panel: rgba(12, 7, 18, .88);
+  --zt-tabs: rgba(4, 2, 7, .86);
+  --zt-on-accent: #0d001c;
+}
+/* NEON PINK */
+.zt-pink {
+  --zt-filter: hue-rotate(-157deg) saturate(1.6);
+  --zt-rgb: 255, 82, 191;
+  --zt-accent: #ff52bf;
+  --zt-soft: #ffade1;
+  --zt-ink: #ffe0f4;
+  --zt-text-hi: #d991bf;
+  --zt-text: #c072a3;
+  --zt-label-hi: #bf4a94;
+  --zt-label: #a54080;
+  --zt-faint: #aa5a8d;
+  --zt-dim: #8e3e71;
+  --zt-off: #8b5b79;
+  --zt-dot: #522b44;
+  --zt-muted: #a37592;
+  --zt-edge: #85115b;
+  --zt-swatch: #250419;
+  --zt-bg1: #14040e;
+  --zt-bg2: #070205;
+  --zt-field: #0a0307;
+  --zt-panel: rgba(18, 7, 14, .88);
+  --zt-tabs: rgba(7, 2, 5, .86);
+  --zt-on-accent: #1c0012;
+}
+/* CRIMSON RED */
+.zt-red {
+  --zt-filter: hue-rotate(-125deg) saturate(2.6);
+  --zt-rgb: 255, 61, 74;
+  --zt-accent: #ff3d4a;
+  --zt-soft: #ffadb3;
+  --zt-ink: #ffe0e2;
+  --zt-text-hi: #d99196;
+  --zt-text: #c07277;
+  --zt-label-hi: #bf4a52;
+  --zt-label: #a54047;
+  --zt-faint: #aa5a5f;
+  --zt-dim: #8e3e44;
+  --zt-off: #8b5b5e;
+  --zt-dot: #522b2e;
+  --zt-muted: #a37578;
+  --zt-edge: #851119;
+  --zt-swatch: #250406;
+  --zt-bg1: #140405;
+  --zt-bg2: #070202;
+  --zt-field: #0a0303;
+  --zt-panel: rgba(18, 7, 8, .88);
+  --zt-tabs: rgba(7, 2, 2, .86);
+  --zt-on-accent: #1c0002;
+}
+/* CLASSIC GREEN(計器のもとの色。ほとんど回さない) */
+.zt-classic {
+  --zt-filter: saturate(1.05);
+  --zt-rgb: 51, 255, 78;
+  --zt-accent: #33ff4e;
+  --zt-soft: #adffb8;
+  --zt-ink: #e0ffe4;
+  --zt-text-hi: #7ed389;
+  --zt-text: #61b86c;
+  --zt-label-hi: #3eb14e;
+  --zt-label: #399345;
+  --zt-faint: #509b5a;
+  --zt-dim: #367c40;
+  --zt-off: #517b56;
+  --zt-dot: #27492b;
+  --zt-muted: #66996d;
+  --zt-edge: #107a1e;
+  --zt-swatch: #042508;
+  --zt-bg1: #041406;
+  --zt-bg2: #020703;
+  --zt-field: #030a04;
+  --zt-panel: rgba(7, 18, 9, .88);
+  --zt-tabs: rgba(2, 7, 3, .86);
+  --zt-on-accent: #001c04;
+}
+/* ICE SILVER(色を抜いて、少しだけ青みを足す) */
+.zt-silver {
+  --zt-filter: grayscale(1) sepia(.25) hue-rotate(170deg) saturate(1.4) brightness(1.1);
+  --zt-rgb: 205, 214, 223;
+  --zt-accent: #cdd6df;
+  --zt-soft: #cdd6df;
+  --zt-ink: #ecf0f3;
+  --zt-text-hi: #b0b8bf;
+  --zt-text: #939ca4;
+  --zt-label-hi: #7a8794;
+  --zt-label: #6a7581;
+  --zt-faint: #7c858d;
+  --zt-dim: #606972;
+  --zt-off: #70757b;
+  --zt-dot: #3b4044;
+  --zt-muted: #8a8f94;
+  --zt-edge: #404d59;
+  --zt-swatch: #111418;
+  --zt-bg1: #0a0c0e;
+  --zt-bg2: #040505;
+  --zt-field: #060607;
+  --zt-panel: rgba(12, 13, 14, .88);
+  --zt-tabs: rgba(4, 5, 5, .86);
+  --zt-on-accent: #0b0e11;
 }
 
-/* The global footer rules hide fullscreen footers and force height 20px;
+/* 全画面の地の色と、計器にかける色。 */
+#app.meter-tinted.is-fullscreen {
+  background:
+    radial-gradient(circle at 50% 46%, rgba(var(--zt-rgb), .12), transparent 45%),
+    linear-gradient(145deg, var(--zt-bg1), var(--zt-bg2) 74%);
+}
+#app.meter-tinted.is-fullscreen .performance-cluster { filter: var(--zt-filter); }
+
+/* 四隅の文字は計器の中にあるので、緑で塗って盤面と一緒に色を回す(オレンジと同じ)。 */
+#app.meter-tinted.is-fullscreen .gauge-corner small,
+#app.meter-tinted.is-fullscreen .gauge-corner .gauge-corner-value em { color: #52c053; }
+#app.meter-tinted.is-fullscreen .gauge-corner b {
+  color: #e0ffe2;
+  text-shadow: 0 0 12px rgba(89, 255, 108, .45);
+}
+#app.meter-tinted.is-fullscreen .gauge-corner::before {
+  border-color: rgba(82, 224, 79, .5);
+}
+#app.meter-tinted.is-fullscreen .gauge-corner:active::before {
+  border-color: rgba(150, 255, 150, .95);
+}
+
+/* 上の状態バーと「更新」は計器の外にあるので、色は回らない。ここで直に指定する。 */
+#app.meter-tinted .meter-status { box-shadow: inset 0 -1px 0 rgba(var(--zt-rgb), .18); }
+#app.meter-tinted .meter-status-item + .meter-status-item::before {
+  background: rgba(var(--zt-rgb), .14);
+}
+#app.meter-tinted .meter-status-detail { color: var(--zt-dim); }
+#app.meter-tinted .meter-status-item i { background: var(--zt-dot); }
+#app.meter-tinted .meter-status-item small { color: var(--zt-label); }
+#app.meter-tinted .meter-status-item small span { color: var(--zt-label-hi); }
+#app.meter-tinted .meter-status-item b { color: var(--zt-text); }
+#app.meter-tinted .meter-status-item b span { color: var(--zt-text-hi); }
+#app.meter-tinted .meter-status-item.is-ok i {
+  background: var(--zt-accent);
+  box-shadow: 0 0 8px rgba(var(--zt-rgb), .8);
+}
+#app.meter-tinted .meter-status-item.is-ok b { color: var(--zt-soft); }
+#app.meter-tinted .meter-status-item.is-ok b span { color: var(--zt-ink); }
+/* 「捕捉中」などの注意は、どの色でも黄色のままにする。 */
+#app.meter-tinted .meter-status-item.is-warn i {
+  background: #e7b55a;
+  box-shadow: 0 0 8px rgba(231, 181, 90, .65);
+}
+#app.meter-tinted .meter-status-item.is-warn b { color: #d8bd87; }
+#app.meter-tinted .meter-status-item.is-warn b span { color: #f0d9a8; }
+#app.meter-tinted .meter-status-item.is-off i { background: var(--zt-dot); }
+#app.meter-tinted .meter-status-item.is-off small,
+#app.meter-tinted .meter-status-item.is-off small span,
+#app.meter-tinted .meter-status-item.is-off b,
+#app.meter-tinted .meter-status-item.is-off b span { color: var(--zt-off); }
+#app.meter-tinted .meter-status-item.is-button:active { background: rgba(var(--zt-rgb), .1); }
+#app.meter-tinted .meter-full-button {
+  border-color: rgba(var(--zt-rgb), .4);
+  color: var(--zt-soft);
+}
+#app.meter-tinted .meter-reload,
+#app.meter-tinted .meter-reload small span { color: var(--zt-label-hi); }
+#app.meter-tinted .meter-reload small { color: var(--zt-label); }
+#app.meter-tinted .meter-reload b { color: var(--zt-faint); }
+#app.meter-tinted .meter-reload:active {
+  background: rgba(var(--zt-rgb), .1);
+  color: var(--zt-soft);
+}
+
+/* 色選びのボタン(車) */
+.meter-theme-options > button.is-tinted.selected {
+  border-color: var(--zt-accent);
+  box-shadow: inset 0 0 0 1px rgba(var(--zt-rgb), .36);
+}
+.meter-theme-options > button.is-tinted small { color: var(--zt-label-hi); }
+.meter-theme-options > button.is-tinted em { color: var(--zt-accent); }
+.theme-preview.is-tinted {
+  border-color: var(--zt-edge);
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(var(--zt-rgb), .5) 31% 34%, transparent 35%),
+    radial-gradient(circle at 50% 50%, transparent 0 44%, rgba(var(--zt-rgb), .28) 45% 47%, transparent 48%),
+    linear-gradient(160deg, var(--zt-swatch), var(--zt-bg2) 72%);
+}
+.theme-preview.is-tinted span {
+  color: var(--zt-soft);
+  text-shadow: 0 0 14px rgba(var(--zt-rgb), .6);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .12em;
+  white-space: nowrap;
+}
 
 /* Turquoise Google Maps instrument finish */
 #app.is-fullscreen .green-gauge-map-window {
@@ -6745,6 +6973,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background-color: #070402;
 }
 
+/* 色を足したテーマ(ブルーなど)は、.zt-<名前> の色をそのまま使う。 */
+.zr.is-tinted {
+  --zr-accent: var(--zt-accent);
+  --zr-accent-strong: var(--zt-soft);
+  --zr-accent-rgb: var(--zt-rgb);
+  --zr-ink: var(--zt-ink);
+  --zr-muted: var(--zt-muted);
+  --zr-panel: var(--zt-panel);
+  --zr-field: var(--zt-field);
+  background-color: var(--zt-bg2);
+}
+
 .zr * { -webkit-tap-highlight-color: transparent; }
 
 /* --- 見出し: ロゴ --- */
@@ -6812,6 +7052,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   backdrop-filter: blur(10px);
 }
 .zr[data-theme="eva"] .zr-tabs { background: rgba(7, 4, 2, .86); }
+.zr.is-tinted .zr-tabs { background: var(--zt-tabs); }
 .zr-tabs button {
   position: relative;
   display: grid;
@@ -7028,6 +7269,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
 }
 .zr[data-theme="eva"] .zr-primary { color: #1c0b00; }
+.zr.is-tinted .zr-primary:enabled { color: var(--zt-on-accent); }
 .zr-primary:active { transform: translateY(1px); filter: brightness(1.06); }
 .zr-primary:disabled {
   background: rgba(var(--zr-accent-rgb), .14);
@@ -7265,6 +7507,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   --zr-theme-ring: rgba(255, 122, 26, .75);
   --zr-theme-ring-soft: rgba(255, 122, 26, .3);
   --zr-theme-bg: linear-gradient(160deg, #241104, #070301 72%);
+}
+.zr-theme.is-tinted {
+  --zr-theme-ring: rgba(var(--zt-rgb), .75);
+  --zr-theme-ring-soft: rgba(var(--zt-rgb), .3);
+  --zr-theme-bg: linear-gradient(160deg, var(--zt-swatch), var(--zt-bg2) 72%);
 }
 .zr-theme span { display: grid; gap: 5px; min-width: 0; }
 .zr-theme b { font-size: 14px; font-weight: 900; letter-spacing: .08em; }

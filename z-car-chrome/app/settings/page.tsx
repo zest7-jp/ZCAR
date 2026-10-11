@@ -10,6 +10,7 @@ import {
   MAX_PLACES,
   mergeFuelEntries,
   METER_THEMES,
+  meterThemeInfo,
   MIN_SYNC_KEY_LENGTH,
   NEW_PLACE_KEY,
   PHONE_LONG_EDGE_MAX,
@@ -383,6 +384,7 @@ export default function PhoneSettingsPage() {
   );
 
   // --- メーターの色 ---
+  const activeTheme = meterThemeInfo(draft.meterTheme);
   const chooseTheme = (id: MeterTheme) => {
     if (draft.meterTheme === id) return;
     setDraft((current) => ({ ...current, meterTheme: id }));
@@ -390,7 +392,11 @@ export default function PhoneSettingsPage() {
   };
 
   return (
-    <main className="zr" data-theme={draft.meterTheme} aria-busy={!ready}>
+    <main
+      className={`zr${activeTheme.tinted ? ` is-tinted zt-${activeTheme.id}` : ""}`}
+      data-theme={draft.meterTheme}
+      aria-busy={!ready}
+    >
       {pairedNotice ? (
         <button
           type="button"
@@ -727,7 +733,7 @@ export default function PhoneSettingsPage() {
               <button
                 key={theme.id}
                 type="button"
-                className={`zr-theme is-${theme.id}${active ? " is-active" : ""}`}
+                className={`zr-theme is-${theme.id}${theme.tinted ? ` is-tinted zt-${theme.id}` : ""}${active ? " is-active" : ""}`}
                 aria-pressed={active}
                 onClick={() => chooseTheme(theme.id)}
               >
