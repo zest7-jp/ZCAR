@@ -347,8 +347,10 @@ function WeatherGlyph({
   );
 }
 
-/** 曜日(日曜はじまり)。時計の上の日付と、一週間の帯に使う。 */
+/** 曜日(Date の getDay と同じ並び: 0 が日曜)。時計の上の日付に使う。 */
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
+/** 一週間の帯は月曜はじまりで並べる(WEEKDAYS_JA の番号)。 */
+const WEEK_STRIP_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 const BUILD_STAMP = (() => {
   const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
@@ -1652,7 +1654,7 @@ export default function Home() {
                       <b>{solarSunset ?? "--:--"}</b>
                     </span>
                   </div>
-                  {/* 今日の日付。曜日は光る札にして、下に一週間の帯(今日だけ点く)を添える。 */}
+                  {/* 今日の日付。曜日は光る札にして、下に一週間の帯(月曜はじまり・今日だけ点く)を添える。 */}
                   <div
                     className="solar-clock-today"
                     aria-label={`今日 ${todayMonthDay}（${todayWeekday}）`}
@@ -1664,9 +1666,12 @@ export default function Home() {
                     <small aria-hidden="true">{todayYear}</small>
                   </div>
                   <ol className="solar-clock-week" aria-hidden="true">
-                    {WEEKDAYS_JA.map((day, index) => (
-                      <li key={day} className={index === todayWeekdayIndex ? "is-today" : undefined}>
-                        {day}
+                    {WEEK_STRIP_ORDER.map((dayIndex) => (
+                      <li
+                        key={dayIndex}
+                        className={dayIndex === todayWeekdayIndex ? "is-today" : undefined}
+                      >
+                        {WEEKDAYS_JA[dayIndex]}
                       </li>
                     ))}
                   </ol>
