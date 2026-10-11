@@ -4,19 +4,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSharedSync } from "../hooks/use-shared-sync";
 import {
   defaults,
+  listNavChoices,
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
+  MAX_PLACES,
   mergeFuelEntries,
   METER_THEMES,
   MIN_SYNC_KEY_LENGTH,
+  NEW_PLACE_KEY,
   PHONE_LONG_EDGE_MAX,
   readSettings,
   readSyncKeyFromHash,
+  resolveStartTarget,
+  saveNavChoice,
   writeSettings,
   type FuelEntry,
   type MeterTheme,
+  type NavChoice,
   type Settings,
 } from "../settings-store";
+import { StarMark } from "../star-mark";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -42,6 +49,28 @@ const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "theme", ja: "メーター", en: "THEME" },
 ];
 
+/** 接続まわりの案内。英語を大きく、日本語は小さく添える。 */
+type Note = { en: string; ja: string; warn?: boolean };
+
+const SCAN_NOTES = {
+  starting: { en: "STARTING CAMERA", ja: "カメラを準備しています" },
+  aim: { en: "ALIGN THE QR CODE", ja: "車の画面のQRを枠に入れてください" },
+  blocked: { en: "CAMERA BLOCKED", ja: "設定でカメラを許可してください", warn: true },
+  foreign: { en: "NOT A Z CAR CODE", ja: "車の LINK PHONE で出るQRを読み取ってください", warn: true },
+} satisfies Record<string, Note>;
+
+/** つなぎ方の3ステップ。 */
+const LINK_STEPS: Note[] = [
+  { en: "TAP LINK PHONE", ja: "車の燃費画面か、DEST の画面の下にあります" },
+  { en: "SCAN THE QR", ja: "このスマホのカメラで読み取ります" },
+  { en: "SYNCED", ja: "給油・目的地・メーターの色がそろいます" },
+];
+
+/** QRを読む枠の四隅。 */
+const ScanCorners = () => (
+  <path className="zr-corners" d="M6 30V6h24M90 6h24v24M114 90v24H90M30 114H6V90" />
+);
+
 /** 給油履歴に出す日付(10.10 の形)。 */
 const shortDate = (date: string) => date.slice(5).replace("-", ".");
 
@@ -60,7 +89,7 @@ export default function PhoneSettingsPage() {
   const [pairedNotice, setPairedNotice] = useState(false);
   // カメラでQRを読み取る画面。
   const [scanOpen, setScanOpen] = useState(false);
-  const [scanNote, setScanNote] = useState<string | null>(null);
+  const [scanNote, setScanNote] = useState<Note | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   // 車載機のような大きい画面から来たかどうか。
@@ -148,7 +177,7 @@ export default function PhoneSettingsPage() {
   }, []);
 
   const startScan = async () => {
-    setScanNote("カメラを準備しています…");
+    setScanNote(SCAN_NOTES.starting);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
@@ -156,9 +185,9 @@ export default function PhoneSettingsPage() {
       });
       streamRef.current = stream;
       setScanOpen(true);
-      setScanNote("車の画面のQRを枠に入れてください");
+      setScanNote(SCAN_NOTES.aim);
     } catch {
-      setScanNote("カメラを使えませんでした。設定でカメラを許可してください。");
+      setScanNote(SCAN_NOTES.blocked);
     }
   };
 
@@ -199,7 +228,7 @@ export default function PhoneSettingsPage() {
               setScanNote(null);
               return;
             }
-            setScanNote("Z CAR のQRではないようです");
+            setScanNote(SCAN_NOTES.foreign);
           }
         } catch {
           // 読み取りに失敗しても次のコマで試す。
@@ -256,55 +285,99 @@ export default function PhoneSettingsPage() {
     setToast(linked ? "記録しました・車に送ります" : "記録しました");
   };
 
-  // --- 目的地(車の「場所を直す」と同じ並び) ---
-  const workDestination =
-    draft.storeDest.trim() ||
-    draft.storeName.trim() ||
-    draft.mapDestinations[0]?.destination ||
-    "";
-  const homeDestination = draft.homeDest.trim() || draft.mapDestinations[1]?.destination || "";
-  const slots = [
-    { key: "work", label: "DEPART", note: "出発(店舗)", destination: workDestination, canRename: false },
-    { key: "home", label: "RETURN", note: "帰宅", destination: homeDestination, canRename: false },
-    ...draft.mapDestinations.map((entry, index) => ({
-      key: `dest-${index}`,
-      label: entry.label.trim() || `${index + 1}番`,
-      note: `${index + 1}番`,
-      destination: entry.destination.trim(),
-      canRename: true,
-    })),
-  ];
+  // --- 目的地(車の DEST と同じ並び) ---
+  const choices = listNavChoices(draft);
+  // ★の付いた場所(車の START の行き先)。
+  const startChoice = resolveStartTarget(choices, draft.startTarget);
+  const sendNote = linked ? "・車に送ります" : "";
 
-  const openEditor = (slot: (typeof slots)[number]) => {
-    if (editKey === slot.key) {
+  /** 場所を開く(もう一度押すと閉じる)。null は新しい目的地を足すとき。 */
+  const openEditor = (choice: NavChoice | null) => {
+    const key = choice ? choice.key : NEW_PLACE_KEY;
+    if (editKey === key) {
       setEditKey(null);
       return;
     }
-    setEditKey(slot.key);
-    setEditDraft({ label: slot.canRename ? slot.label : "", destination: slot.destination });
+    setEditKey(key);
+    setEditDraft({
+      label: choice && !choice.fixed ? choice.label : "",
+      destination: choice ? choice.destination : "",
+    });
   };
 
-  /** 直した場所を保存する。住所を空にすると、その枠は未登録に戻る。 */
+  /** 直した(足した)場所を保存する。clear のときは、その場所を消す。 */
   const saveEditor = (clear = false) => {
     const key = editKey;
     if (!key) return;
-    const destination = clear ? "" : editDraft.destination.trim().slice(0, MAX_DESTINATION_TEXT);
-    const label = clear ? "" : editDraft.label.trim().slice(0, MAX_DESTINATION_LABEL);
-    setDraft((current) => {
-      if (key === "work") return { ...current, storeDest: destination };
-      if (key === "home") return { ...current, homeDest: destination };
-      const index = Number.parseInt(key.slice("dest-".length), 10);
-      if (!Number.isInteger(index)) return current;
-      return {
-        ...current,
-        mapDestinations: current.mapDestinations.map((entry, position) =>
-          position === index ? { label, destination } : entry,
-        ),
-      };
-    });
+    const adding = key === NEW_PLACE_KEY;
+    setDraft((current) =>
+      saveNavChoice(
+        current,
+        adding ? null : key,
+        clear ? { label: "", destination: "" } : editDraft,
+      ),
+    );
     setEditKey(null);
-    setToast(linked ? "保存しました・車に送ります" : "保存しました");
+    setToast(`${clear ? "消しました" : adding ? "追加しました" : "保存しました"}${sendNote}`);
   };
+
+  /** ★を付け替える。★の場所が、車の START の行き先になる。 */
+  const starChoice = (choice: NavChoice) => {
+    if (!choice.destination || startChoice?.key === choice.key) return;
+    setDraft((current) => ({ ...current, startTarget: choice.key }));
+    setToast(`START → ${choice.label}${sendNote}`);
+  };
+
+  /** 場所を直す・足す欄。 */
+  const placeEditor = (choice: NavChoice | null) => (
+    <form
+      className="zr-editor"
+      onSubmit={(event) => {
+        event.preventDefault();
+        saveEditor();
+      }}
+    >
+      {!choice?.fixed ? (
+        <label className="zr-field zr-field-wide">
+          <span>名前（{MAX_DESTINATION_LABEL}文字まで）</span>
+          <div>
+            <input
+              type="text"
+              value={editDraft.label}
+              maxLength={MAX_DESTINATION_LABEL}
+              placeholder="例: 鳥"
+              onChange={(event) => setEditDraft({ ...editDraft, label: event.target.value })}
+            />
+          </div>
+        </label>
+      ) : null}
+      <label className="zr-field zr-field-wide">
+        <span>住所、または場所の名前</span>
+        <div>
+          <input
+            type="text"
+            value={editDraft.destination}
+            maxLength={MAX_DESTINATION_TEXT}
+            placeholder="例: 大阪府枚方市出口3丁目1-1"
+            onChange={(event) => setEditDraft({ ...editDraft, destination: event.target.value })}
+          />
+        </div>
+      </label>
+      <div className="zr-editor-actions">
+        <button type="button" className="zr-ghost" onClick={() => setEditKey(null)}>
+          やめる
+        </button>
+        <button type="submit" className="zr-primary" disabled={!editDraft.destination.trim()}>
+          {choice ? "保存する" : "追加する"}
+        </button>
+      </div>
+      {choice?.destination ? (
+        <button type="button" className="zr-danger" onClick={() => saveEditor(true)}>
+          {choice.fixed ? "この住所を消す" : "この目的地を消す"}
+        </button>
+      ) : null}
+    </form>
+  );
 
   // --- メーターの色 ---
   const chooseTheme = (id: MeterTheme) => {
@@ -326,8 +399,8 @@ export default function PhoneSettingsPage() {
             <circle cx="12" cy="12" r="10" />
             <path d="M7 12.4l3.2 3.2L17 8.8" />
           </svg>
-          <b>接続しました</b>
-          <small>LINK ACTIVE · 車とつながりました</small>
+          <b>LINK ESTABLISHED</b>
+          <small>車とつながりました</small>
         </button>
       ) : null}
 
@@ -340,29 +413,73 @@ export default function PhoneSettingsPage() {
 
       {syncTrouble ? (
         <p className="zr-alert" role="status">
-          車に届いていません。電波が戻ると自動で送ります。
+          <b>NO SIGNAL</b>
+          <span>車に届いていません。電波が戻ると自動で送ります。</span>
         </p>
       ) : null}
 
       {/* つなぐ欄は、まだ車とつないでいないときだけ出す。 */}
       {!linked ? (
-        <section className="zr-panel zr-link" aria-label="車とつなぐ">
-          <header className="zr-panel-head">
-            <span>
-              <small>LINK</small>
-              <b>車とつなぐ</b>
-            </span>
+        <section className="zr-link" aria-label="車とつなぐ">
+          <header className="zr-link-bar">
+            <span>LINK STATUS</span>
+            <em>
+              <i aria-hidden="true" />
+              NOT PAIRED
+            </em>
           </header>
-          <p className="zr-note">
-            車の燃費画面（給油履歴の右）か、DEST の画面の下にある
-            <b>「LINK PHONE」</b>を押すとQRが出ます。読み取ると、給油記録・目的地・
-            メーターの色を、車とこのスマホのどちらからでも変えられます。
-          </p>
-          <button type="button" className="zr-primary" onClick={() => void startScan()}>
-            カメラでQRを読み取る
+          <div className="zr-link-hero">
+            <div className="zr-reticle" aria-hidden="true">
+              <svg viewBox="0 0 120 120">
+                <ScanCorners />
+                <g className="zr-reticle-code">
+                  <rect x="26" y="26" width="20" height="20" rx="3" />
+                  <rect x="74" y="26" width="20" height="20" rx="3" />
+                  <rect x="26" y="74" width="20" height="20" rx="3" />
+                  <rect className="is-fill" x="32" y="32" width="8" height="8" rx="1.5" />
+                  <rect className="is-fill" x="80" y="32" width="8" height="8" rx="1.5" />
+                  <rect className="is-fill" x="32" y="80" width="8" height="8" rx="1.5" />
+                  {[
+                    [56, 27], [62, 38], [54, 49], [66, 55], [79, 56], [88, 65],
+                    [56, 66], [70, 75], [84, 80], [60, 86], [76, 90], [90, 92],
+                  ].map(([x, y]) => (
+                    <rect key={`${x}-${y}`} className="is-dot" x={x} y={y} width="6" height="6" rx="1" />
+                  ))}
+                </g>
+              </svg>
+              <i className="zr-scanline" />
+            </div>
+            <div className="zr-link-title">
+              <b>
+                PAIR WITH
+                <br />
+                YOUR CAR
+              </b>
+              <small>車とつなぐ</small>
+            </div>
+          </div>
+          <ol className="zr-link-steps">
+            {LINK_STEPS.map((step, index) => (
+              <li key={step.en}>
+                <em>{String(index + 1).padStart(2, "0")}</em>
+                <span>
+                  <b>{step.en}</b>
+                  <small>{step.ja}</small>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <button type="button" className="zr-primary zr-scan-button" onClick={() => void startScan()}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M7 12h10" />
+            </svg>
+            SCAN QR CODE
           </button>
           {scanNote && !scanOpen ? (
-            <p className="zr-scan-note" role="status">{scanNote}</p>
+            <p className={`zr-scan-note${scanNote.warn ? " is-warn" : ""}`} role="status">
+              <b>{scanNote.en}</b>
+              <small>{scanNote.ja}</small>
+            </p>
           ) : null}
         </section>
       ) : null}
@@ -531,86 +648,70 @@ export default function PhoneSettingsPage() {
               <small>DESTINATIONS</small>
               <b>ナビの目的地</b>
             </span>
+            <em className="zr-star-legend">
+              <StarMark filled />
+              START
+            </em>
           </header>
           <ul className="zr-places">
-            {slots.map((slot) => (
-              <li key={slot.key} className={editKey === slot.key ? "is-editing" : undefined}>
-                <button
-                  type="button"
-                  className="zr-place"
-                  aria-expanded={editKey === slot.key}
-                  onClick={() => openEditor(slot)}
+            {choices.map((choice) => {
+              const starred = startChoice?.key === choice.key;
+              const editing = editKey === choice.key;
+              return (
+                <li
+                  key={choice.key}
+                  className={`${editing ? "is-editing" : ""}${starred ? " is-start" : ""}`.trim() || undefined}
                 >
-                  <span className="zr-place-name">
-                    <b>{slot.label}</b>
-                    <small>{slot.note}</small>
-                  </span>
-                  <span className="zr-place-addr">{slot.destination || "未登録"}</span>
-                  <i aria-hidden="true" />
-                </button>
-                {editKey === slot.key ? (
-                  <form
-                    className="zr-editor"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      saveEditor();
-                    }}
-                  >
-                    {slot.canRename ? (
-                      <label className="zr-field zr-field-wide">
-                        <span>名前（{MAX_DESTINATION_LABEL}文字まで）</span>
-                        <div>
-                          <input
-                            type="text"
-                            value={editDraft.label}
-                            maxLength={MAX_DESTINATION_LABEL}
-                            placeholder="例: 鳥"
-                            onChange={(event) =>
-                              setEditDraft({ ...editDraft, label: event.target.value })
-                            }
-                          />
-                        </div>
-                      </label>
-                    ) : null}
-                    <label className="zr-field zr-field-wide">
-                      <span>住所、または場所の名前</span>
-                      <div>
-                        <input
-                          type="text"
-                          value={editDraft.destination}
-                          maxLength={MAX_DESTINATION_TEXT}
-                          placeholder="例: 大阪府枚方市出口3丁目1-1"
-                          onChange={(event) =>
-                            setEditDraft({ ...editDraft, destination: event.target.value })
-                          }
-                        />
-                      </div>
-                    </label>
-                    <div className="zr-editor-actions">
-                      <button type="button" className="zr-ghost" onClick={() => setEditKey(null)}>
-                        やめる
-                      </button>
-                      <button
-                        type="submit"
-                        className="zr-primary"
-                        disabled={!editDraft.destination.trim()}
-                      >
-                        保存する
-                      </button>
-                    </div>
-                    {slot.destination ? (
-                      <button type="button" className="zr-danger" onClick={() => saveEditor(true)}>
-                        この場所を消す
-                      </button>
-                    ) : null}
-                  </form>
-                ) : null}
+                  <div className="zr-place-row">
+                    <button
+                      type="button"
+                      className="zr-star"
+                      aria-pressed={starred}
+                      aria-label={`${choice.label} を START の行き先にする`}
+                      disabled={!choice.destination}
+                      onClick={() => starChoice(choice)}
+                    >
+                      <StarMark filled={starred} />
+                    </button>
+                    <button
+                      type="button"
+                      className="zr-place"
+                      aria-expanded={editing}
+                      onClick={() => openEditor(choice)}
+                    >
+                      <span className="zr-place-name">
+                        <b>{choice.label}</b>
+                        {choice.note ? <small>{choice.note}</small> : null}
+                        {starred ? <em>START</em> : null}
+                      </span>
+                      <span className="zr-place-addr">{choice.destination || "未登録"}</span>
+                      <i aria-hidden="true" />
+                    </button>
+                  </div>
+                  {editing ? placeEditor(choice) : null}
+                </li>
+              );
+            })}
+            {editKey === NEW_PLACE_KEY ? (
+              <li className="is-editing is-new">
+                <p className="zr-new-head">
+                  <b>NEW PLACE</b>
+                  <small>新しい目的地</small>
+                </p>
+                {placeEditor(null)}
               </li>
-            ))}
+            ) : null}
           </ul>
+          {draft.places.length < MAX_PLACES && editKey !== NEW_PLACE_KEY ? (
+            <button type="button" className="zr-add" onClick={() => openEditor(null)}>
+              <i aria-hidden="true" />
+              <b>ADD PLACE</b>
+              <small>目的地を追加</small>
+            </button>
+          ) : null}
           <p className="zr-note">
-            住所でも店名でも構いません。車の DEST にそのまま並び、右下の START で
-            案内が始まります。
+            <StarMark filled />
+            を付けた場所に、車の START で案内します。住所でも店名でも構いません。
           </p>
         </section>
       ) : null}
@@ -648,11 +749,28 @@ export default function PhoneSettingsPage() {
 
       {scanOpen ? (
         <div className="zr-scanner" role="dialog" aria-label="QRの読み取り">
-          <video ref={videoRef} playsInline muted />
-          <div className="zr-scanner-frame" aria-hidden="true" />
-          <p>{scanNote ?? "車の画面のQRを枠に入れてください"}</p>
+          <header className="zr-scanner-bar">
+            <span>
+              <i aria-hidden="true" />
+              SCANNING
+            </span>
+            <small>Z CAR · LINK</small>
+          </header>
+          <div className="zr-scanner-view">
+            <video ref={videoRef} playsInline muted />
+            <div className="zr-scanner-frame" aria-hidden="true">
+              <svg viewBox="0 0 120 120" preserveAspectRatio="none">
+                <ScanCorners />
+              </svg>
+              <i className="zr-scanline" />
+            </div>
+          </div>
+          <p className={`zr-scanner-hint${scanNote?.warn ? " is-warn" : ""}`}>
+            <b>{(scanNote ?? SCAN_NOTES.aim).en}</b>
+            <small>{(scanNote ?? SCAN_NOTES.aim).ja}</small>
+          </p>
           <button type="button" onClick={stopScan}>
-            やめる
+            CANCEL
           </button>
         </div>
       ) : null}

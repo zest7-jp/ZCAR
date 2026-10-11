@@ -10,15 +10,15 @@ import {
 } from "react";
 import {
   fetchSharedSettings,
+  mergeChangedPlaces,
   mergeFuelEntries,
   MIN_SYNC_KEY_LENGTH,
-  overlayChangedDestinations,
   pushFuelEntries,
   pushSyncedFields,
   sanitizeSyncedSettings,
   SHARED_EDIT_FIELDS,
   type FuelEntry,
-  type MapDestination,
+  type NavPlace,
   type Settings,
   type SyncedSettings,
 } from "../settings-store";
@@ -52,7 +52,7 @@ const sameFuelList = (left: FuelEntry[], right: FuelEntry[]) =>
  *
  * - 給油記録は足し合わせる(消す操作が無いので、どちらで入れても消えない)
  * - それ以外は項目ごとに「変えた方」を正とし、変えた項目だけを送る
- * - 目的地は5枠で1項目なので、送る直前に最新を取り直し、変えた枠だけ重ねる
+ * - 目的地の一覧は1項目なので、送る直前に最新を取り直し、自分で変えた場所だけ重ねる
  * - まだ送っていない手元の変更は、サーバーを読んでも上書きしない
  */
 export function useSharedSync({
@@ -123,11 +123,21 @@ export function useSharedSync({
           const remote = shared[field];
           const remoteJson = remote === undefined ? "" : JSON.stringify(remote);
           const localJson = JSON.stringify(local[field]);
-          nextBase[field] = remoteJson;
-          if (remote === undefined || remoteJson === localJson) continue;
+          if (remote === undefined || remoteJson === localJson) {
+            nextBase[field] = remoteJson;
+            continue;
+          }
           // 手元で変えたばかり(まだ送っていない)項目は手元のまま。そうでなければ取り込む。
           const changedHere = base ? localJson !== base[field] : keepLocalFirst;
-          if (!changedHere) Object.assign(take, { [field]: remote });
+          if (changedHere) {
+            // 比べる元(前回そろっていた内容)は変えない。送るときに、もう片方の
+            // 変更と重ね合わせるため。元が分からない初回は、目的地を空から
+            // 足し合わせる(どちらで足した場所も消さない)。
+            nextBase[field] = base ? base[field] : field === "places" ? "[]" : remoteJson;
+          } else {
+            Object.assign(take, { [field]: remote });
+            nextBase[field] = remoteJson;
+          }
         }
         baseRef.current = { key: syncKey, values: nextBase };
 
@@ -200,21 +210,21 @@ export function useSharedSync({
     const timer = window.setTimeout(async () => {
       setStatus((now) => ({ ...now, state: "syncing" }));
       let fields = changed;
-      // 目的地は、もう片方で変えた別の枠を消さないよう、最新に自分の変更だけ重ねる。
-      if (changed.mapDestinations) {
+      // 目的地は、もう片方で足した・直した場所を消さないよう、最新に自分の変更だけ重ねる。
+      if (changed.places) {
         try {
           const latest = await fetchSharedSettings(syncKey);
-          const before = base.values.mapDestinations
-            ? (JSON.parse(base.values.mapDestinations) as MapDestination[])
+          const before = base.values.places
+            ? (JSON.parse(base.values.places) as NavPlace[])
             : null;
-          const overlaid = overlayChangedDestinations(
-            changed.mapDestinations,
+          const merged = mergeChangedPlaces(
+            changed.places,
             before,
-            sanitizeSyncedSettings(latest.settings).mapDestinations,
+            sanitizeSyncedSettings(latest.settings).places,
           );
-          fields = { ...changed, mapDestinations: overlaid };
-          if (JSON.stringify(overlaid) !== JSON.stringify(changed.mapDestinations)) {
-            setSettings((now) => ({ ...now, mapDestinations: overlaid }));
+          fields = { ...changed, places: merged };
+          if (JSON.stringify(merged) !== JSON.stringify(changed.places)) {
+            setSettings((now) => ({ ...now, places: merged }));
           }
         } catch {
           // 読めなければ、そのまま送る。
