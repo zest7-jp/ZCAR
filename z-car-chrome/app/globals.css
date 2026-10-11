@@ -1617,31 +1617,79 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 9px rgba(91, 255, 113, .42), 0 0 22px rgba(91, 255, 113, .18);
 }
-/* 時計の上に出す今日の日付(例: 10/11（日）)。 */
+/* 時計の上に出す今日の日付(例: 10/11 と、光る札の「日」)。
+   色は盤面と同じく、回転させる前の緑で指定する(ターコイズ / オレンジに回る)。 */
 .solar-clock-today {
   display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 1px;
-  margin-bottom: 5px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
   line-height: 1;
 }
-/* 左の列の日付の大きな文字(.performance-date strong)を受け継がないよう、card の中で指定する。 */
+.solar-clock-day { display: flex; align-items: center; gap: 8px; }
+.solar-clock-day i {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #9cffa9, #46e85e);
+  box-shadow: 0 0 12px rgba(91, 255, 113, .45);
+  color: #04160a;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
 .solar-clock-card .solar-clock-today strong {
   margin: 0;
   color: #effff1;
   font-family: "DIN Alternate", "SFMono-Regular", Consolas, monospace;
-  font-size: 19px;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1;
-  letter-spacing: .01em;
+  letter-spacing: .03em;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 9px rgba(91, 255, 113, .25);
+  text-shadow: 0 0 10px rgba(91, 255, 113, .3);
 }
-.solar-clock-today b {
-  color: #8fe39a;
-  font-size: 12px;
+.solar-clock-today small {
+  color: #557a5b;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
   font-weight: 800;
+  letter-spacing: .32em;
+}
+/* 一週間の帯。今日だけ明るく、下に光る線。 */
+.solar-clock-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.solar-clock-week li {
+  display: grid;
+  place-items: center;
+  height: 14px;
+  border-radius: 3px;
+  background: rgba(91, 255, 113, .05);
+  color: #4c7552;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+.solar-clock-week li.is-today {
+  background: rgba(91, 255, 113, .2);
+  box-shadow: inset 0 -2px #5bff71, 0 0 8px rgba(91, 255, 113, .25);
+  color: #effff1;
+}
+@media (max-height: 520px) {
+  .solar-clock-today { margin-bottom: 4px; }
+  .solar-clock-day i { width: 18px; height: 18px; font-size: 11px; }
+  .solar-clock-card .solar-clock-today strong { font-size: 19px; }
+  .solar-clock-week { margin-bottom: 5px; }
+  .solar-clock-week li { height: 12px; font-size: 7px; }
 }
 .solar-cycle {
   min-width: 0;
@@ -6330,6 +6378,56 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   -webkit-tap-highlight-color: transparent;
 }
 .meter-status-item.is-button:active { background: rgba(92, 230, 198, .1); }
+
+/* 帯の右端の「更新」。押すと読み込み直す。下段に今の版の時刻を出す。 */
+.meter-reload {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 8px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #4f8d83;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.meter-reload svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.meter-reload small {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #3d7168;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+.meter-reload small span { color: #4f8d83; letter-spacing: .24em; }
+.meter-reload b {
+  color: #5e8f88;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.meter-reload:active { background: rgba(92, 230, 198, .1); color: #9fe9db; }
+#app.meter-theme-eva .meter-reload,
+#app.meter-theme-eva .meter-reload small span { color: #b3783f; }
+#app.meter-theme-eva .meter-reload small { color: #94643a; }
+#app.meter-theme-eva .meter-reload b { color: #9a7350; }
 
 /* 項目と項目のあいだの細い仕切り線。 */
 .meter-status-item + .meter-status-item::before {

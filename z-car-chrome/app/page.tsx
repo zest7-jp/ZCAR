@@ -347,6 +347,9 @@ function WeatherGlyph({
   );
 }
 
+/** 曜日(日曜はじまり)。時計の上の日付と、一週間の帯に使う。 */
+const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
+
 const BUILD_STAMP = (() => {
   const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
   if (!iso) return null;
@@ -1009,8 +1012,8 @@ export default function Home() {
   // 時計の上に出す今日の日付(例: 10/11（日）)。
   const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
   const todayMonthDay = `${todayMonth}/${todayDay}`;
-  const todayWeekday =
-    "日月火水木金土"[new Date(Date.UTC(todayYear, todayMonth - 1, todayDay)).getUTCDay()];
+  const todayWeekdayIndex = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay)).getUTCDay();
+  const todayWeekday = WEEKDAYS_JA[todayWeekdayIndex];
   const solarSunrise = weather?.sunrise ?? null;
   const solarSunset = weather?.sunset ?? null;
   const solarNowMinutes = minutesFromHm(clock);
@@ -1465,7 +1468,7 @@ export default function Home() {
           >
             <img
               className="launch-landscape"
-              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/z-car-launch-landscape.png`}
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/z-car-launch-landscape.webp`}
               alt=""
             />
             <span className="launch-vignette" aria-hidden="true" />
@@ -1598,12 +1601,25 @@ export default function Home() {
                 </span>
               );
             })}
-            {/* 反映確認用のビルド時刻。帯の右端に薄く出す。 */}
-            {BUILD_STAMP ? (
-              <span className="build-stamp" aria-hidden="true">
-                {BUILD_STAMP}
+            {/* アプリとして入れるとブラウザの更新ボタンが無いので、帯の右端に置く。
+                押すと読み込み直す(新しい版が公開されていれば入れ替わる)。下段は今の版の時刻。 */}
+            <button
+              type="button"
+              className="meter-reload"
+              onClick={() => window.location.reload()}
+              aria-label="読み込み直す(新しい版があれば入れ替わる)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+                <path d="M19.5 3.6v4.6h-4.6" />
+              </svg>
+              <span className="meter-status-text">
+                <small>
+                  更新<span>RELOAD</span>
+                </small>
+                {BUILD_STAMP ? <b>{BUILD_STAMP}</b> : null}
               </span>
-            ) : null}
+            </button>
           </header>
         )}
 
@@ -1612,10 +1628,24 @@ export default function Home() {
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
-                  <div className="solar-clock-today">
-                    <strong>{todayMonthDay}</strong>
-                    <b>（{todayWeekday}）</b>
+                  {/* 今日の日付。曜日は光る札にして、下に一週間の帯(今日だけ点く)を添える。 */}
+                  <div
+                    className="solar-clock-today"
+                    aria-label={`今日 ${todayMonthDay}（${todayWeekday}）`}
+                  >
+                    <span className="solar-clock-day">
+                      <i aria-hidden="true">{todayWeekday}</i>
+                      <strong>{todayMonthDay}</strong>
+                    </span>
+                    <small aria-hidden="true">{todayYear}</small>
                   </div>
+                  <ol className="solar-clock-week" aria-hidden="true">
+                    {WEEKDAYS_JA.map((day, index) => (
+                      <li key={day} className={index === todayWeekdayIndex ? "is-today" : undefined}>
+                        {day}
+                      </li>
+                    ))}
+                  </ol>
                   <div className="solar-clock-heading">
                     <small>LOCAL TIME · JST</small>
                     <time>{clock}</time>
