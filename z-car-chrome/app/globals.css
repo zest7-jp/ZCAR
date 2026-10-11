@@ -6576,7 +6576,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 .zr * { -webkit-tap-highlight-color: transparent; }
 
-/* --- 見出し: ロゴと接続の状態 --- */
+/* --- 見出し: ロゴ --- */
 .zr-head {
   display: flex;
   align-items: center;
@@ -6602,57 +6602,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   letter-spacing: .32em;
 }
 
-.zr-link-chip {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 44px;
-  padding: 6px 14px 6px 12px;
-  border: 1px solid rgba(var(--zr-accent-rgb), .28);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, .55);
-  color: var(--zr-ink);
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
+/* 車に送れないときだけ出す一行。 */
+.zr-alert {
+  margin: -6px 0 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(231, 181, 90, .32);
+  border-radius: 12px;
+  background: rgba(231, 181, 90, .08);
+  color: #f1cf8d;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
 }
-.zr-link-chip i {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
-  transform: rotate(45deg);
-  background: #3d524d;
-}
-.zr-link-chip span { display: grid; gap: 2px; line-height: 1; }
-.zr-link-chip small {
-  color: var(--zr-muted);
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .14em;
-}
-.zr-link-chip b {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 800;
-}
-.zr-link-chip b em {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
-  font-style: normal;
-  letter-spacing: .12em;
-}
-.zr-link-chip.is-ok i {
-  background: var(--zr-accent);
-  box-shadow: 0 0 8px rgba(var(--zr-accent-rgb), .85);
-}
-.zr-link-chip.is-ok b em { color: var(--zr-accent-strong); }
-.zr-link-chip.is-warn i { background: #e7b55a; box-shadow: 0 0 8px rgba(231, 181, 90, .6); }
-.zr-link-chip.is-off { border-color: rgba(255, 255, 255, .14); }
-.zr-link-chip.is-off b,
-.zr-link-chip.is-off b em { color: #8e9c99; }
 
 /* --- 切り替え(給油 / 目的地 / メーター) --- */
 .zr-tabs {
@@ -6892,8 +6853,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: rgba(255, 255, 255, .35);
   cursor: default;
 }
-.zr-ghost,
-.zr-close {
+.zr-ghost {
   min-height: 54px;
   padding: 0 18px;
   border: 1px solid rgba(255, 255, 255, .12);
@@ -6905,7 +6865,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 800;
   cursor: pointer;
 }
-.zr-close { min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 12px; }
 .zr-danger {
   width: 100%;
   min-height: 44px;

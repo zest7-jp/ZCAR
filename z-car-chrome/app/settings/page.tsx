@@ -58,8 +58,6 @@ export default function PhoneSettingsPage() {
   const [toast, setToast] = useState<string | null>(null);
   // 読み取った瞬間に出す「接続完了」の知らせ。
   const [pairedNotice, setPairedNotice] = useState(false);
-  // つながっているときに、つなぎ直しの欄を開いているか。
-  const [linkOpen, setLinkOpen] = useState(false);
   // カメラでQRを読み取る画面。
   const [scanOpen, setScanOpen] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
@@ -79,7 +77,6 @@ export default function PhoneSettingsPage() {
         : { ...current, syncKey: key, syncedAt: 0, pairedAt: Date.now() },
     );
     setPairedNotice(true);
-    setLinkOpen(false);
   }, []);
 
   // 端末に保存してある内容を読む。QRから来たときは、URLの「#」以降に合言葉がある。
@@ -140,21 +137,8 @@ export default function PhoneSettingsPage() {
     keepLocalOnFirstSync: () => false,
   });
 
-  const syncLabel = !linked
-    ? { ja: "未接続", en: "NOT LINKED", tone: "off" }
-    : sync.state === "error"
-      ? { ja: "通信なし", en: "NO SIGNAL", tone: "warn" }
-      : sync.state === "ok" && sync.at
-        ? {
-            ja: "同期",
-            en: `SYNC ${new Date(sync.at).toLocaleTimeString("ja-JP", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })}`,
-            tone: "ok",
-          }
-        : { ja: "同期中", en: "SYNCING", tone: "warn" };
+  // つながっている間は何も出さず、送れないときだけ知らせる。
+  const syncTrouble = linked && sync.state === "error";
 
   // --- QRの読み取り ---
   const stopScan = useCallback(() => {
@@ -329,8 +313,6 @@ export default function PhoneSettingsPage() {
     setToast(linked ? "メーターの色を変えました・車に送ります" : "メーターの色を変えました");
   };
 
-  const showLink = !linked || linkOpen;
-
   return (
     <main className="zr" data-theme={draft.meterTheme} aria-busy={!ready}>
       {pairedNotice ? (
@@ -354,36 +336,22 @@ export default function PhoneSettingsPage() {
           <b>Z CAR</b>
           <small>TANTO · REMOTE</small>
         </div>
-        <button
-          type="button"
-          className={`zr-link-chip is-${syncLabel.tone}`}
-          onClick={() => setLinkOpen((open) => !open)}
-          aria-expanded={showLink}
-          aria-label="車との接続"
-        >
-          <i aria-hidden="true" />
-          <span>
-            <small>端末 LINK</small>
-            <b>
-              {syncLabel.ja}
-              <em>{syncLabel.en}</em>
-            </b>
-          </span>
-        </button>
       </header>
 
-      {showLink ? (
+      {syncTrouble ? (
+        <p className="zr-alert" role="status">
+          車に届いていません。電波が戻ると自動で送ります。
+        </p>
+      ) : null}
+
+      {/* つなぐ欄は、まだ車とつないでいないときだけ出す。 */}
+      {!linked ? (
         <section className="zr-panel zr-link" aria-label="車とつなぐ">
           <header className="zr-panel-head">
             <span>
               <small>LINK</small>
               <b>車とつなぐ</b>
             </span>
-            {linked ? (
-              <button type="button" className="zr-close" onClick={() => setLinkOpen(false)}>
-                閉じる
-              </button>
-            ) : null}
           </header>
           <p className="zr-note">
             車の燃費画面（給油履歴の右）か、DEST の画面の下にある
