@@ -129,7 +129,11 @@ export default function PhoneSettingsPage() {
       window.history.replaceState(null, "", window.location.pathname);
     }
     setDraft(stored);
-    setWideScreen(Math.max(window.innerWidth, window.innerHeight) >= PHONE_LONG_EDGE_MAX);
+    // iPhone は大きい機種(17 Pro Max は縦956px)でもスマホ。車として使う道は出さない。
+    setWideScreen(
+      !/iPhone|iPod/.test(navigator.userAgent) &&
+        Math.max(window.innerWidth, window.innerHeight) >= PHONE_LONG_EDGE_MAX,
+    );
     setReady(true);
   }, []);
 
@@ -274,6 +278,17 @@ export default function PhoneSettingsPage() {
   const monthDistance = monthEntries.reduce((total, entry) => total + entry.distanceKm, 0);
   const monthAmount = monthEntries.reduce((total, entry) => total + entry.amountYen, 0);
   const monthEconomy = monthLiters > 0 ? monthDistance / monthLiters : null;
+  // 今月の燃費のカードに並べる、最近の給油の燃費(左が古く、右が新しい)。
+  // 棒の高さは、並べた中のいちばん低い燃費からいちばん高い燃費までの位置で決める。
+  const chartFuel = draft.fuelEntries
+    .slice(0, 10)
+    .reverse()
+    .map((entry) => ({ id: entry.id, date: entry.date, economy: entry.distanceKm / entry.liters }));
+  const chartLow = Math.min(...chartFuel.map((item) => item.economy));
+  const chartHigh = Math.max(...chartFuel.map((item) => item.economy));
+  const chartLevel = (economy: number) =>
+    chartHigh > chartLow ? 30 + (70 * (economy - chartLow)) / (chartHigh - chartLow) : 70;
+
   // 給油の記録を月ごとにまとめる(新しい月が上)。月の燃費は 走った距離 ÷ 入れた量。
   const fuelMonths = draft.fuelEntries.reduce<
     { month: string; entries: FuelEntry[]; liters: number; distance: number }[]
@@ -542,7 +557,7 @@ export default function PhoneSettingsPage() {
       </nav>
 
       {tab === "fuel" ? (
-        <>
+        <div className="zr-fuel">
           {/* 押すと給油の記録(履歴)が開く。 */}
           <section
             className="zr-hero is-pressable"
@@ -571,6 +586,22 @@ export default function PhoneSettingsPage() {
               <strong>{monthEconomy === null ? "—" : monthEconomy.toFixed(1)}</strong>
               <em>km/L</em>
             </p>
+            {/* 最近の給油ごとの燃費。画面に余った高さはこのグラフが受け持つ。 */}
+            {chartFuel.length ? (
+              <div className="zr-hero-chart" aria-hidden="true">
+                {chartFuel.map((item, index) => {
+                  const level = chartLevel(item.economy);
+                  return (
+                    <span key={item.id} className={index === chartFuel.length - 1 ? "is-latest" : undefined}>
+                      <i className="zr-chart-space" style={{ flexGrow: 100 - level }} />
+                      <b>{item.economy.toFixed(1)}</b>
+                      <i className="zr-chart-bar" style={{ flexGrow: level }} />
+                      <small>{shortDate(item.date)}</small>
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
             <dl className="zr-hero-stats">
               <div>
                 <dt>給油量</dt>
@@ -671,7 +702,7 @@ export default function PhoneSettingsPage() {
               </button>
             </div>
           </section>
-        </>
+        </div>
       ) : null}
 
       {tab === "navi" ? (

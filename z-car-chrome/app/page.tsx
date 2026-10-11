@@ -556,7 +556,9 @@ export default function Home() {
     setReady(true);
     // 大きい画面でダッシュボードが開けた端末は、車載機として覚えておく。
     // ブラウザの表示領域が変わっても、次からは設定ページへ送られない。
+    // iPhone は大きい機種でもスマホなので覚えない(先読みの判定と同じ)。
     if (
+      !/iPhone|iPod/.test(navigator.userAgent) &&
       Math.max(window.innerWidth, window.innerHeight) >= PHONE_LONG_EDGE_MAX
     ) {
       try {
