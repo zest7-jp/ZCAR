@@ -6950,6 +6950,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   --zr-edge: rgba(255, 255, 255, .06);
   --zr-field: #050a09;
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -6986,6 +6988,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .zr * { -webkit-tap-highlight-color: transparent; }
+/* 中身が画面より長いときは縮めずにスクロールさせる。 */
+.zr > * { flex-shrink: 0; }
 
 /* --- 見出し: ロゴ --- */
 .zr-head {
@@ -6998,7 +7002,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 .zr-brand { display: grid; gap: 4px; }
 .zr-brand b {
-  font-size: 30px;
+  font-size: clamp(28px, 3.7dvh, 36px);
   font-weight: 900;
   letter-spacing: .04em;
   line-height: 1;
@@ -7065,7 +7069,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-family: inherit;
   cursor: pointer;
 }
-.zr-tabs b { font-size: 15px; font-weight: 800; letter-spacing: .04em; }
+.zr-tabs b { font-size: clamp(14px, 1.85dvh, 17px); font-weight: 800; letter-spacing: .04em; }
 .zr-tabs small {
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 8px;
@@ -7099,6 +7103,55 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: inset 3px 0 var(--zr-accent);
 }
 .zr-hero header { display: flex; align-items: baseline; gap: 8px; }
+/* 給油のタブは画面の残りの高さいっぱいに広げる。余った高さは燃費のグラフが受け持つ。 */
+.zr-fuel { display: flex; flex: 1 0 auto; flex-direction: column; }
+.zr-fuel .zr-hero { display: flex; flex: 1 0 auto; flex-direction: column; }
+.zr-fuel .zr-refuel { margin-bottom: 0; }
+
+/* 最近の給油ごとの燃費の棒グラフ(右がいちばん新しい)。 */
+.zr-hero-chart {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 5px;
+  min-height: 64px;
+  margin: 0 0 10px;
+}
+.zr-hero-chart span {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.zr-hero-chart .zr-chart-space { display: block; flex-basis: 0; }
+.zr-hero-chart .zr-chart-bar {
+  display: block;
+  flex-basis: 0;
+  width: min(100%, 20px);
+  min-height: 3px;
+  border-radius: 4px 4px 1px 1px;
+  background: linear-gradient(180deg, rgba(var(--zr-accent-rgb), .6), rgba(var(--zr-accent-rgb), .08));
+}
+.zr-hero-chart span.is-latest .zr-chart-bar {
+  background: linear-gradient(180deg, var(--zr-accent-strong), rgba(var(--zr-accent-rgb), .3));
+  box-shadow: 0 0 12px rgba(var(--zr-accent-rgb), .5);
+}
+.zr-hero-chart b {
+  margin-bottom: 3px;
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 800;
+}
+.zr-hero-chart span.is-latest b { color: var(--zr-accent-strong); }
+.zr-hero-chart small {
+  margin-top: 4px;
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+}
+
 /* 押すと給油の記録が開く。右上の「LOG」で押せることを示す。 */
 .zr-hero.is-pressable {
   cursor: pointer;
@@ -7147,7 +7200,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .zr-hero-value strong {
   color: #fffaf4;
-  font-size: 66px;
+  font-size: clamp(56px, 8.2dvh, 86px);
   font-weight: 900;
   line-height: .95;
   letter-spacing: -.02em;
@@ -7172,7 +7225,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-hero-stats dd {
   margin: 3px 0 0;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 16px;
+  font-size: clamp(15px, 2dvh, 19px);
   font-weight: 700;
 }
 .zr-hero-stats dd em,
@@ -7202,7 +7255,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   margin-bottom: 8px;
 }
 .zr-panel-head span { display: flex; align-items: baseline; gap: 10px; }
-.zr-panel-head b { font-size: 15px; font-weight: 800; letter-spacing: .03em; }
+.zr-panel-head b { font-size: clamp(15px, 1.9dvh, 18px); font-weight: 800; letter-spacing: .03em; }
 .zr-panel-head > em {
   color: var(--zr-muted);
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -7224,16 +7277,16 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 10px;
+  gap: clamp(8px, 1.1dvh, 12px) 10px;
 }
 .zr-field { display: grid; gap: 4px; min-width: 0; }
 .zr-field-wide { grid-column: 1 / -1; }
-.zr-field > span { color: var(--zr-muted); font-size: 11px; font-weight: 700; }
+.zr-field > span { color: var(--zr-muted); font-size: clamp(11px, 1.35dvh, 13px); font-weight: 700; }
 .zr-field > div {
   display: flex;
   align-items: center;
   min-width: 0;
-  height: 46px;
+  height: clamp(44px, 5.7dvh, 58px);
   padding: 0 12px;
   border: 1px solid rgba(var(--zr-accent-rgb), .16);
   border-radius: 12px;
@@ -7254,7 +7307,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background: transparent;
   color: var(--zr-ink);
   font-family: inherit;
-  font-size: 17px;
+  font-size: clamp(16px, 2.1dvh, 20px);
   font-weight: 700;
   color-scheme: dark;
 }
@@ -7295,7 +7348,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .zr-record-row .zr-preview small { grid-column: 1 / -1; margin: 0; font-size: 10px; }
 .zr-record-row .zr-preview strong { font-size: 24px; line-height: 1; }
-.zr-record-row .zr-primary { min-height: 50px; }
+.zr-record-row .zr-primary { min-height: clamp(48px, 6.2dvh, 62px); }
 .zr-preview small { margin-right: auto; color: var(--zr-muted); font-size: 12px; font-weight: 700; }
 .zr-preview strong {
   color: var(--zr-accent-strong);
@@ -7556,8 +7609,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   -webkit-tap-highlight-color: transparent;
 }
 .zr-theme i {
-  width: 46px;
-  height: 46px;
+  width: clamp(38px, 5.6dvh, 58px);
+  height: clamp(38px, 5.6dvh, 58px);
   margin-bottom: 4px;
   border-radius: 12px;
   background:
@@ -8188,7 +8241,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.zr-design .dg-thumb { width: min(100%, 66px); }
+.zr-design .dg-thumb { width: min(100%, clamp(54px, 8.1dvh, 84px)); }
 .zr-design b { font-size: 10px; font-weight: 900; letter-spacing: .1em; }
 
 /* 給油の記録(履歴)。下から出るシート。 */
@@ -8291,7 +8344,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-brand b { font-size: 26px; }
   .zr-tabs button { padding: 6px 4px 8px; }
   .zr-panel { padding: 11px 14px 12px; }
-  .zr-place { padding: 7px 2px; }
+  .zr-place { padding: 6px 2px; }
   .zr-places { margin-bottom: 8px; }
   .zr-add { min-height: 40px; margin-bottom: 8px; }
   .zr-note { font-size: 11px; line-height: 1.5; }
