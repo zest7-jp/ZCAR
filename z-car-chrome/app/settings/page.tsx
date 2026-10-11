@@ -9,7 +9,10 @@ import {
   MAX_DESTINATION_TEXT,
   MAX_PLACES,
   mergeFuelEntries,
+  METER_DESIGNS,
+  meterDesignInfo,
   METER_THEMES,
+  meterThemeInfo,
   MIN_SYNC_KEY_LENGTH,
   NEW_PLACE_KEY,
   PHONE_LONG_EDGE_MAX,
@@ -19,10 +22,12 @@ import {
   saveNavChoice,
   writeSettings,
   type FuelEntry,
+  type MeterDesign,
   type MeterTheme,
   type NavChoice,
   type Settings,
 } from "../settings-store";
+import { MeterDesignGauge, SAMPLE_GAUGE_VALUES } from "../meter-designs";
 import { StarMark } from "../star-mark";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -383,14 +388,29 @@ export default function PhoneSettingsPage() {
   );
 
   // --- メーターの色 ---
+  const activeTheme = meterThemeInfo(draft.meterTheme);
   const chooseTheme = (id: MeterTheme) => {
     if (draft.meterTheme === id) return;
     setDraft((current) => ({ ...current, meterTheme: id }));
     setToast(linked ? "メーターの色を変えました・車に送ります" : "メーターの色を変えました");
   };
 
+  // --- メーターの形 ---
+  const activeDesign = meterDesignInfo(draft.meterDesign);
+  const chooseDesign = (id: MeterDesign) => {
+    if (draft.meterDesign === id) return;
+    setDraft((current) => ({ ...current, meterDesign: id }));
+    setToast(linked ? "メーターの形を変えました・車に送ります" : "メーターの形を変えました");
+  };
+  // 形の見本は、今の色と同じ filter で描く。
+  const designThumbClass = `dg-thumb is-${activeTheme.id}${activeTheme.tinted ? ` is-tinted zt-${activeTheme.id}` : ""}`;
+
   return (
-    <main className="zr" data-theme={draft.meterTheme} aria-busy={!ready}>
+    <main
+      className={`zr${activeTheme.tinted ? ` is-tinted zt-${activeTheme.id}` : ""}`}
+      data-theme={draft.meterTheme}
+      aria-busy={!ready}
+    >
       {pairedNotice ? (
         <button
           type="button"
@@ -720,14 +740,18 @@ export default function PhoneSettingsPage() {
       ) : null}
 
       {tab === "theme" ? (
-        <section className="zr-themes" aria-label="メーターの色">
+        <section className="zr-themes" aria-label="メーターの色と形">
+          <p className="zr-new-head">
+            <b>COLOR</b>
+            <small>メーターの色</small>
+          </p>
           {METER_THEMES.map((theme) => {
             const active = draft.meterTheme === theme.id;
             return (
               <button
                 key={theme.id}
                 type="button"
-                className={`zr-theme is-${theme.id}${active ? " is-active" : ""}`}
+                className={`zr-theme is-${theme.id}${theme.tinted ? ` is-tinted zt-${theme.id}` : ""}${active ? " is-active" : ""}`}
                 aria-pressed={active}
                 onClick={() => chooseTheme(theme.id)}
               >
@@ -740,7 +764,34 @@ export default function PhoneSettingsPage() {
               </button>
             );
           })}
-          <p className="zr-note">押すと車のメーターの色も変わります。</p>
+          <p className="zr-new-head">
+            <b>DESIGN</b>
+            <small>メーターの形</small>
+          </p>
+          <div className="zr-designs">
+            {METER_DESIGNS.map((design) => {
+              const active = activeDesign.id === design.id;
+              return (
+                <button
+                  key={design.id}
+                  type="button"
+                  className={`zr-design${active ? " is-active" : ""}`}
+                  aria-pressed={active}
+                  onClick={() => chooseDesign(design.id)}
+                >
+                  <i className={designThumbClass} aria-hidden="true">
+                    <MeterDesignGauge design={design.id} values={SAMPLE_GAUGE_VALUES} />
+                  </i>
+                  <b>{design.name}</b>
+                  <small>{design.caption}</small>
+                  <em>{active ? "ACTIVE" : "SELECT"}</em>
+                </button>
+              );
+            })}
+          </div>
+          <p className="zr-note">
+            押すと車のメーターも変わります。形は、車のメーターの真ん中を押しても順番に変わります。
+          </p>
         </section>
       ) : null}
 

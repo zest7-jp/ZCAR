@@ -3532,7 +3532,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: inset 0 0 12px rgba(55, 205, 80, .08), 0 0 12px rgba(55, 205, 80, .08);
 }
 
-.meter-theme-dialog { width: min(620px, 92vw); }
+.meter-theme-dialog { width: min(780px, 94vw); }
 .meter-theme-dialog > header {
   display: flex;
   align-items: center;
@@ -3559,9 +3559,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 .meter-theme-options {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 15px;
+}
+@media (max-width: 720px) {
+  .meter-theme-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .meter-theme-options > button {
@@ -5267,8 +5270,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .theme-preview.green span {
   color: #5af1f4;
   text-shadow: 0 0 14px rgba(39, 220, 227, .65);
-}
-.theme-preview.green .turquoise-label {
   font-size: 11px;
   letter-spacing: .12em;
   white-space: nowrap;
@@ -5355,10 +5356,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #8be9ed;
   box-shadow: inset 0 0 12px rgba(39, 204, 212, .1), 0 0 10px rgba(39, 204, 212, .06);
 }
-
-/* ZEST aurora-violet: turquoise cockpit layout re-tinted with a violet neon
-   palette. The #app element carries meter-theme-green alongside
-   meter-theme-aurora so all structural rules apply;
 
 /* PATTERN ORANGE: command-room cockpit built from scratch.
    Black ground, signal orange, hazard stripes, scanlines, blinking alerts. */
@@ -5459,22 +5456,253 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   white-space: nowrap;
 }
 
-/* AURORA VIOLET driving cockpit: navigation map + big speed for glancing
-   while driving; quiet vitals that only light up on anomalies; a bottom
-   band with the ambient info (clock, sun, weather, world time{
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 12px 14px 10px;
-  color: #efe4ff;
-  font-weight: 900;
-  overflow: hidden;
+/* ------------------------------------------------------------------
+   色を足したテーマ(ブルー・バイオレット・ピンク・レッド・グリーン・シルバー)
+   盤面はターコイズと同じものを使い、計器全体に filter をかけて色を変える。
+   計器の部品は緑で塗ってあり、ターコイズはそれを +48度、オレンジは -90度
+   回したもの。ここの色も同じやり方で作る。
+   テーマごとの色の値は .zt-<名前> にまとめ、その下の共通の決まりが使う。
+   .zt-<名前> は、車の #app・色選びのボタン・スマホの画面とボタンに付ける。
+   ------------------------------------------------------------------ */
+/* COBALT BLUE */
+.zt-blue {
+  --zt-filter: hue-rotate(105deg) saturate(1.7);
+  --zt-rgb: 61, 145, 255;
+  --zt-accent: #3d91ff;
+  --zt-soft: #add1ff;
+  --zt-ink: #e0eeff;
+  --zt-text-hi: #9cb8dd;
+  --zt-text: #7d9cc5;
+  --zt-label-hi: #5585c3;
+  --zt-label: #4573b0;
+  --zt-faint: #6485af;
+  --zt-dim: #436898;
+  --zt-off: #617794;
+  --zt-dot: #2e4057;
+  --zt-muted: #7e91a9;
+  --zt-edge: #12478c;
+  --zt-swatch: #041225;
+  --zt-bg1: #040b14;
+  --zt-bg2: #020407;
+  --zt-field: #03060a;
+  --zt-panel: rgba(7, 12, 18, .88);
+  --zt-tabs: rgba(2, 4, 7, .86);
+  --zt-on-accent: #000c1c;
+}
+/* ULTRA VIOLET */
+.zt-violet {
+  --zt-filter: hue-rotate(140deg) saturate(1.6);
+  --zt-rgb: 173, 102, 255;
+  --zt-accent: #ad66ff;
+  --zt-soft: #d3adff;
+  --zt-ink: #efe0ff;
+  --zt-text-hi: #c0a4e0;
+  --zt-text: #a384c8;
+  --zt-label-hi: #8e5dc6;
+  --zt-label: #7c47b8;
+  --zt-faint: #8c6bb3;
+  --zt-dim: #7046a0;
+  --zt-off: #7e659a;
+  --zt-dot: #43305a;
+  --zt-muted: #9885ad;
+  --zt-edge: #4d1390;
+  --zt-swatch: #130425;
+  --zt-bg1: #0b0414;
+  --zt-bg2: #040207;
+  --zt-field: #06030a;
+  --zt-panel: rgba(12, 7, 18, .88);
+  --zt-tabs: rgba(4, 2, 7, .86);
+  --zt-on-accent: #0d001c;
+}
+/* NEON PINK */
+.zt-pink {
+  --zt-filter: hue-rotate(-157deg) saturate(1.6);
+  --zt-rgb: 255, 82, 191;
+  --zt-accent: #ff52bf;
+  --zt-soft: #ffade1;
+  --zt-ink: #ffe0f4;
+  --zt-text-hi: #d991bf;
+  --zt-text: #c072a3;
+  --zt-label-hi: #bf4a94;
+  --zt-label: #a54080;
+  --zt-faint: #aa5a8d;
+  --zt-dim: #8e3e71;
+  --zt-off: #8b5b79;
+  --zt-dot: #522b44;
+  --zt-muted: #a37592;
+  --zt-edge: #85115b;
+  --zt-swatch: #250419;
+  --zt-bg1: #14040e;
+  --zt-bg2: #070205;
+  --zt-field: #0a0307;
+  --zt-panel: rgba(18, 7, 14, .88);
+  --zt-tabs: rgba(7, 2, 5, .86);
+  --zt-on-accent: #1c0012;
+}
+/* CRIMSON RED */
+.zt-red {
+  --zt-filter: hue-rotate(-125deg) saturate(2.6);
+  --zt-rgb: 255, 61, 74;
+  --zt-accent: #ff3d4a;
+  --zt-soft: #ffadb3;
+  --zt-ink: #ffe0e2;
+  --zt-text-hi: #d99196;
+  --zt-text: #c07277;
+  --zt-label-hi: #bf4a52;
+  --zt-label: #a54047;
+  --zt-faint: #aa5a5f;
+  --zt-dim: #8e3e44;
+  --zt-off: #8b5b5e;
+  --zt-dot: #522b2e;
+  --zt-muted: #a37578;
+  --zt-edge: #851119;
+  --zt-swatch: #250406;
+  --zt-bg1: #140405;
+  --zt-bg2: #070202;
+  --zt-field: #0a0303;
+  --zt-panel: rgba(18, 7, 8, .88);
+  --zt-tabs: rgba(7, 2, 2, .86);
+  --zt-on-accent: #1c0002;
+}
+/* CLASSIC GREEN(計器のもとの色。ほとんど回さない) */
+.zt-classic {
+  --zt-filter: saturate(1.05);
+  --zt-rgb: 51, 255, 78;
+  --zt-accent: #33ff4e;
+  --zt-soft: #adffb8;
+  --zt-ink: #e0ffe4;
+  --zt-text-hi: #7ed389;
+  --zt-text: #61b86c;
+  --zt-label-hi: #3eb14e;
+  --zt-label: #399345;
+  --zt-faint: #509b5a;
+  --zt-dim: #367c40;
+  --zt-off: #517b56;
+  --zt-dot: #27492b;
+  --zt-muted: #66996d;
+  --zt-edge: #107a1e;
+  --zt-swatch: #042508;
+  --zt-bg1: #041406;
+  --zt-bg2: #020703;
+  --zt-field: #030a04;
+  --zt-panel: rgba(7, 18, 9, .88);
+  --zt-tabs: rgba(2, 7, 3, .86);
+  --zt-on-accent: #001c04;
+}
+/* ICE SILVER(色を抜いて、少しだけ青みを足す) */
+.zt-silver {
+  --zt-filter: grayscale(1) sepia(.25) hue-rotate(170deg) saturate(1.4) brightness(1.1);
+  --zt-rgb: 205, 214, 223;
+  --zt-accent: #cdd6df;
+  --zt-soft: #cdd6df;
+  --zt-ink: #ecf0f3;
+  --zt-text-hi: #b0b8bf;
+  --zt-text: #939ca4;
+  --zt-label-hi: #7a8794;
+  --zt-label: #6a7581;
+  --zt-faint: #7c858d;
+  --zt-dim: #606972;
+  --zt-off: #70757b;
+  --zt-dot: #3b4044;
+  --zt-muted: #8a8f94;
+  --zt-edge: #404d59;
+  --zt-swatch: #111418;
+  --zt-bg1: #0a0c0e;
+  --zt-bg2: #040505;
+  --zt-field: #060607;
+  --zt-panel: rgba(12, 13, 14, .88);
+  --zt-tabs: rgba(4, 5, 5, .86);
+  --zt-on-accent: #0b0e11;
 }
 
-/* The global footer rules hide fullscreen footers and force height 20px;
+/* 全画面の地の色と、計器にかける色。 */
+#app.meter-tinted.is-fullscreen {
+  background:
+    radial-gradient(circle at 50% 46%, rgba(var(--zt-rgb), .12), transparent 45%),
+    linear-gradient(145deg, var(--zt-bg1), var(--zt-bg2) 74%);
+}
+#app.meter-tinted.is-fullscreen .performance-cluster { filter: var(--zt-filter); }
+
+/* 四隅の文字は計器の中にあるので、緑で塗って盤面と一緒に色を回す(オレンジと同じ)。 */
+#app.meter-tinted.is-fullscreen .gauge-corner small,
+#app.meter-tinted.is-fullscreen .gauge-corner .gauge-corner-value em { color: #52c053; }
+#app.meter-tinted.is-fullscreen .gauge-corner b {
+  color: #e0ffe2;
+  text-shadow: 0 0 12px rgba(89, 255, 108, .45);
+}
+#app.meter-tinted.is-fullscreen .gauge-corner::before {
+  border-color: rgba(82, 224, 79, .5);
+}
+#app.meter-tinted.is-fullscreen .gauge-corner:active::before {
+  border-color: rgba(150, 255, 150, .95);
+}
+
+/* 上の状態バーと「更新」は計器の外にあるので、色は回らない。ここで直に指定する。 */
+#app.meter-tinted .meter-status { box-shadow: inset 0 -1px 0 rgba(var(--zt-rgb), .18); }
+#app.meter-tinted .meter-status-item + .meter-status-item::before {
+  background: rgba(var(--zt-rgb), .14);
+}
+#app.meter-tinted .meter-status-detail { color: var(--zt-dim); }
+#app.meter-tinted .meter-status-item i { background: var(--zt-dot); }
+#app.meter-tinted .meter-status-item small { color: var(--zt-label); }
+#app.meter-tinted .meter-status-item small span { color: var(--zt-label-hi); }
+#app.meter-tinted .meter-status-item b { color: var(--zt-text); }
+#app.meter-tinted .meter-status-item b span { color: var(--zt-text-hi); }
+#app.meter-tinted .meter-status-item.is-ok i {
+  background: var(--zt-accent);
+  box-shadow: 0 0 8px rgba(var(--zt-rgb), .8);
+}
+#app.meter-tinted .meter-status-item.is-ok b { color: var(--zt-soft); }
+#app.meter-tinted .meter-status-item.is-ok b span { color: var(--zt-ink); }
+/* 「捕捉中」などの注意は、どの色でも黄色のままにする。 */
+#app.meter-tinted .meter-status-item.is-warn i {
+  background: #e7b55a;
+  box-shadow: 0 0 8px rgba(231, 181, 90, .65);
+}
+#app.meter-tinted .meter-status-item.is-warn b { color: #d8bd87; }
+#app.meter-tinted .meter-status-item.is-warn b span { color: #f0d9a8; }
+#app.meter-tinted .meter-status-item.is-off i { background: var(--zt-dot); }
+#app.meter-tinted .meter-status-item.is-off small,
+#app.meter-tinted .meter-status-item.is-off small span,
+#app.meter-tinted .meter-status-item.is-off b,
+#app.meter-tinted .meter-status-item.is-off b span { color: var(--zt-off); }
+#app.meter-tinted .meter-status-item.is-button:active { background: rgba(var(--zt-rgb), .1); }
+#app.meter-tinted .meter-full-button {
+  border-color: rgba(var(--zt-rgb), .4);
+  color: var(--zt-soft);
+}
+#app.meter-tinted .meter-reload,
+#app.meter-tinted .meter-reload small span { color: var(--zt-label-hi); }
+#app.meter-tinted .meter-reload small { color: var(--zt-label); }
+#app.meter-tinted .meter-reload b { color: var(--zt-faint); }
+#app.meter-tinted .meter-reload:active {
+  background: rgba(var(--zt-rgb), .1);
+  color: var(--zt-soft);
+}
+
+/* 色選びのボタン(車) */
+.meter-theme-options > button.is-tinted.selected {
+  border-color: var(--zt-accent);
+  box-shadow: inset 0 0 0 1px rgba(var(--zt-rgb), .36);
+}
+.meter-theme-options > button.is-tinted small { color: var(--zt-label-hi); }
+.meter-theme-options > button.is-tinted em { color: var(--zt-accent); }
+.theme-preview.is-tinted {
+  border-color: var(--zt-edge);
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(var(--zt-rgb), .5) 31% 34%, transparent 35%),
+    radial-gradient(circle at 50% 50%, transparent 0 44%, rgba(var(--zt-rgb), .28) 45% 47%, transparent 48%),
+    linear-gradient(160deg, var(--zt-swatch), var(--zt-bg2) 72%);
+}
+.theme-preview.is-tinted span {
+  color: var(--zt-soft);
+  text-shadow: 0 0 14px rgba(var(--zt-rgb), .6);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .12em;
+  white-space: nowrap;
+}
 
 /* Turquoise Google Maps instrument finish */
 #app.is-fullscreen .green-gauge-map-window {
@@ -6745,6 +6973,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background-color: #070402;
 }
 
+/* 色を足したテーマ(ブルーなど)は、.zt-<名前> の色をそのまま使う。 */
+.zr.is-tinted {
+  --zr-accent: var(--zt-accent);
+  --zr-accent-strong: var(--zt-soft);
+  --zr-accent-rgb: var(--zt-rgb);
+  --zr-ink: var(--zt-ink);
+  --zr-muted: var(--zt-muted);
+  --zr-panel: var(--zt-panel);
+  --zr-field: var(--zt-field);
+  background-color: var(--zt-bg2);
+}
+
 .zr * { -webkit-tap-highlight-color: transparent; }
 
 /* --- 見出し: ロゴ --- */
@@ -6812,6 +7052,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   backdrop-filter: blur(10px);
 }
 .zr[data-theme="eva"] .zr-tabs { background: rgba(7, 4, 2, .86); }
+.zr.is-tinted .zr-tabs { background: var(--zt-tabs); }
 .zr-tabs button {
   position: relative;
   display: grid;
@@ -7028,6 +7269,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
 }
 .zr[data-theme="eva"] .zr-primary { color: #1c0b00; }
+.zr.is-tinted .zr-primary:enabled { color: var(--zt-on-accent); }
 .zr-primary:active { transform: translateY(1px); filter: brightness(1.06); }
 .zr-primary:disabled {
   background: rgba(var(--zr-accent-rgb), .14);
@@ -7265,6 +7507,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   --zr-theme-ring: rgba(255, 122, 26, .75);
   --zr-theme-ring-soft: rgba(255, 122, 26, .3);
   --zr-theme-bg: linear-gradient(160deg, #241104, #070301 72%);
+}
+.zr-theme.is-tinted {
+  --zr-theme-ring: rgba(var(--zt-rgb), .75);
+  --zr-theme-ring-soft: rgba(var(--zt-rgb), .3);
+  --zr-theme-bg: linear-gradient(160deg, var(--zt-swatch), var(--zt-bg2) 72%);
 }
 .zr-theme span { display: grid; gap: 5px; min-width: 0; }
 .zr-theme b { font-size: 14px; font-weight: 900; letter-spacing: .08em; }
@@ -7620,4 +7867,288 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: var(--zr-muted);
   font-size: 12px;
   text-align: center;
+}
+
+/* ------------------------------------------------------------------
+   真ん中のメーターの形(ARC / HUD FRAME / HALO RING / SPORT DIAL /
+   ANALOG NEEDLE / TACHO RING)。絵は app/meter-designs.tsx の SVG。
+   計器のほかの部品と同じく緑で塗り、計器にかかる filter で8色それぞれの
+   色になる。--dg-alt は少し青寄りの緑で、どの色でも隣り合う色の差し色になる。
+   ------------------------------------------------------------------ */
+.meter-design-gauge {
+  position: relative;
+  z-index: 9;
+  width: min(100%, 456px);
+  aspect-ratio: 1;
+  place-self: center;
+}
+@media (max-height: 520px) {
+  #app.is-fullscreen .meter-design-gauge { width: min(100%, 390px); }
+}
+
+.dg {
+  --dg-hi: #62ff78;
+  --dg-mid: #3fd957;
+  --dg-deep: #13802a;
+  --dg-dim: #133f1c;
+  --dg-ink: #f3fff4;
+  --dg-label: #7ccf88;
+  --dg-alt: #3dffbe;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  font-family: inherit;
+}
+.dg text { fill: var(--dg-label); font-weight: 800; }
+
+.dg .dg-stop-hi { stop-color: var(--dg-hi); }
+.dg .dg-stop-deep { stop-color: var(--dg-deep); }
+.dg .dg-stop-alt { stop-color: var(--dg-alt); }
+.dg .dg-stop-ink { stop-color: var(--dg-ink); }
+.dg .dg-stop-face { stop-color: #020703; }
+.dg .dg-stop-edge { stop-color: #0b2512; }
+.dg .dg-stop-glow { stop-color: rgba(70, 230, 95, .16); }
+.dg .dg-stop-none { stop-color: rgba(70, 230, 95, 0); }
+
+/* 文字盤・輪 */
+.dg .dg-face { fill: #030a05; }
+.dg .dg-ring-bright { fill: none; stroke: var(--dg-hi); stroke-width: 2.4; stroke-linecap: round; opacity: .85; }
+.dg .dg-ring-soft { fill: none; stroke: var(--dg-mid); stroke-width: 1.2; opacity: .35; }
+.dg .dg-ring-dots { fill: none; stroke: var(--dg-mid); stroke-width: 2; stroke-dasharray: 1 7; opacity: .55; }
+.dg .dg-ring-dash { fill: none; stroke: var(--dg-mid); stroke-width: 1.5; stroke-dasharray: 3 5; opacity: .45; }
+.dg .dg-ring-dash-wide { fill: none; stroke: var(--dg-hi); stroke-width: 5; stroke-dasharray: 2 7; opacity: .5; }
+.dg .dg-ring-dashed { fill: none; stroke: var(--dg-mid); stroke-width: 2; stroke-dasharray: 4 4; opacity: .45; }
+.dg .dg-ring-grad { fill: none; stroke-width: 9; }
+.dg .dg-ring-grad-glow { fill: none; stroke-width: 24; opacity: .16; }
+.dg .dg-redline { fill: none; stroke: var(--dg-alt); stroke-width: 5; opacity: .9; }
+.dg .dg-track { fill: none; stroke: var(--dg-dim); stroke-linecap: round; opacity: .8; }
+.dg .dg-disc { fill: #020804; stroke: var(--dg-mid); stroke-width: 2; stroke-opacity: .7; }
+.dg .dg-disc-ring { fill: none; stroke: var(--dg-hi); stroke-width: 1; opacity: .35; }
+
+/* 光る弧(外の淡い光・中の光・芯・芯の白い線) */
+.dg .dg-glow-arc path { fill: none; stroke-linecap: round; transition: stroke-dasharray .45s ease-out; }
+.dg .dg-glow-far { opacity: .1; }
+.dg .dg-glow-near { opacity: .22; }
+.dg .dg-glow-line { stroke: #ffffff; opacity: .5; }
+.dg .dg-glow-arc.is-empty { opacity: 0; }
+
+/* 目盛り */
+.dg .dg-tick { stroke: var(--dg-label); stroke-width: 1.4; opacity: .55; }
+.dg .dg-tick.is-mid { stroke-width: 2; opacity: .8; }
+.dg .dg-tick.is-major { stroke: var(--dg-ink); stroke-width: 3; opacity: .9; }
+.dg .dg-tick.is-lit { stroke: var(--dg-hi); opacity: 1; }
+.dg .dg-tick.is-red { stroke: var(--dg-alt); }
+.dg .dg-tick.is-red:not(.is-lit) { opacity: .45; }
+
+/* 区切った輪・柱 */
+.dg .dg-seg { fill: var(--dg-dim); opacity: .75; }
+.dg .dg-seg.is-lit { fill: var(--dg-mid); opacity: 1; }
+.dg .dg-seg.is-hot { fill: var(--dg-hi); }
+.dg .dg-seg.is-red { fill: var(--dg-alt); }
+.dg .dg-seg.is-head { fill: var(--dg-ink); }
+.dg .dg-seg-glow {
+  fill: none;
+  stroke: var(--dg-hi);
+  stroke-width: 34;
+  opacity: .16;
+  transition: stroke-dasharray .35s ease-out;
+}
+.dg .dg-bar { fill: var(--dg-dim); opacity: .85; }
+.dg .dg-bar.is-lit { opacity: 1; }
+.dg .dg-signal { fill: var(--dg-dim); }
+.dg .dg-signal.is-lit { fill: var(--dg-hi); }
+.dg .dg-eq { fill: var(--dg-hi); opacity: .85; }
+
+/* 針 */
+.dg .dg-needle-glow { stroke: var(--dg-hi); stroke-width: 9; stroke-linecap: round; opacity: .22; }
+.dg .dg-needle-line { stroke: var(--dg-ink); stroke-width: 2.4; stroke-linecap: round; }
+.dg .dg-tip { fill: var(--dg-ink); }
+.dg .dg-tip-halo { fill: var(--dg-hi); opacity: .3; }
+.dg .dg-needle {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+  transition: transform .45s ease-out;
+}
+.dg .dg-needle-shadow { fill: var(--dg-hi); opacity: .3; }
+.dg .dg-needle-body { fill: var(--dg-ink); }
+.dg .dg-needle-tip { fill: var(--dg-hi); }
+.dg .dg-cap { fill: #030b05; stroke: var(--dg-mid); stroke-width: 2.4; }
+.dg .dg-rim { fill: none; stroke: var(--dg-hi); stroke-width: 3; }
+.dg .dg-rim-glow { fill: none; stroke: var(--dg-hi); stroke-width: 14; opacity: .14; }
+.dg .dg-trail { fill: none; stroke: var(--dg-hi); stroke-width: 26; }
+
+/* 四角い枠(HUD FRAME) */
+.dg .dg-frame-fill { fill: rgba(2, 10, 4, .72); stroke: var(--dg-hi); stroke-width: 2.6; stroke-linejoin: round; }
+.dg .dg-frame-glow { fill: none; stroke: var(--dg-hi); stroke-width: 12; opacity: .12; stroke-linejoin: round; }
+.dg .dg-frame-inner { fill: none; stroke: var(--dg-mid); stroke-width: 1; opacity: .35; }
+.dg .dg-frame-accent { stroke: var(--dg-ink); stroke-width: 4; stroke-linecap: round; }
+.dg .dg-stripe { fill: var(--dg-hi); }
+.dg .dg-stripes { opacity: .75; }
+.dg .dg-ruler { stroke: var(--dg-label); stroke-width: 1.4; opacity: .7; }
+
+/* 角の丸い枠(HALO RING)・小窓(ANALOG NEEDLE) */
+.dg .dg-pill { fill: #020a04; stroke: var(--dg-hi); stroke-width: 2.4; }
+.dg .dg-pill-glow { fill: none; stroke: var(--dg-hi); stroke-width: 12; opacity: .16; }
+.dg .dg-chevron { fill: none; stroke: var(--dg-hi); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.dg .dg-panel { fill: rgba(2, 10, 4, .94); stroke: var(--dg-mid); stroke-width: 1.6; }
+.dg .dg-panel-glow { fill: none; stroke: var(--dg-hi); stroke-width: 8; opacity: .12; }
+
+/* 警告ランプ(SPORT DIAL)。注意のときは白く点滅する。 */
+.dg .dg-lamp-icon { fill: none; stroke: var(--dg-label); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dg .dg-lamp.is-warn .dg-lamp-icon {
+  stroke: #ffffff;
+  animation: dg-blink 1s steps(1, end) infinite;
+}
+.dg .dg-lamp.is-warn .dg-lamp-value { fill: #ffffff; }
+@keyframes dg-blink {
+  50% { opacity: .25; }
+}
+
+/* 地図つき(今の形)の見本 */
+.dg .dg-map { fill: #061a0b; stroke: var(--dg-mid); stroke-width: 2; }
+.dg .dg-map-road { fill: none; stroke: var(--dg-mid); stroke-width: 3; opacity: .35; }
+
+/* 文字 */
+.dg .dg-caption { font-size: 10px; letter-spacing: .3em; }
+.dg .dg-unit { font-size: 13px; letter-spacing: .12em; fill: var(--dg-hi); }
+.dg .dg-foot { font-size: 11px; letter-spacing: .22em; font-variant-numeric: tabular-nums; }
+.dg .dg-foot.is-strong { font-size: 14px; fill: var(--dg-ink); }
+.dg .dg-mini-label { font-size: 9px; letter-spacing: .2em; }
+.dg .dg-mini-value { font-size: 21px; font-weight: 700; fill: var(--dg-ink); font-variant-numeric: tabular-nums; }
+.dg .dg-scale { font-size: 16px; font-weight: 700; fill: var(--dg-ink); opacity: .82; }
+.dg .dg-scale.is-large { font-size: 19px; }
+.dg .dg-scale.is-red { fill: var(--dg-alt); opacity: 1; }
+.dg .dg-scale-small { font-size: 9px; }
+.dg .dg-lamp-value { font-size: 12px; font-variant-numeric: tabular-nums; }
+.dg .dg-panel-small { font-size: 10px; font-weight: 700; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.dg .dg-panel-speed { font-size: 32px; font-weight: 900; fill: var(--dg-ink); font-variant-numeric: tabular-nums; }
+.dg .dg-panel-unit { font-size: 10px; fill: var(--dg-hi); }
+.dg .dg-speed {
+  font-weight: 900;
+  fill: #fffaf4;
+  font-variant-numeric: tabular-nums;
+  filter: drop-shadow(0 0 10px rgba(66, 255, 86, .45));
+}
+.dg .dg-speed-thin {
+  font-size: 68px;
+  font-weight: 300;
+  letter-spacing: -.02em;
+  fill: var(--dg-ink);
+  font-variant-numeric: tabular-nums;
+  filter: drop-shadow(0 0 8px rgba(98, 255, 120, .5));
+}
+.dg .dg-speed-mono {
+  font-family: "DIN Alternate", "SFMono-Regular", Consolas, monospace;
+  font-size: 46px;
+  font-weight: 700;
+  fill: var(--dg-ink);
+  filter: drop-shadow(0 0 8px rgba(98, 255, 120, .5));
+}
+
+/* 形選びの見本。計器の外にあるので、今の色と同じ filter をかける。 */
+.dg-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  filter: hue-rotate(48deg) saturate(1.13);
+}
+.dg-thumb.is-eva { filter: hue-rotate(-90deg) saturate(1.2); }
+.dg-thumb.is-tinted { filter: var(--zt-filter); }
+
+/* メーターの真ん中を押すと次の形に変わる(押せる所は円の中だけ。下の二隅は除く)。 */
+.gauge-switch {
+  position: absolute;
+  inset: 14%;
+  z-index: 22;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gauge-switch:active {
+  background: radial-gradient(circle, rgba(98, 255, 120, .1), transparent 70%);
+}
+
+/* 変えたときに上に少しだけ出す形の名前(計器の中なので緑で塗る)。 */
+.gauge-design-flash {
+  position: absolute;
+  left: 50%;
+  top: 4%;
+  z-index: 23;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 7px 16px 8px;
+  border: 1px solid rgba(98, 255, 120, .55);
+  border-radius: 999px;
+  background: rgba(2, 10, 4, .9);
+  box-shadow: 0 0 18px rgba(98, 255, 120, .25);
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  animation: gauge-design-flash 1.8s ease-out forwards;
+}
+.gauge-design-flash small {
+  color: #7ccf88;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .24em;
+}
+.gauge-design-flash b {
+  color: #f3fff4;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+@keyframes gauge-design-flash {
+  0% { opacity: 0; transform: translate(-50%, 6px); }
+  12%, 70% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
+
+/* スマホ: メーターの形の一覧(2列) */
+.zr-designs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.zr-design {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 10px 14px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 18px;
+  background: var(--zr-panel);
+  color: var(--zr-ink);
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.zr-design .dg-thumb { width: min(100%, 132px); margin-bottom: 4px; }
+.zr-design b { font-size: 12px; font-weight: 900; letter-spacing: .08em; }
+.zr-design small { color: var(--zr-muted); font-size: 10px; }
+.zr-design em {
+  margin-top: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+.zr-design.is-active {
+  border-color: rgba(var(--zr-accent-rgb), .6);
+  box-shadow: 0 0 0 1px rgba(var(--zr-accent-rgb), .25), 0 10px 28px rgba(var(--zr-accent-rgb), .14);
+}
+.zr-design.is-active em {
+  border-color: var(--zr-accent);
+  background: rgba(var(--zr-accent-rgb), .14);
+  color: var(--zr-accent-strong);
 }

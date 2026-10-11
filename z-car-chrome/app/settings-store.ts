@@ -4,7 +4,32 @@
 
 export type CarState = "not_departed" | "departed" | "checked_out";
 
-export type MeterTheme = "green" | "eva";
+/**
+ * メーターの色。ターコイズは昔の名残で "green"、オレンジは "eva" という名前で保存している。
+ * 中身(名前や色の作り方)は下の METER_THEMES にまとめてある。
+ */
+export type MeterTheme =
+  | "green"
+  | "blue"
+  | "violet"
+  | "pink"
+  | "red"
+  | "eva"
+  | "classic"
+  | "silver";
+
+/**
+ * 真ん中のメーターの形。navi は地図の入った今の形。ほかは色とは別に選べる。
+ * 中身(名前や説明)は下の METER_DESIGNS、絵は app/meter-designs.tsx。
+ */
+export type MeterDesign =
+  | "navi"
+  | "arc"
+  | "frame"
+  | "halo"
+  | "sport"
+  | "analog"
+  | "tacho";
 
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
@@ -309,6 +334,8 @@ export type Settings = {
   departedAt: string;
   checkedOutAt: string;
   meterTheme: MeterTheme;
+  /** 真ん中のメーターの形。 */
+  meterDesign: MeterDesign;
   /** 設定同期の合言葉。空なら同期しない。端末内だけに保存し、送信内容には含めない。 */
   syncKey: string;
   /** 車とつないだ時刻(0なら未接続)。端末ごとの値なので同期しない。 */
@@ -334,6 +361,7 @@ export const defaults: Settings = {
   departedAt: "",
   checkedOutAt: "",
   meterTheme: "green",
+  meterDesign: "navi",
   syncKey: "",
   pairedAt: 0,
   syncedAt: 0,
@@ -345,6 +373,7 @@ export const defaults: Settings = {
 /** サーバーと共有する項目。走行状態やAPIキーは端末ごとなので送らない。 */
 export const SYNCED_FIELDS = [
   "meterTheme",
+  "meterDesign",
   "storeName",
   "storeDest",
   "start",
@@ -426,6 +455,7 @@ export const sanitizeSyncedSettings = (
   } else {
     delete cleaned.meterTheme;
   }
+  if (!isMeterDesign(cleaned.meterDesign)) delete cleaned.meterDesign;
   // サーバーにまだ一覧が無ければ、前のバージョンの1〜5の枠から移す。
   const legacy = value as { places?: unknown; mapDestinations?: unknown };
   if (Array.isArray(legacy.places) || Array.isArray(legacy.mapDestinations)) {
@@ -447,6 +477,7 @@ export const fetchSharedSettings = async (key: string) =>
  */
 export const SHARED_EDIT_FIELDS = [
   "meterTheme",
+  "meterDesign",
   "storeName",
   "storeDest",
   "homeDest",
@@ -510,28 +541,133 @@ export const pushFuelEntries = async (key: string, fuelEntries: FuelEntry[]) =>
 
 export const SETTINGS_STORAGE_KEY = "zcar";
 
-export const METER_THEMES: {
+export type MeterThemeInfo = {
   id: MeterTheme;
   name: string;
+  /** スマホの色選びに出す説明。 */
   caption: string;
-  swatch: [string, string];
-}[] = [
+  /** 車の色選びに出す説明(英語)。 */
+  captionEn: string;
+  /** 上のバーに出す短い名前。 */
+  shortJa: string;
+  shortEn: string;
+  /**
+   * true は、ターコイズと同じ盤面に色をかけて作る色。色の値は globals.css の
+   * .zt-<id> にまとめてあり、画面には meter-tinted と zt-<id> のクラスを付ける。
+   * ターコイズとオレンジは、それぞれ専用の書き方で作ってある。
+   */
+  tinted: boolean;
+};
+
+/** 色選びに並べる順(色相の順に一周し、最後に色の無いシルバー)。 */
+export const METER_THEMES: MeterThemeInfo[] = [
   {
     id: "green",
     name: "TURQUOISE BLUE",
     caption: "ターコイズ・コックピット",
-    swatch: ["#0a1c18", "#39ccd4"],
+    captionEn: "TURQUOISE COCKPIT THEME",
+    shortJa: "ターコイズ",
+    shortEn: "TURQUOISE",
+    tinted: false,
+  },
+  {
+    id: "blue",
+    name: "COBALT BLUE",
+    caption: "ミッドナイト・コックピット",
+    captionEn: "MIDNIGHT COCKPIT",
+    shortJa: "ブルー",
+    shortEn: "BLUE",
+    tinted: true,
+  },
+  {
+    id: "violet",
+    name: "ULTRA VIOLET",
+    caption: "ネオン・コックピット",
+    captionEn: "NEON COCKPIT",
+    shortJa: "バイオレット",
+    shortEn: "VIOLET",
+    tinted: true,
+  },
+  {
+    id: "pink",
+    name: "NEON PINK",
+    caption: "ナイトクルーズ・コックピット",
+    captionEn: "NIGHT CRUISE COCKPIT",
+    shortJa: "ピンク",
+    shortEn: "PINK",
+    tinted: true,
+  },
+  {
+    id: "red",
+    name: "CRIMSON RED",
+    caption: "スポーツ・コックピット",
+    captionEn: "SPORTS COCKPIT",
+    shortJa: "レッド",
+    shortEn: "RED",
+    tinted: true,
   },
   {
     id: "eva",
     name: "PATTERN ORANGE",
     caption: "コマンドルーム・コックピット",
-    swatch: ["#1a1109", "#ff8a2b"],
+    captionEn: "COMMAND ROOM COCKPIT",
+    shortJa: "オレンジ",
+    shortEn: "ORANGE",
+    tinted: false,
+  },
+  {
+    id: "classic",
+    name: "CLASSIC GREEN",
+    caption: "オリジナル・コックピット",
+    captionEn: "ORIGINAL COCKPIT",
+    shortJa: "グリーン",
+    shortEn: "GREEN",
+    tinted: true,
+  },
+  {
+    id: "silver",
+    name: "ICE SILVER",
+    caption: "ステルス・コックピット",
+    captionEn: "STEALTH COCKPIT",
+    shortJa: "シルバー",
+    shortEn: "SILVER",
+    tinted: true,
   },
 ];
 
+/** 色の説明を引く。知らない名前ならターコイズ。 */
+export const meterThemeInfo = (id: string): MeterThemeInfo =>
+  METER_THEMES.find((theme) => theme.id === id) ?? METER_THEMES[0];
+
 const isMeterTheme = (value: unknown): value is MeterTheme =>
-  value === "green" || value === "eva";
+  METER_THEMES.some((theme) => theme.id === value);
+
+export type MeterDesignInfo = {
+  id: MeterDesign;
+  name: string;
+  /** スマホの形選びに出す説明。 */
+  caption: string;
+  /** 車の形選びに出す説明(英語)。 */
+  captionEn: string;
+};
+
+/** 形選びに並べる順。最初は地図の入った今の形。 */
+export const METER_DESIGNS: MeterDesignInfo[] = [
+  { id: "navi", name: "NAVI GAUGE", caption: "地図つき(今の形)", captionEn: "MAP + TACHOMETER" },
+  { id: "arc", name: "ARC GAUGE", caption: "光る弧と大きな数字", captionEn: "GLOWING ARC" },
+  { id: "frame", name: "HUD FRAME", caption: "四角い枠のHUD", captionEn: "SQUARE HUD PANEL" },
+  { id: "halo", name: "HALO RING", caption: "光の輪", captionEn: "LAYERED RINGS" },
+  { id: "sport", name: "SPORT DIAL", caption: "半円と警告ランプ", captionEn: "HALF DIAL + LAMPS" },
+  { id: "analog", name: "ANALOG NEEDLE", caption: "針のメーター", captionEn: "CLASSIC NEEDLE" },
+  { id: "tacho", name: "TACHO RING", caption: "回転計の目盛り", captionEn: "DENSE TACHO TICKS" },
+];
+
+/** 形の説明を引く。知らない名前なら今の形(NAVI)。 */
+export const meterDesignInfo = (id: string): MeterDesignInfo =>
+  METER_DESIGNS.find((design) => design.id === id) ?? METER_DESIGNS[0];
+
+const isMeterDesign = (value: unknown): value is MeterDesign =>
+  METER_DESIGNS.some((design) => design.id === value);
 
 /** 前のバージョンが保存していた、もう使わない項目(目的地の枠は places に移してから消す)。 */
 const OBSOLETE_SETTINGS_FIELDS = ["playlists", "nowPlaying", "mapDestinations"];
@@ -552,10 +688,13 @@ export const readSettings = (): Settings => {
       ...stored,
       carId:
         !stored.carId || stored.carId === "CAR-01" ? defaults.carId : stored.carId,
-      // 廃止したテーマ(RED / AURORA VIOLET)が保存されていたら初期値に戻す。
+      // 知らない色(前に廃止した AURORA VIOLET など)が保存されていたら初期値に戻す。
       meterTheme: isMeterTheme(stored.meterTheme)
         ? stored.meterTheme
         : defaults.meterTheme,
+      meterDesign: isMeterDesign(stored.meterDesign)
+        ? stored.meterDesign
+        : defaults.meterDesign,
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       syncedAt: Number.isFinite(stored.syncedAt) ? Number(stored.syncedAt) : 0,

@@ -34,6 +34,7 @@ const MAX_KEY_LENGTH = 128;
 /** 同期する項目。これ以外は受け取っても保存しない(APIキーや走行状態は端末ごと)。 */
 const ALLOWED_FIELDS = [
     'meterTheme'  => 24,
+    'meterDesign' => 24,
     'storeName'   => 120,
     'storeDest'   => 200,
     'start'       => 5,
