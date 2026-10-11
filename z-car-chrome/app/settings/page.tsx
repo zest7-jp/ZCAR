@@ -4,19 +4,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSharedSync } from "../hooks/use-shared-sync";
 import {
   defaults,
+  listNavChoices,
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
+  MAX_PLACES,
   mergeFuelEntries,
   METER_THEMES,
   MIN_SYNC_KEY_LENGTH,
+  NEW_PLACE_KEY,
   PHONE_LONG_EDGE_MAX,
   readSettings,
   readSyncKeyFromHash,
+  resolveStartTarget,
+  saveNavChoice,
   writeSettings,
   type FuelEntry,
   type MeterTheme,
+  type NavChoice,
   type Settings,
 } from "../settings-store";
+import { StarMark } from "../star-mark";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -278,55 +285,99 @@ export default function PhoneSettingsPage() {
     setToast(linked ? "記録しました・車に送ります" : "記録しました");
   };
 
-  // --- 目的地(車の「場所を直す」と同じ並び) ---
-  const workDestination =
-    draft.storeDest.trim() ||
-    draft.storeName.trim() ||
-    draft.mapDestinations[0]?.destination ||
-    "";
-  const homeDestination = draft.homeDest.trim() || draft.mapDestinations[1]?.destination || "";
-  const slots = [
-    { key: "work", label: "DEPART", note: "出発(店舗)", destination: workDestination, canRename: false },
-    { key: "home", label: "RETURN", note: "帰宅", destination: homeDestination, canRename: false },
-    ...draft.mapDestinations.map((entry, index) => ({
-      key: `dest-${index}`,
-      label: entry.label.trim() || `${index + 1}番`,
-      note: `${index + 1}番`,
-      destination: entry.destination.trim(),
-      canRename: true,
-    })),
-  ];
+  // --- 目的地(車の DEST と同じ並び) ---
+  const choices = listNavChoices(draft);
+  // ★の付いた場所(車の START の行き先)。
+  const startChoice = resolveStartTarget(choices, draft.startTarget);
+  const sendNote = linked ? "・車に送ります" : "";
 
-  const openEditor = (slot: (typeof slots)[number]) => {
-    if (editKey === slot.key) {
+  /** 場所を開く(もう一度押すと閉じる)。null は新しい目的地を足すとき。 */
+  const openEditor = (choice: NavChoice | null) => {
+    const key = choice ? choice.key : NEW_PLACE_KEY;
+    if (editKey === key) {
       setEditKey(null);
       return;
     }
-    setEditKey(slot.key);
-    setEditDraft({ label: slot.canRename ? slot.label : "", destination: slot.destination });
+    setEditKey(key);
+    setEditDraft({
+      label: choice && !choice.fixed ? choice.label : "",
+      destination: choice ? choice.destination : "",
+    });
   };
 
-  /** 直した場所を保存する。住所を空にすると、その枠は未登録に戻る。 */
+  /** 直した(足した)場所を保存する。clear のときは、その場所を消す。 */
   const saveEditor = (clear = false) => {
     const key = editKey;
     if (!key) return;
-    const destination = clear ? "" : editDraft.destination.trim().slice(0, MAX_DESTINATION_TEXT);
-    const label = clear ? "" : editDraft.label.trim().slice(0, MAX_DESTINATION_LABEL);
-    setDraft((current) => {
-      if (key === "work") return { ...current, storeDest: destination };
-      if (key === "home") return { ...current, homeDest: destination };
-      const index = Number.parseInt(key.slice("dest-".length), 10);
-      if (!Number.isInteger(index)) return current;
-      return {
-        ...current,
-        mapDestinations: current.mapDestinations.map((entry, position) =>
-          position === index ? { label, destination } : entry,
-        ),
-      };
-    });
+    const adding = key === NEW_PLACE_KEY;
+    setDraft((current) =>
+      saveNavChoice(
+        current,
+        adding ? null : key,
+        clear ? { label: "", destination: "" } : editDraft,
+      ),
+    );
     setEditKey(null);
-    setToast(linked ? "保存しました・車に送ります" : "保存しました");
+    setToast(`${clear ? "消しました" : adding ? "追加しました" : "保存しました"}${sendNote}`);
   };
+
+  /** ★を付け替える。★の場所が、車の START の行き先になる。 */
+  const starChoice = (choice: NavChoice) => {
+    if (!choice.destination || startChoice?.key === choice.key) return;
+    setDraft((current) => ({ ...current, startTarget: choice.key }));
+    setToast(`START → ${choice.label}${sendNote}`);
+  };
+
+  /** 場所を直す・足す欄。 */
+  const placeEditor = (choice: NavChoice | null) => (
+    <form
+      className="zr-editor"
+      onSubmit={(event) => {
+        event.preventDefault();
+        saveEditor();
+      }}
+    >
+      {!choice?.fixed ? (
+        <label className="zr-field zr-field-wide">
+          <span>名前（{MAX_DESTINATION_LABEL}文字まで）</span>
+          <div>
+            <input
+              type="text"
+              value={editDraft.label}
+              maxLength={MAX_DESTINATION_LABEL}
+              placeholder="例: 鳥"
+              onChange={(event) => setEditDraft({ ...editDraft, label: event.target.value })}
+            />
+          </div>
+        </label>
+      ) : null}
+      <label className="zr-field zr-field-wide">
+        <span>住所、または場所の名前</span>
+        <div>
+          <input
+            type="text"
+            value={editDraft.destination}
+            maxLength={MAX_DESTINATION_TEXT}
+            placeholder="例: 大阪府枚方市出口3丁目1-1"
+            onChange={(event) => setEditDraft({ ...editDraft, destination: event.target.value })}
+          />
+        </div>
+      </label>
+      <div className="zr-editor-actions">
+        <button type="button" className="zr-ghost" onClick={() => setEditKey(null)}>
+          やめる
+        </button>
+        <button type="submit" className="zr-primary" disabled={!editDraft.destination.trim()}>
+          {choice ? "保存する" : "追加する"}
+        </button>
+      </div>
+      {choice?.destination ? (
+        <button type="button" className="zr-danger" onClick={() => saveEditor(true)}>
+          {choice.fixed ? "この住所を消す" : "この目的地を消す"}
+        </button>
+      ) : null}
+    </form>
+  );
 
   // --- メーターの色 ---
   const chooseTheme = (id: MeterTheme) => {
@@ -597,86 +648,70 @@ export default function PhoneSettingsPage() {
               <small>DESTINATIONS</small>
               <b>ナビの目的地</b>
             </span>
+            <em className="zr-star-legend">
+              <StarMark filled />
+              START
+            </em>
           </header>
           <ul className="zr-places">
-            {slots.map((slot) => (
-              <li key={slot.key} className={editKey === slot.key ? "is-editing" : undefined}>
-                <button
-                  type="button"
-                  className="zr-place"
-                  aria-expanded={editKey === slot.key}
-                  onClick={() => openEditor(slot)}
+            {choices.map((choice) => {
+              const starred = startChoice?.key === choice.key;
+              const editing = editKey === choice.key;
+              return (
+                <li
+                  key={choice.key}
+                  className={`${editing ? "is-editing" : ""}${starred ? " is-start" : ""}`.trim() || undefined}
                 >
-                  <span className="zr-place-name">
-                    <b>{slot.label}</b>
-                    <small>{slot.note}</small>
-                  </span>
-                  <span className="zr-place-addr">{slot.destination || "未登録"}</span>
-                  <i aria-hidden="true" />
-                </button>
-                {editKey === slot.key ? (
-                  <form
-                    className="zr-editor"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      saveEditor();
-                    }}
-                  >
-                    {slot.canRename ? (
-                      <label className="zr-field zr-field-wide">
-                        <span>名前（{MAX_DESTINATION_LABEL}文字まで）</span>
-                        <div>
-                          <input
-                            type="text"
-                            value={editDraft.label}
-                            maxLength={MAX_DESTINATION_LABEL}
-                            placeholder="例: 鳥"
-                            onChange={(event) =>
-                              setEditDraft({ ...editDraft, label: event.target.value })
-                            }
-                          />
-                        </div>
-                      </label>
-                    ) : null}
-                    <label className="zr-field zr-field-wide">
-                      <span>住所、または場所の名前</span>
-                      <div>
-                        <input
-                          type="text"
-                          value={editDraft.destination}
-                          maxLength={MAX_DESTINATION_TEXT}
-                          placeholder="例: 大阪府枚方市出口3丁目1-1"
-                          onChange={(event) =>
-                            setEditDraft({ ...editDraft, destination: event.target.value })
-                          }
-                        />
-                      </div>
-                    </label>
-                    <div className="zr-editor-actions">
-                      <button type="button" className="zr-ghost" onClick={() => setEditKey(null)}>
-                        やめる
-                      </button>
-                      <button
-                        type="submit"
-                        className="zr-primary"
-                        disabled={!editDraft.destination.trim()}
-                      >
-                        保存する
-                      </button>
-                    </div>
-                    {slot.destination ? (
-                      <button type="button" className="zr-danger" onClick={() => saveEditor(true)}>
-                        この場所を消す
-                      </button>
-                    ) : null}
-                  </form>
-                ) : null}
+                  <div className="zr-place-row">
+                    <button
+                      type="button"
+                      className="zr-star"
+                      aria-pressed={starred}
+                      aria-label={`${choice.label} を START の行き先にする`}
+                      disabled={!choice.destination}
+                      onClick={() => starChoice(choice)}
+                    >
+                      <StarMark filled={starred} />
+                    </button>
+                    <button
+                      type="button"
+                      className="zr-place"
+                      aria-expanded={editing}
+                      onClick={() => openEditor(choice)}
+                    >
+                      <span className="zr-place-name">
+                        <b>{choice.label}</b>
+                        {choice.note ? <small>{choice.note}</small> : null}
+                        {starred ? <em>START</em> : null}
+                      </span>
+                      <span className="zr-place-addr">{choice.destination || "未登録"}</span>
+                      <i aria-hidden="true" />
+                    </button>
+                  </div>
+                  {editing ? placeEditor(choice) : null}
+                </li>
+              );
+            })}
+            {editKey === NEW_PLACE_KEY ? (
+              <li className="is-editing is-new">
+                <p className="zr-new-head">
+                  <b>NEW PLACE</b>
+                  <small>新しい目的地</small>
+                </p>
+                {placeEditor(null)}
               </li>
-            ))}
+            ) : null}
           </ul>
+          {draft.places.length < MAX_PLACES && editKey !== NEW_PLACE_KEY ? (
+            <button type="button" className="zr-add" onClick={() => openEditor(null)}>
+              <i aria-hidden="true" />
+              <b>ADD PLACE</b>
+              <small>目的地を追加</small>
+            </button>
+          ) : null}
           <p className="zr-note">
-            住所でも店名でも構いません。車の DEST にそのまま並び、右下の START で
-            案内が始まります。
+            <StarMark filled />
+            を付けた場所に、車の START で案内します。住所でも店名でも構いません。
           </p>
         </section>
       ) : null}

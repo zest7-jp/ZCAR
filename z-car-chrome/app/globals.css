@@ -6128,6 +6128,39 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 .dest-choices button.is-active b { color: #6fe3ea; }
 
+/* 「選ぶ」では、左の★が START の行き先の印。 */
+.dest-choices.is-pick button {
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  column-gap: 12px;
+}
+.dest-choices.is-pick .star-mark { grid-row: 1 / span 2; }
+.star-mark {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: #4b5a66;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.star-mark.is-filled {
+  fill: #6fe3ea;
+  stroke: #6fe3ea;
+  filter: drop-shadow(0 0 5px rgba(111, 227, 234, .55));
+}
+
+/* 「場所を直す」の一番下: 目的地を足す。 */
+.dest-choices button.dest-add {
+  border-style: dashed;
+  border-color: #2f7f84;
+  background: transparent;
+}
+.dest-choices button.dest-add b {
+  color: #6fe3ea;
+  font-size: 13px;
+  letter-spacing: .14em;
+}
+
 /* 目的地ダイアログの「選ぶ / 場所を直す」切り替え。 */
 .dest-tabs {
   display: grid;
@@ -6960,6 +6993,103 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .zr-places li.is-editing .zr-place i { transform: rotate(45deg); border-color: var(--zr-accent); }
 .zr-places li.is-editing .zr-place-name b { color: var(--zr-accent-strong); }
+/* 左の★: 押すと、その場所が車の START の行き先になる(1つだけ)。 */
+.zr-place-row { display: flex; align-items: stretch; }
+.zr-place-row .zr-place { flex: 1; min-width: 0; }
+.zr-star {
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  margin-left: -8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.zr-star:disabled { opacity: .35; cursor: default; }
+.zr .star-mark {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: rgba(255, 255, 255, .26);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  filter: none;
+}
+.zr .star-mark.is-filled {
+  fill: var(--zr-accent);
+  stroke: var(--zr-accent);
+  filter: drop-shadow(0 0 6px rgba(var(--zr-accent-rgb), .6));
+}
+.zr-places li.is-start {
+  background: linear-gradient(90deg, rgba(var(--zr-accent-rgb), .08), transparent 70%);
+}
+.zr-place-name em {
+  padding: 2px 6px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .5);
+  border-radius: 999px;
+  color: var(--zr-accent-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+.zr-star-legend { display: flex; align-items: center; gap: 6px; }
+.zr-star-legend .star-mark,
+.zr-note .star-mark { width: 13px; height: 13px; filter: none; }
+.zr-note .star-mark { display: inline-block; margin-right: 2px; vertical-align: -2px; }
+
+/* 一番下: 目的地を足す。 */
+.zr-add {
+  display: grid;
+  grid-template-columns: 22px auto 1fr;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  margin: 0 0 12px;
+  padding: 0 14px;
+  border: 1px dashed rgba(var(--zr-accent-rgb), .45);
+  border-radius: 14px;
+  background: rgba(var(--zr-accent-rgb), .04);
+  color: var(--zr-accent-strong);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.zr-add i {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .6);
+  border-radius: 7px;
+}
+.zr-add i::before,
+.zr-add i::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--zr-accent);
+  transform: translate(-50%, -50%);
+}
+.zr-add i::after { transform: translate(-50%, -50%) rotate(90deg); }
+.zr-add b { font-size: 13px; font-weight: 900; letter-spacing: .16em; }
+.zr-add small { color: var(--zr-muted); font-size: 11px; }
+.zr-new-head { display: flex; align-items: baseline; gap: 10px; margin: 14px 0 10px; }
+.zr-new-head b {
+  color: var(--zr-accent-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .2em;
+}
+.zr-new-head small { color: var(--zr-muted); font-size: 11px; }
+
 .zr-editor { display: grid; gap: 10px; padding: 2px 0 16px; }
 .zr-editor-actions { display: grid; grid-template-columns: auto 1fr; gap: 10px; }
 
@@ -7243,6 +7373,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: var(--zr-accent-strong);
   font-size: 13px;
   font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   transform: translateX(-50%);
   animation: zr-rise-in .22s ease-out;

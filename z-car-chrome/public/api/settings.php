@@ -27,6 +27,7 @@ const MAX_FUEL_ENTRIES = 120;
 const MAP_DESTINATION_COUNT = 5;
 const MAX_DESTINATION_LABEL = 8;
 const MAX_DESTINATION_TEXT = 200;
+const MAX_PLACES = 30;
 const MIN_KEY_LENGTH = 8;
 const MAX_KEY_LENGTH = 128;
 
@@ -38,6 +39,7 @@ const ALLOWED_FIELDS = [
     'start'       => 5,
     'homeDest'    => 200,
     'carId'       => 40,
+    'startTarget' => 40,
 ];
 
 function fail(int $status, string $message): void
@@ -125,7 +127,7 @@ foreach (ALLOWED_FIELDS as $field => $maxLength) {
     }
     $clean[$field] = $value;
 }
-// ナビの目的地はボタンと同じ5件ちょうどに揃える。空欄は未登録として保存する。
+// 前のバージョンの目的地(1〜5の決まった枠)。古い画面が送ってきたときのために残す。
 if (isset($incoming['mapDestinations']) && is_array($incoming['mapDestinations'])) {
     $destinations = [];
     for ($i = 0; $i < MAP_DESTINATION_COUNT; $i++) {
@@ -142,6 +144,39 @@ if (isset($incoming['mapDestinations']) && is_array($incoming['mapDestinations']
         ];
     }
     $clean['mapDestinations'] = $destinations;
+}
+
+// ナビの目的地の一覧(出発・帰宅のほか)。id が正しく、住所があるものだけ残す。
+// 空の一覧も「全部消した」として受け付ける。
+if (isset($incoming['places']) && is_array($incoming['places'])) {
+    $places = [];
+    $seen = [];
+    foreach ($incoming['places'] as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+        $id = isset($entry['id']) && is_string($entry['id']) ? $entry['id'] : '';
+        if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $id) || isset($seen[$id])) {
+            continue;
+        }
+        $label = isset($entry['label']) && is_string($entry['label']) ? trim($entry['label']) : '';
+        $target = isset($entry['destination']) && is_string($entry['destination'])
+            ? trim($entry['destination'])
+            : '';
+        if ($target === '') {
+            continue;
+        }
+        $seen[$id] = true;
+        $places[] = [
+            'id' => $id,
+            'label' => mb_substr($label, 0, MAX_DESTINATION_LABEL, 'UTF-8'),
+            'destination' => mb_substr($target, 0, MAX_DESTINATION_TEXT, 'UTF-8'),
+        ];
+        if (count($places) >= MAX_PLACES) {
+            break;
+        }
+    }
+    $clean['places'] = $places;
 }
 
 // 給油記録。消す操作が無いので、送られてきた分を検査してから
