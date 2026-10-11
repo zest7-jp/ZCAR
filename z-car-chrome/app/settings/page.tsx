@@ -10,6 +10,7 @@ import {
   defaults,
   fetchSharedSettings,
   mergeFuelEntries,
+  overlayChangedDestinations,
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
   METER_THEMES,
@@ -21,18 +22,20 @@ import {
   saveMusicPlaylists,
   MIN_SYNC_KEY_LENGTH,
   PHONE_LONG_EDGE_MAX,
-  pushSharedSettings,
+  pushSyncedFields,
   uploadMusicFiles,
   type MusicPlaylist,
   type MusicTrack,
   readSettings,
   readSyncKeyFromHash,
   sanitizeSyncedSettings,
+  SHARED_EDIT_FIELDS,
   writeSettings,
   type FuelEntry,
   type MapDestination,
   type MeterTheme,
   type Settings,
+  type SyncedSettings,
 } from "../settings-store";
 
 type SyncState = "idle" | "sending" | "done" | "error";
@@ -100,6 +103,18 @@ export default function PhoneSettingsPage() {
     );
   }, []);
 
+  /**
+   * 車と共有している項目の「いまサーバーにある値」(JSON)。
+   * 保存のときに、ここから変わった項目だけを送る
+   * (車で直した目的地などを、この端末の古い値で上書きしないため)。
+   */
+  const syncedRef = useRef<Record<string, string> | null>(null);
+  const rememberSynced = (settings: Settings) => {
+    syncedRef.current = Object.fromEntries(
+      SHARED_EDIT_FIELDS.map((field) => [field, JSON.stringify(settings[field])]),
+    );
+  };
+
   useEffect(() => {
     let stored = readSettings();
 
@@ -125,6 +140,7 @@ export default function PhoneSettingsPage() {
 
     setDraft(stored);
     setReady(true);
+    rememberSynced(stored);
 
     // 車側で先に変更されているかもしれないので、開いた時点で一度取りに行く。
     const key = stored.syncKey.trim();
@@ -144,8 +160,11 @@ export default function PhoneSettingsPage() {
         };
         setDraft(merged);
         writeSettings(merged);
+        rememberSynced(merged);
       })
       .catch(() => undefined);
+    // 開いたときに一度だけ読む(以降は保存・記録のたびに送る)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 保存後の「保存しました」表示は数秒で消す。
@@ -168,16 +187,26 @@ export default function PhoneSettingsPage() {
   };
 
 
-  /** 保存した内容を車側にも届ける。 */
-  const sendToCar = async (settings: Settings) => {
+  /** 保存した内容のうち、指定した項目だけを車側にも届ける。 */
+  const sendToCar = async (settings: Settings, fields: Partial<SyncedSettings>) => {
     if (settings.syncKey.trim().length < MIN_SYNC_KEY_LENGTH) return;
+    if (Object.keys(fields).length === 0) {
+      setSyncState("done");
+      return;
+    }
     setSyncState("sending");
     try {
-      const result = await pushSharedSettings(settings.syncKey.trim(), settings);
+      const result = await pushSyncedFields(settings.syncKey.trim(), fields);
+      if (!result.ok) throw new Error("SYNC_FAILED");
       const updatedAt = result.updatedAt ?? Date.now();
       const synced = { ...settings, syncedAt: updatedAt };
       setDraft(synced);
       writeSettings(synced);
+      if (syncedRef.current) {
+        for (const field of SHARED_EDIT_FIELDS) {
+          if (field in fields) syncedRef.current[field] = JSON.stringify(settings[field]);
+        }
+      }
       setSyncState("done");
     } catch {
       setSyncState("error");
@@ -607,11 +636,12 @@ export default function PhoneSettingsPage() {
     writeSettings(next);
     setFuelDraft({ ...emptyFuelDraft, date: todayKey() });
     setFuelSaved(true);
-    void sendToCar(next);
+    // 給油記録だけを送る(ほかの項目は触らない)。
+    void sendToCar(next, { fuelEntries: next.fuelEntries });
   };
 
-  const save = () => {
-    const next: Settings = {
+  const save = async () => {
+    let next: Settings = {
       ...draft,
       storeName: draft.storeName.trim() || defaults.storeName,
       storeDest:
@@ -624,10 +654,36 @@ export default function PhoneSettingsPage() {
       })),
       // YouTubeのプレイリストはこの画面から編集しないので、そのまま保つ。
     };
+    // 車と共有している項目のうち、この端末で変えたものだけを送る。
+    const synced = syncedRef.current;
+    const changed = Object.fromEntries(
+      SHARED_EDIT_FIELDS.filter(
+        (field) => !synced || JSON.stringify(next[field]) !== synced[field],
+      ).map((field) => [field, next[field]]),
+    ) as Partial<SyncedSettings>;
+
+    // 目的地は5枠まとめて1項目なので、このページを開いている間に車で
+    // 直された別の枠を消さないよう、最新を取り直して自分の変更だけ重ねる。
+    const key = next.syncKey.trim();
+    if (changed.mapDestinations && synced?.mapDestinations && key.length >= MIN_SYNC_KEY_LENGTH) {
+      try {
+        const latest = await fetchSharedSettings(key);
+        const overlaid = overlayChangedDestinations(
+          changed.mapDestinations,
+          JSON.parse(synced.mapDestinations) as MapDestination[],
+          sanitizeSyncedSettings(latest.settings).mapDestinations,
+        );
+        changed.mapDestinations = overlaid;
+        next = { ...next, mapDestinations: overlaid };
+      } catch {
+        // 読めなければ、そのまま送る。
+      }
+    }
+
     setDraft(next);
     writeSettings(next);
     setSaved(true);
-    void sendToCar(next);
+    void sendToCar(next, changed);
   };
 
   return (
@@ -688,10 +744,11 @@ export default function PhoneSettingsPage() {
               {scanState.note ?? ""}
             </p>
             <p className="zsetup-sync-note">
-              車の燃費画面（メーター右上の燃費を押す）で、給油履歴の右にある
-              「LINK PHONE」を押すとQRが出ます。それをこのボタンから読み取ると、
-              車とつながります。つながると、ここで入れた給油記録が車にも入り、
-              車で入れた記録もここに出ます。
+              車の燃費画面（メーター右上の燃費を押す）の給油履歴の右、または
+              目的地の画面（メーター左下の DEST）の下にある「LINK PHONE」を押すと
+              QRが出ます。それをこのボタンから読み取ると、車とつながります。
+              つながると、給油記録・目的地・メーターの色を、車とこの端末の
+              どちらからでも変えられます。
             </p>
 
             {/* カメラが無いパソコンは、スマホに出したコードを打ってつなぐ。 */}
@@ -1129,7 +1186,7 @@ export default function PhoneSettingsPage() {
 
       {openCard === "theme" || openCard === "nav" ? (
       <div className="zsetup-actions">
-        <button type="button" className="zsetup-save" onClick={save}>
+        <button type="button" className="zsetup-save" onClick={() => void save()}>
           保存する
         </button>
         <p className="zsetup-saved" role="status">

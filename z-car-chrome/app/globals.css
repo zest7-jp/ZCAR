@@ -6945,6 +6945,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .dest-card { width: min(520px, 92vw); }
 .dest-card h2 { margin-bottom: 14px; }
 .dest-card .two-actions { margin-top: 16px; justify-content: center; }
+/* 目的地ダイアログの下: 左にスマホとの同期の状態、右に閉じる。 */
+.dest-card .dest-actions { justify-content: space-between; align-items: center; }
+.dest-card .dest-actions .fuel-sync-button { height: 34px; padding: 0 14px; font-size: 9px; }
 
 .dest-choices {
   display: grid;
