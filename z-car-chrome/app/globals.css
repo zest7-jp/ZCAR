@@ -1659,6 +1659,13 @@ button { cursor: pointer; }
   font-weight: 800;
   letter-spacing: .32em;
 }
+/* 日の出・日の入りの弧を上に置き、空いた分は弧と日付のあいだに回す
+   (日付・一週間の帯・時計はカードの下側にまとまる)。
+   左の列の上下に余っていた分は、このカードが伸びて受け持つ。 */
+#app.is-fullscreen .green-nav-cluster .performance-left > .solar-clock-card { flex-grow: 1; }
+.solar-clock-card .solar-cycle { margin: 0 0 auto; }
+.solar-clock-card .solar-clock-today { margin-top: 8px; }
+
 /* 一週間の帯。今日だけ明るく、下に光る線。 */
 .solar-clock-week {
   display: grid;

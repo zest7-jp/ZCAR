@@ -1628,28 +1628,7 @@ export default function Home() {
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
-                  {/* 今日の日付。曜日は光る札にして、下に一週間の帯(今日だけ点く)を添える。 */}
-                  <div
-                    className="solar-clock-today"
-                    aria-label={`今日 ${todayMonthDay}（${todayWeekday}）`}
-                  >
-                    <span className="solar-clock-day">
-                      <i aria-hidden="true">{todayWeekday}</i>
-                      <strong>{todayMonthDay}</strong>
-                    </span>
-                    <small aria-hidden="true">{todayYear}</small>
-                  </div>
-                  <ol className="solar-clock-week" aria-hidden="true">
-                    {WEEKDAYS_JA.map((day, index) => (
-                      <li key={day} className={index === todayWeekdayIndex ? "is-today" : undefined}>
-                        {day}
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="solar-clock-heading">
-                    <small>LOCAL TIME · JST</small>
-                    <time>{clock}</time>
-                  </div>
+                  {/* 日の出・日の入りの弧はカードのいちばん上。日付と時計は下にまとめる。 */}
                   <div className={`solar-cycle ${weatherStatus}`} aria-label={`Sunrise ${solarSunrise ?? "unavailable"}, sunset ${solarSunset ?? "unavailable"}`}>
                     <span className="sunrise">
                       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1672,6 +1651,28 @@ export default function Home() {
                       </svg>
                       <b>{solarSunset ?? "--:--"}</b>
                     </span>
+                  </div>
+                  {/* 今日の日付。曜日は光る札にして、下に一週間の帯(今日だけ点く)を添える。 */}
+                  <div
+                    className="solar-clock-today"
+                    aria-label={`今日 ${todayMonthDay}（${todayWeekday}）`}
+                  >
+                    <span className="solar-clock-day">
+                      <i aria-hidden="true">{todayWeekday}</i>
+                      <strong>{todayMonthDay}</strong>
+                    </span>
+                    <small aria-hidden="true">{todayYear}</small>
+                  </div>
+                  <ol className="solar-clock-week" aria-hidden="true">
+                    {WEEKDAYS_JA.map((day, index) => (
+                      <li key={day} className={index === todayWeekdayIndex ? "is-today" : undefined}>
+                        {day}
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="solar-clock-heading">
+                    <small>LOCAL TIME · JST</small>
+                    <time>{clock}</time>
                   </div>
                 </article>
 
