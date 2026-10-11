@@ -171,7 +171,7 @@ export function useSharedSync({
       active = false;
       window.clearInterval(timer);
     };
-  }, [enabled, syncKey, pollMs, pullCount]);
+  }, [enabled, syncKey, pollMs, pullCount, setSettings]);
 
   // 画面に戻ってきたら、すぐ読み直す(スマホで変えた直後に車を見たときなど)。
   useEffect(() => {
