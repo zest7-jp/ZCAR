@@ -645,6 +645,8 @@ const isMeterTheme = (value: unknown): value is MeterTheme =>
 export type MeterDesignInfo = {
   id: MeterDesign;
   name: string;
+  /** スマホの小さな一覧に出す短い名前。 */
+  short: string;
   /** スマホの形選びに出す説明。 */
   caption: string;
   /** 車の形選びに出す説明(英語)。 */
@@ -653,13 +655,13 @@ export type MeterDesignInfo = {
 
 /** 形選びに並べる順。最初は地図の入った今の形。 */
 export const METER_DESIGNS: MeterDesignInfo[] = [
-  { id: "navi", name: "NAVI GAUGE", caption: "地図つき(今の形)", captionEn: "MAP + TACHOMETER" },
-  { id: "arc", name: "ARC GAUGE", caption: "光る弧と大きな数字", captionEn: "GLOWING ARC" },
-  { id: "frame", name: "HUD FRAME", caption: "四角い枠のHUD", captionEn: "SQUARE HUD PANEL" },
-  { id: "halo", name: "HALO RING", caption: "光の輪", captionEn: "LAYERED RINGS" },
-  { id: "sport", name: "SPORT DIAL", caption: "半円と警告ランプ", captionEn: "HALF DIAL + LAMPS" },
-  { id: "analog", name: "ANALOG NEEDLE", caption: "針のメーター", captionEn: "CLASSIC NEEDLE" },
-  { id: "tacho", name: "TACHO RING", caption: "回転計の目盛り", captionEn: "DENSE TACHO TICKS" },
+  { id: "navi", name: "NAVI GAUGE", short: "NAVI", caption: "地図つき(今の形)", captionEn: "MAP + TACHOMETER" },
+  { id: "arc", name: "ARC GAUGE", short: "ARC", caption: "光る弧と大きな数字", captionEn: "GLOWING ARC" },
+  { id: "frame", name: "HUD FRAME", short: "FRAME", caption: "四角い枠のHUD", captionEn: "SQUARE HUD PANEL" },
+  { id: "halo", name: "HALO RING", short: "HALO", caption: "光の輪", captionEn: "LAYERED RINGS" },
+  { id: "sport", name: "SPORT DIAL", short: "SPORT", caption: "半円と警告ランプ", captionEn: "HALF DIAL + LAMPS" },
+  { id: "analog", name: "ANALOG NEEDLE", short: "NEEDLE", caption: "針のメーター", captionEn: "CLASSIC NEEDLE" },
+  { id: "tacho", name: "TACHO RING", short: "TACHO", caption: "回転計の目盛り", captionEn: "DENSE TACHO TICKS" },
 ];
 
 /** 形の説明を引く。知らない名前なら今の形(NAVI)。 */

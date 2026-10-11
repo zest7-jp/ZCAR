@@ -92,6 +92,8 @@ export default function PhoneSettingsPage() {
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>("fuel");
   const [fuelDraft, setFuelDraft] = useState(emptyFuelDraft);
+  // 今月の燃費のカードを押すと開く、給油の記録(履歴)。
+  const [logOpen, setLogOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // 読み取った瞬間に出す「接続完了」の知らせ。
   const [pairedNotice, setPairedNotice] = useState(false);
@@ -272,7 +274,21 @@ export default function PhoneSettingsPage() {
   const monthDistance = monthEntries.reduce((total, entry) => total + entry.distanceKm, 0);
   const monthAmount = monthEntries.reduce((total, entry) => total + entry.amountYen, 0);
   const monthEconomy = monthLiters > 0 ? monthDistance / monthLiters : null;
-  const recentFuel = draft.fuelEntries.slice(0, 10);
+  // 給油の記録を月ごとにまとめる(新しい月が上)。月の燃費は 走った距離 ÷ 入れた量。
+  const fuelMonths = draft.fuelEntries.reduce<
+    { month: string; entries: FuelEntry[]; liters: number; distance: number }[]
+  >((months, entry) => {
+    const month = entry.date.slice(0, 7);
+    const last = months[months.length - 1];
+    if (last && last.month === month) {
+      last.entries.push(entry);
+      last.liters += entry.liters;
+      last.distance += entry.distanceKm;
+    } else {
+      months.push({ month, entries: [entry], liters: entry.liters, distance: entry.distanceKm });
+    }
+    return months;
+  }, []);
 
   const recordFuel = () => {
     if (!fuelValid) return;
@@ -527,10 +543,29 @@ export default function PhoneSettingsPage() {
 
       {tab === "fuel" ? (
         <>
-          <section className="zr-hero" aria-label="今月の燃費">
+          {/* 押すと給油の記録(履歴)が開く。 */}
+          <section
+            className="zr-hero is-pressable"
+            role="button"
+            tabIndex={0}
+            aria-label="今月の燃費。押すと給油の記録を開く"
+            onClick={() => setLogOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setLogOpen(true);
+              }
+            }}
+          >
             <header>
               <small>THIS MONTH</small>
               <span>今月の平均燃費</span>
+              <em className="zr-hero-more">
+                LOG {draft.fuelEntries.length}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 5 7 7-7 7" />
+                </svg>
+              </em>
             </header>
             <p className="zr-hero-value">
               <strong>{monthEconomy === null ? "—" : monthEconomy.toFixed(1)}</strong>
@@ -552,7 +587,7 @@ export default function PhoneSettingsPage() {
             </dl>
           </section>
 
-          <section className="zr-panel" aria-label="給油を記録">
+          <section className="zr-panel zr-refuel" aria-label="給油を記録">
             <header className="zr-panel-head">
               <span>
                 <small>NEW REFUEL</small>
@@ -560,7 +595,7 @@ export default function PhoneSettingsPage() {
               </span>
             </header>
             <div className="zr-form">
-              <label className="zr-field zr-field-wide">
+              <label className="zr-field">
                 <span>給油日</span>
                 <div>
                   <input
@@ -602,7 +637,7 @@ export default function PhoneSettingsPage() {
                   <em>km</em>
                 </div>
               </label>
-              <label className="zr-field zr-field-wide">
+              <label className="zr-field">
                 <span>金額</span>
                 <div>
                   <input
@@ -620,46 +655,21 @@ export default function PhoneSettingsPage() {
                 </div>
               </label>
             </div>
-            <p className="zr-preview" aria-live="polite">
-              <small>今回の燃費</small>
-              <strong>{fuelEconomy === null ? "—" : fuelEconomy.toFixed(1)}</strong>
-              <em>km/L</em>
-            </p>
-            <button
-              type="button"
-              className="zr-primary"
-              disabled={!fuelValid}
-              onClick={recordFuel}
-            >
-              記録する
-            </button>
-          </section>
-
-          <section className="zr-panel" aria-label="給油履歴">
-            <header className="zr-panel-head">
-              <span>
-                <small>HISTORY</small>
-                <b>給油履歴</b>
-              </span>
-              <em>{draft.fuelEntries.length} TOTAL</em>
-            </header>
-            {recentFuel.length ? (
-              <ol className="zr-history">
-                {recentFuel.map((entry) => (
-                  <li key={entry.id}>
-                    <time dateTime={entry.date}>{shortDate(entry.date)}</time>
-                    <strong>
-                      {(entry.distanceKm / entry.liters).toFixed(1)}
-                      <em>km/L</em>
-                    </strong>
-                    <span>{entry.liters.toFixed(2)}<em>L</em></span>
-                    <span>{Math.round(entry.amountYen).toLocaleString("ja-JP")}<em>円</em></span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="zr-note">まだ記録がありません。</p>
-            )}
+            <div className="zr-record-row">
+              <p className="zr-preview" aria-live="polite">
+                <small>今回の燃費</small>
+                <strong>{fuelEconomy === null ? "—" : fuelEconomy.toFixed(1)}</strong>
+                <em>km/L</em>
+              </p>
+              <button
+                type="button"
+                className="zr-primary"
+                disabled={!fuelValid}
+                onClick={recordFuel}
+              >
+                記録する
+              </button>
+            </div>
           </section>
         </>
       ) : null}
@@ -741,32 +751,36 @@ export default function PhoneSettingsPage() {
 
       {tab === "theme" ? (
         <section className="zr-themes" aria-label="メーターの色と形">
+          {/* 色と形は小さな見本を4列に並べ、1画面に収める。選んでいる名前は見出しに出す。 */}
           <p className="zr-new-head">
             <b>COLOR</b>
-            <small>メーターの色</small>
+            <small>{activeTheme.name}</small>
           </p>
-          {METER_THEMES.map((theme) => {
-            const active = draft.meterTheme === theme.id;
-            return (
-              <button
-                key={theme.id}
-                type="button"
-                className={`zr-theme is-${theme.id}${theme.tinted ? ` is-tinted zt-${theme.id}` : ""}${active ? " is-active" : ""}`}
-                aria-pressed={active}
-                onClick={() => chooseTheme(theme.id)}
-              >
-                <i aria-hidden="true" />
-                <span>
-                  <b>{theme.name}</b>
-                  <small>{theme.caption}</small>
-                </span>
-                <em>{active ? "ACTIVE" : "SELECT"}</em>
-              </button>
-            );
-          })}
+          <div className="zr-swatches">
+            {METER_THEMES.map((theme) => {
+              const active = draft.meterTheme === theme.id;
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className={`zr-theme is-${theme.id}${theme.tinted ? ` is-tinted zt-${theme.id}` : ""}${active ? " is-active" : ""}`}
+                  aria-pressed={active}
+                  aria-label={`${theme.name}(${theme.caption})`}
+                  onClick={() => chooseTheme(theme.id)}
+                >
+                  <i aria-hidden="true" />
+                  <b>{theme.shortEn}</b>
+                  <small>{theme.shortJa}</small>
+                  <em>{active ? "ACTIVE" : "SELECT"}</em>
+                </button>
+              );
+            })}
+          </div>
           <p className="zr-new-head">
             <b>DESIGN</b>
-            <small>メーターの形</small>
+            <small>
+              {activeDesign.name} · {activeDesign.caption}
+            </small>
           </p>
           <div className="zr-designs">
             {METER_DESIGNS.map((design) => {
@@ -777,13 +791,13 @@ export default function PhoneSettingsPage() {
                   type="button"
                   className={`zr-design${active ? " is-active" : ""}`}
                   aria-pressed={active}
+                  aria-label={`${design.name}(${design.caption})`}
                   onClick={() => chooseDesign(design.id)}
                 >
                   <i className={designThumbClass} aria-hidden="true">
                     <MeterDesignGauge design={design.id} values={SAMPLE_GAUGE_VALUES} />
                   </i>
-                  <b>{design.name}</b>
-                  <small>{design.caption}</small>
+                  <b>{design.short}</b>
                   <em>{active ? "ACTIVE" : "SELECT"}</em>
                 </button>
               );
@@ -793,6 +807,59 @@ export default function PhoneSettingsPage() {
             押すと車のメーターも変わります。形は、車のメーターの真ん中を押しても順番に変わります。
           </p>
         </section>
+      ) : null}
+
+      {/* 給油の記録(履歴)。今月の燃費のカードを押すと下から出る。 */}
+      {logOpen ? (
+        <div className="zr-sheet" role="presentation" onClick={() => setLogOpen(false)}>
+          <section
+            className="zr-sheet-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="給油の記録"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="zr-sheet-head">
+              <span>
+                <small>FUEL LOG</small>
+                <b>給油の記録</b>
+              </span>
+              <em>{draft.fuelEntries.length} TOTAL</em>
+              <button type="button" onClick={() => setLogOpen(false)}>
+                CLOSE
+              </button>
+            </header>
+            <div className="zr-sheet-body">
+              {fuelMonths.length ? (
+                fuelMonths.map((group) => (
+                  <section key={group.month} className="zr-log-month" aria-label={`${group.month} の給油`}>
+                    <h3>
+                      <b>{group.month.replace("-", ".")}</b>
+                      <small>
+                        {group.entries.length}回 · 平均 {(group.distance / group.liters).toFixed(1)} km/L
+                      </small>
+                    </h3>
+                    <ol className="zr-history">
+                      {group.entries.map((entry) => (
+                        <li key={entry.id}>
+                          <time dateTime={entry.date}>{shortDate(entry.date)}</time>
+                          <strong>
+                            {(entry.distanceKm / entry.liters).toFixed(1)}
+                            <em>km/L</em>
+                          </strong>
+                          <span>{entry.liters.toFixed(2)}<em>L</em></span>
+                          <span>{Math.round(entry.amountYen).toLocaleString("ja-JP")}<em>円</em></span>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ))
+              ) : (
+                <p className="zr-note">まだ記録がありません。給油したら下の欄から記録してください。</p>
+              )}
+            </div>
+          </section>
+        </div>
       ) : null}
 
       {toast ? (
