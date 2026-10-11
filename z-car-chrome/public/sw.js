@@ -49,11 +49,14 @@ self.addEventListener("fetch", (event) => {
     });
     // 間に合わなかった返事も、次の起動のために最後まで受け取って貯める。
     event.waitUntil(network.then(() => undefined, () => undefined));
+    // 画面の「更新」で読み込み直したときは、ブラウザの更新ボタンと同じくネットを待つ。
+    const userReload = request.cache === "no-cache" || request.cache === "reload";
     event.respondWith(
       (async () => {
         const cached = (await caches.match(request)) ?? (await caches.match("./"));
         // 貯めた画面が無い(初めて開いた)ときは、時間がかかってもネットを待つ。
         if (!cached) return network.catch(() => Response.error());
+        if (userReload) return network.catch(() => cached);
         const late = new Promise((resolve) => {
           setTimeout(() => resolve(null), NAVIGATION_TIMEOUT_MS);
         });

@@ -1598,12 +1598,25 @@ export default function Home() {
                 </span>
               );
             })}
-            {/* 反映確認用のビルド時刻。帯の右端に薄く出す。 */}
-            {BUILD_STAMP ? (
-              <span className="build-stamp" aria-hidden="true">
-                {BUILD_STAMP}
+            {/* アプリとして入れるとブラウザの更新ボタンが無いので、帯の右端に置く。
+                押すと読み込み直す(新しい版が公開されていれば入れ替わる)。下段は今の版の時刻。 */}
+            <button
+              type="button"
+              className="meter-reload"
+              onClick={() => window.location.reload()}
+              aria-label="読み込み直す(新しい版があれば入れ替わる)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+                <path d="M19.5 3.6v4.6h-4.6" />
+              </svg>
+              <span className="meter-status-text">
+                <small>
+                  更新<span>RELOAD</span>
+                </small>
+                {BUILD_STAMP ? <b>{BUILD_STAMP}</b> : null}
               </span>
-            ) : null}
+            </button>
           </header>
         )}
 

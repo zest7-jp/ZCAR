@@ -6331,6 +6331,56 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .meter-status-item.is-button:active { background: rgba(92, 230, 198, .1); }
 
+/* 帯の右端の「更新」。押すと読み込み直す。下段に今の版の時刻を出す。 */
+.meter-reload {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 8px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #4f8d83;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.meter-reload svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.meter-reload small {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #3d7168;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+.meter-reload small span { color: #4f8d83; letter-spacing: .24em; }
+.meter-reload b {
+  color: #5e8f88;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.meter-reload:active { background: rgba(92, 230, 198, .1); color: #9fe9db; }
+#app.meter-theme-eva .meter-reload,
+#app.meter-theme-eva .meter-reload small span { color: #b3783f; }
+#app.meter-theme-eva .meter-reload small { color: #94643a; }
+#app.meter-theme-eva .meter-reload b { color: #9a7350; }
+
 /* 項目と項目のあいだの細い仕切り線。 */
 .meter-status-item + .meter-status-item::before {
   content: "";
