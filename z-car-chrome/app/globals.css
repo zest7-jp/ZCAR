@@ -1601,8 +1601,7 @@ button { cursor: pointer; }
     radial-gradient(circle at 50% 82%, rgba(89, 255, 108, .08), transparent 48%),
     linear-gradient(90deg, rgba(27, 74, 34, .13), transparent 74%);
 }
-.solar-clock-heading,
-.solar-clock-date {
+.solar-clock-heading {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1618,18 +1617,31 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 9px rgba(91, 255, 113, .42), 0 0 22px rgba(91, 255, 113, .18);
 }
-.solar-clock-card .solar-clock-date { margin-top: 3px; }
-.solar-clock-card .solar-clock-date strong {
-  margin: 0;
-  color: #a8d9ae;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .02em;
+/* 時計の上に出す今日の日付(例: 10/11（日）)。 */
+.solar-clock-today {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 1px;
+  margin-bottom: 5px;
+  line-height: 1;
 }
-.solar-clock-card .solar-clock-date span {
-  color: #628268;
-  font-size: 6px;
-  letter-spacing: .08em;
+/* 左の列の日付の大きな文字(.performance-date strong)を受け継がないよう、card の中で指定する。 */
+.solar-clock-card .solar-clock-today strong {
+  margin: 0;
+  color: #effff1;
+  font-family: "DIN Alternate", "SFMono-Regular", Consolas, monospace;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 9px rgba(91, 255, 113, .25);
+}
+.solar-clock-today b {
+  color: #8fe39a;
+  font-size: 12px;
+  font-weight: 800;
 }
 .solar-cycle {
   min-width: 0;
@@ -4256,15 +4268,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     inset 0 1px rgba(255, 255, 255, .025),
     0 8px 20px rgba(0, 0, 0, .22);
 }
-#app.is-fullscreen .green-average-fuel-card {
-  flex: 0 0 75px;
-  padding: 9px 10px 8px;
-  overflow: hidden;
-  box-shadow:
-    inset 3px 0 #66ff78,
-    inset 0 1px rgba(255, 255, 255, .025),
-    0 8px 20px rgba(0, 0, 0, .22);
-}
 #app.is-fullscreen .green-nav-cluster .performance-left .performance-fuel {
   flex: 0 0 82px;
   min-height: 82px;
@@ -4278,51 +4281,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 #app.is-fullscreen .performance-left .performance-fuel > b {
   margin-top: 4px;
-}
-.green-average-fuel {
-  min-height: 56px;
-  padding: 0 2px;
-  display: grid;
-  align-content: center;
-}
-.green-average-fuel > span {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 4px;
-}
-.green-average-fuel small {
-  margin-right: auto;
-  color: #6f9475;
-  font-size: 5px;
-  font-weight: 900;
-  letter-spacing: .1em;
-}
-.green-average-fuel b {
-  color: #effff1;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 28px;
-  font-weight: 400;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 13px rgba(91, 255, 113, .16);
-}
-.green-average-fuel em {
-  color: #8fc696;
-  font-size: 7px;
-  font-style: normal;
-  font-weight: 900;
-}
-.green-average-fuel i {
-  display: block;
-  margin-top: 2px;
-  color: #4f6f54;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 5px;
-  font-style: normal;
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-align: right;
 }
 .green-world-times-card > small {
   display: block;
@@ -4636,15 +4594,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   #app.is-fullscreen .green-world-times-card { flex-basis: 61px; padding: 5px 6px 4px; }
   #app.is-fullscreen .solar-clock-card { flex-basis: 108px; min-height: 108px; padding: 6px 8px 5px; }
   .solar-clock-heading time { font-size: 23px; }
-  .solar-clock-card .solar-clock-date { margin-top: 1px; }
   .solar-cycle { margin-top: 3px; }
   .solar-orbit { height: 25px; }
-  #app.is-fullscreen .green-average-fuel-card { flex-basis: 61px; padding: 5px 7px 4px; }
   #app.is-fullscreen .green-nav-cluster .performance-left .performance-fuel { flex-basis: 66px; min-height: 66px; padding: 5px 8px 4px; }
   #app.is-fullscreen .performance-left .performance-fuel-readout strong { font-size: 26px; }
   #app.is-fullscreen .performance-left .performance-fuel > b { display: none; }
-  .green-average-fuel { min-height: 48px; }
-  .green-average-fuel b { font-size: 22px; }
   .green-world-times-card > small { margin-bottom: 3px; font-size: 5px; }
   .green-world-times { gap: 0; }
   .green-world-times b { font-size: 4px; }
@@ -5365,7 +5319,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 /* 四隅の文字は、色を回した後にオレンジになるよう逆算した色で指定する
    (計器の中にあるので、盤面と同じ回転がかかる)。 */
-#app.meter-theme-eva.is-fullscreen .gauge-corner small { color: #52c053; }
+#app.meter-theme-eva.is-fullscreen .gauge-corner small,
+#app.meter-theme-eva.is-fullscreen .gauge-corner .gauge-corner-value em { color: #52c053; }
 #app.meter-theme-eva.is-fullscreen .gauge-corner b { color: #e0ffe2; }
 #app.meter-theme-eva.is-fullscreen .gauge-corner::before {
   border-color: rgba(82, 224, 79, .5);
@@ -5734,8 +5689,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   box-shadow: 0 0 7px rgba(40, 231, 70, .88);
 }
 
-#app.is-fullscreen .green-world-times-card,
-#app.is-fullscreen .green-average-fuel-card {
+#app.is-fullscreen .green-world-times-card {
   box-shadow:
     inset 3px 0 var(--turquoise-main),
     inset 0 1px rgba(255, 255, 255, .025),
@@ -5884,8 +5838,58 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   padding-bottom: 14px;
 }
 
-/* 音楽プレイヤーをやめたので、残りの計器で塔を下まで埋める。 */
-#app.is-fullscreen .green-drive-panel > article { flex-grow: 1; }
+/* 残りの計器で塔を下まで埋める。広がった分は、中身を上下の真ん中に置く。 */
+#app.is-fullscreen .green-drive-panel > article {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* START の上の操作(いまは DEST だけ)。 */
+#app.is-fullscreen .green-drive-panel .green-rail-actions {
+  flex: 0 0 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  border-top: 1px solid rgba(83, 222, 104, .13);
+}
+.green-rail-action {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 4px 10px;
+  border: 0;
+  background: transparent;
+  color: #d4f3da;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.green-rail-action + .green-rail-action { border-left: 1px solid rgba(83, 222, 104, .13); }
+.green-rail-action small {
+  max-width: 100%;
+  overflow: hidden;
+  color: #4f9a58;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 6px;
+  font-weight: 900;
+  letter-spacing: .2em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.green-rail-action b {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+.green-rail-action:active { background: rgba(93, 226, 208, .1); }
+@media (max-height: 520px) {
+  .green-rail-action { gap: 4px; padding: 8px 3px 7px; }
+  .green-rail-action b { font-size: 12px; }
+}
 
 /* ------------------------------------------------------------------
    右下のナビ開始ボタン(Googleマップを開く)。
@@ -6017,12 +6021,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 #app.is-fullscreen .green-drive-panel .green-range-card > span strong {
   font-size: 24px;
 }
-#app.is-fullscreen .green-drive-panel .green-average-fuel-card {
-  flex-basis: 52px;
-  padding: 5px 10px 5px;
-}
-#app.is-fullscreen .green-drive-panel .green-average-fuel { min-height: 0; }
-#app.is-fullscreen .green-drive-panel .green-average-fuel b { font-size: 21px; }
 #app.is-fullscreen .green-drive-panel .green-speed-card {
   flex-basis: 42px;
   padding: 6px 14px 6px;
@@ -6050,12 +6048,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   }
   #app.is-fullscreen .green-drive-panel .green-range-card > span strong { font-size: 20px; }
   #app.is-fullscreen .green-drive-panel .green-range-card > small:last-of-type { display: none; }
-  #app.is-fullscreen .green-drive-panel .green-average-fuel-card {
-    flex-basis: 30px;
-    padding: 3px 9px;
-  }
-  #app.is-fullscreen .green-drive-panel .green-average-fuel b { font-size: 18px; }
-  #app.is-fullscreen .green-drive-panel .green-average-fuel i { display: none; }
   #app.is-fullscreen .green-drive-panel .green-speed-card {
     flex-basis: 36px;
     padding: 4px 12px;
@@ -6327,6 +6319,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   white-space: nowrap;
 }
 
+/* 押せる項目(OBD2・メーターの色)。見た目はほかの項目と同じにし、押したときだけ明るくする。 */
+.meter-status-item.is-button {
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.meter-status-item.is-button:active { background: rgba(92, 230, 198, .1); }
+
 /* 項目と項目のあいだの細い仕切り線。 */
 .meter-status-item + .meter-status-item::before {
   content: "";
@@ -6459,6 +6463,16 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background: rgba(93, 226, 208, .09);
 }
 
+/* 右の列の走行可能距離も押せる(燃費の記録を開く)。見た目はそのまま、押したときだけ明るくする。 */
+.green-range-card.is-pressable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s ease;
+}
+#app.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > .green-range-card.is-pressable:active {
+  background: rgba(93, 226, 208, .09);
+}
+
 /* ------------------------------------------------------------------
    中央メーターの四隅の操作
    丸い計器の外側に余る三角の隙間を使う。箱は描かず、計器の表示と
@@ -6520,6 +6534,29 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .gauge-corner:active small { color: #8ee8da; }
 .gauge-corner:active::before { border-color: rgba(150, 255, 240, .95); }
 
+/* 数字だけの隅(押せない)。押したときの色の変化も付けない。 */
+.gauge-corner.is-readout { cursor: default; pointer-events: none; }
+.gauge-corner-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.gauge-corner-br .gauge-corner-value { justify-content: flex-end; }
+.gauge-corner .gauge-corner-value b {
+  font-family: "DIN Alternate", "SFMono-Regular", Consolas, monospace;
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+.gauge-corner .gauge-corner-value em {
+  color: #59b6a9;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
 /* RPM表示はボタンにしてあるので、見た目が変わらないように整える */
 .performance-rpm-digital {
   font: inherit;
@@ -6528,29 +6565,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 右上(接続)は、OBD2の状態で小さい文字の色を変える */
-.gauge-corner.obd-live small { color: #6cf0b2; }
-.gauge-corner.obd-error small,
-.gauge-corner.obd-disconnected small,
-.gauge-corner.obd-unsupported small { color: #e08b7a; }
-
 .gauge-corner:disabled {
   opacity: .38;
   cursor: default;
 }
 
-.gauge-corner-tl,
 .gauge-corner-bl { align-items: flex-start; }
-.gauge-corner-tr,
 .gauge-corner-br { align-items: flex-end; text-align: right; }
-
-.gauge-corner-tl { top: -4px; left: -8px; }
-.gauge-corner-tr { top: -4px; right: -8px; }
 .gauge-corner-bl { bottom: 0; left: -8px; }
 .gauge-corner-br { bottom: 0; right: -8px; }
-
-.gauge-corner-tl::before { top: 0; left: 0; border-right: 0; border-bottom: 0; }
-.gauge-corner-tr::before { top: 0; right: 0; border-left: 0; border-bottom: 0; }
 .gauge-corner-bl::before { bottom: 0; left: 0; border-right: 0; border-top: 0; }
 .gauge-corner-br::before { bottom: 0; right: 0; border-left: 0; border-top: 0; }
 
@@ -6563,8 +6586,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .gauge-corner { min-width: 64px; padding: 7px 8px; }
   .gauge-corner small { font-size: 7px; letter-spacing: .14em; }
   .gauge-corner b { font-size: 13px; }
+  .gauge-corner .gauge-corner-value b { font-size: 21px; }
   .gauge-corner::before { width: 11px; height: 11px; }
-  .gauge-corner-tl, .gauge-corner-tr { top: 4%; }
   .gauge-corner-bl, .gauge-corner-br { bottom: 7%; }
 }
 

@@ -401,9 +401,11 @@ export default function Home() {
   } = useObd2();
   const [displaySpeed, setDisplaySpeed] = useState<number | null>(null);
   const [fuelTripKm, setFuelTripKm] = useState(0);
+  // 今日の走行。距離と、動いていた時間(止まっている時間は数えない)。
   const [dailyTrip, setDailyTrip] = useState({
     date: japanDateKey(),
     distanceKm: 0,
+    movingSec: 0,
   });
   const [fuelResetting, setFuelResetting] = useState(false);
   const [routeEta, setRouteEta] = useState<RouteEta | null>(null);
@@ -476,16 +478,15 @@ export default function Home() {
       );
       const savedDailyTrip = JSON.parse(
         localStorage.getItem(DAILY_TRIP_STORAGE_KEY) || "null",
-      ) as { date?: unknown; distanceKm?: unknown } | null;
+      ) as { date?: unknown; distanceKm?: unknown; movingSec?: unknown } | null;
       const currentDate = japanDateKey();
+      const sameDay = savedDailyTrip?.date === currentDate;
+      const savedNumber = (value: unknown) =>
+        sameDay && typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
       setDailyTrip({
         date: currentDate,
-        distanceKm:
-          savedDailyTrip?.date === currentDate &&
-          typeof savedDailyTrip.distanceKm === "number" &&
-          Number.isFinite(savedDailyTrip.distanceKm)
-            ? Math.max(0, savedDailyTrip.distanceKm)
-            : 0,
+        distanceKm: savedNumber(savedDailyTrip?.distanceKm),
+        movingSec: savedNumber(savedDailyTrip?.movingSec),
       });
       const savedFuelEntries = readSettings().fuelEntries;
       const validatedFuelEntries = Array.isArray(savedFuelEntries)
@@ -690,13 +691,16 @@ export default function Home() {
       const travelledKm = speed * (elapsedMs / 3_600_000);
       setFuelTripKm((current) => current + travelledKm);
       const currentDate = japanDateKey();
-      setDailyTrip((current) => ({
-        date: currentDate,
-        distanceKm:
-          current.date === currentDate
-            ? current.distanceKm + travelledKm
-            : travelledKm,
-      }));
+      const movedSec = elapsedMs / 1000;
+      setDailyTrip((current) =>
+        current.date === currentDate
+          ? {
+              date: currentDate,
+              distanceKm: current.distanceKm + travelledKm,
+              movingSec: current.movingSec + movedSec,
+            }
+          : { date: currentDate, distanceKm: travelledKm, movingSec: movedSec },
+      );
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -998,13 +1002,15 @@ export default function Home() {
   const greenCenterSpeed =
     displaySpeed === null ? null : Math.round(displaySpeed);
   const dailyTripKm = dailyTrip.date === today ? dailyTrip.distanceKm : 0;
-  const performanceDate = `${today.slice(5, 7)}.${today.slice(8, 10)}`;
-  const performanceWeekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Tokyo",
-    weekday: "short",
-  })
-    .format(new Date(`${today}T00:00:00+09:00`))
-    .toUpperCase();
+  const dailyMovingSec = dailyTrip.date === today ? dailyTrip.movingSec : 0;
+  // 平均巡行速度: 今日走った距離 ÷ 動いていた時間。1分走るまでは出さない。
+  const averageCruiseKmh =
+    dailyMovingSec >= 60 ? dailyTripKm / (dailyMovingSec / 3600) : null;
+  // 時計の上に出す今日の日付(例: 10/11（日）)。
+  const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
+  const todayMonthDay = `${todayMonth}/${todayDay}`;
+  const todayWeekday =
+    "日月火水木金土"[new Date(Date.UTC(todayYear, todayMonth - 1, todayDay)).getUTCDay()];
   const solarSunrise = weather?.sunrise ?? null;
   const solarSunset = weather?.sunset ?? null;
   const solarNowMinutes = minutesFromHm(clock);
@@ -1040,6 +1046,8 @@ export default function Home() {
     stateJa: string;
     stateEn: string;
     tone: "ok" | "warn" | "off";
+    /** 押せる項目だけ。押したときに何をするかの説明(読み上げ用)。 */
+    pressLabel?: string;
   }[] = [
     {
       key: "net",
@@ -1098,6 +1106,8 @@ export default function Home() {
               obdStatus === "requesting"
             ? "warn"
             : "off",
+      // 前はメーターの右上にあった「OBD2 につなぐ」。
+      pressLabel: "OBD2 につなぐ",
     },
     {
       key: "gps",
@@ -1122,7 +1132,23 @@ export default function Home() {
             ? "warn"
             : "off",
     },
+    {
+      // 前はメーターの右下にあった「メーターの色を選ぶ」。
+      key: "theme",
+      nameJa: "配色",
+      nameEn: "THEME",
+      stateJa: settings.meterTheme === "eva" ? "オレンジ" : "ターコイズ",
+      stateEn: settings.meterTheme === "eva" ? "ORANGE" : "TURQUOISE",
+      tone: "ok",
+      pressLabel: "メーターの色を選ぶ",
+    },
   ];
+
+  /** 上のステータスバーの項目を押したとき。OBD2 はつなぐ、色は選ぶ画面を開く。 */
+  const pressStatusItem = (key: string) => {
+    if (key === "obd") void connectObd();
+    if (key === "theme") themeDialog.current?.showModal();
+  };
 
   const cancelFuelReset = () => {
     if (fuelResetTimerRef.current !== null) {
@@ -1249,6 +1275,14 @@ export default function Home() {
       ),
     );
     setDestEditKey(null);
+  };
+
+  const openDestDialog = () => {
+    destDialog.current?.showModal();
+    // ★の場所が一覧の下のほうにあっても、開いたときに見えるようにする。
+    destDialog.current
+      ?.querySelector(".dest-choices.is-pick .is-active")
+      ?.scrollIntoView({ block: "nearest" });
   };
 
   const closeDestDialog = () => {
@@ -1531,21 +1565,39 @@ export default function Home() {
               {obdConnectionLabel}
               {obdErrorMessage ? ` · ${obdErrorMessage}` : ""}
             </span>
-            {meterStatusItems.map((item) => (
-              <span key={item.key} className={`meter-status-item is-${item.tone}`}>
-                <i aria-hidden="true" />
-                <span className="meter-status-text">
-                  <small>
-                    {item.nameJa}
-                    <span>{item.nameEn}</span>
-                  </small>
-                  <b>
-                    {item.stateJa}
-                    <span>{item.stateEn}</span>
-                  </b>
+            {/* OBD2 とメーターの色は押せる(OBD2 はつなぐ、色は選ぶ画面を開く)。 */}
+            {meterStatusItems.map((item) => {
+              const content = (
+                <>
+                  <i aria-hidden="true" />
+                  <span className="meter-status-text">
+                    <small>
+                      {item.nameJa}
+                      <span>{item.nameEn}</span>
+                    </small>
+                    <b>
+                      {item.stateJa}
+                      <span>{item.stateEn}</span>
+                    </b>
+                  </span>
+                </>
+              );
+              return item.pressLabel ? (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`meter-status-item is-button is-${item.tone}`}
+                  onClick={() => pressStatusItem(item.key)}
+                  aria-label={item.pressLabel}
+                >
+                  {content}
+                </button>
+              ) : (
+                <span key={item.key} className={`meter-status-item is-${item.tone}`}>
+                  {content}
                 </span>
-              </span>
-            ))}
+              );
+            })}
             {/* 反映確認用のビルド時刻。帯の右端に薄く出す。 */}
             {BUILD_STAMP ? (
               <span className="build-stamp" aria-hidden="true">
@@ -1560,13 +1612,13 @@ export default function Home() {
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
-                  <div className="solar-clock-heading">
-                    <small>LOCAL TIME</small>
-                    <time>{clock}</time>
+                  <div className="solar-clock-today">
+                    <strong>{todayMonthDay}</strong>
+                    <b>（{todayWeekday}）</b>
                   </div>
-                  <div className="solar-clock-date">
-                    <strong>{performanceDate}</strong>
-                    <span>{performanceWeekday} · JST</span>
+                  <div className="solar-clock-heading">
+                    <small>LOCAL TIME · JST</small>
+                    <time>{clock}</time>
                   </div>
                   <div className={`solar-cycle ${weatherStatus}`} aria-label={`Sunrise ${solarSunrise ?? "unavailable"}, sunset ${solarSunset ?? "unavailable"}`}>
                     <span className="sunrise">
@@ -1670,51 +1722,31 @@ export default function Home() {
               </aside>
 
               <article className="performance-main-gauge green-map-gauge" aria-label="Map integrated tachometer and speedometer">
-                {/* 円の外側に余る四隅に、メーターを離れずに押せるボタンを置く。
-                    計器の配置には触らない(重ねるだけ)。 */}
-                <div className="gauge-corners" aria-label="メーターからの操作">
-                  <button
-                    type="button"
-                    className="gauge-corner gauge-corner-tl"
-                    onClick={() =>
-                      navTarget &&
-                      void beginNavigation(navTarget.destination, "DESTINATION")
-                    }
-                    disabled={!navTarget}
-                  >
-                    <small>START GUIDE</small>
-                    <b>{navTarget?.label ?? "NO DEST"}</b>
-                  </button>
-                  <button
-                    type="button"
-                    className={`gauge-corner gauge-corner-tr obd-${obdStatus}`}
-                    onClick={() => void connectObd()}
-                  >
-                    {/* つながったら、Bluetoothの一覧に出ているその機器の名前を出す。 */}
-                    <small>{obdConnected ? obdDeviceName : "VEHICLE"}</small>
-                    <b>OBD2</b>
-                  </button>
-                  <button
-                    type="button"
-                    className="gauge-corner gauge-corner-bl"
-                    onClick={() => {
-                      destDialog.current?.showModal();
-                      // ★の場所が一覧の下のほうにあっても、開いたときに見えるようにする。
-                      destDialog.current
-                        ?.querySelector(".dest-choices.is-pick .is-active")
-                        ?.scrollIntoView({ block: "nearest" });
-                    }}
-                  >
-                    <small>CHANGE</small>
-                    <b>DEST</b>
-                  </button>
+                {/* 円の外側に余る下の二隅に、よく見る数字を置く。
+                    左下 平均巡行速度 / 右下 平均燃費(押すと燃費の記録を開く)。 */}
+                <div className="gauge-corners" aria-label="メーターの下の隅">
+                  <div className="gauge-corner gauge-corner-bl is-readout">
+                    <small>AVG CRUISE · TODAY</small>
+                    <span className="gauge-corner-value">
+                      <b>{averageCruiseKmh === null ? "—" : Math.round(averageCruiseKmh)}</b>
+                      <em>km/h</em>
+                    </span>
+                  </div>
                   <button
                     type="button"
                     className="gauge-corner gauge-corner-br"
-                    onClick={() => themeDialog.current?.showModal()}
+                    onClick={toggleFuelView}
+                    aria-label="燃費の記録・確認を開く"
                   >
-                    <small>SWITCH</small>
-                    <b>THEME</b>
+                    <small>AVG FUEL</small>
+                    <span className="gauge-corner-value">
+                      <b>
+                        {estimatedAverageFuelEconomy === null
+                          ? "—"
+                          : estimatedAverageFuelEconomy.toFixed(1)}
+                      </b>
+                      <em>km/L</em>
+                    </span>
                   </button>
                 </div>
                 <div className="performance-rpm-track" aria-hidden="true" />
@@ -1761,9 +1793,19 @@ export default function Home() {
               </article>
 
               <aside className="performance-side performance-right green-drive-panel green-instrument-rail">
+                {/* 走行可能距離も、右下の平均燃費と同じく押すと燃費の記録を開く。 */}
                 <article
-                  className="green-range-card"
-                  aria-label={`Safe estimated range ${Math.round(fuelRangeKm)} kilometers. Resets automatically when a refuel record is saved.`}
+                  className="green-range-card is-pressable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={toggleFuelView}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleFuelView();
+                    }
+                  }}
+                  aria-label={`走行可能距離 ${Math.round(fuelRangeKm)} km。押すと燃費の記録を開く`}
                 >
                   <small>SAFE EST. RANGE</small>
                   <span><strong>{Math.round(fuelRangeKm)}</strong><em>km</em></span>
@@ -1772,21 +1814,6 @@ export default function Home() {
                   </div>
                   <small>AUTO RESET · REFUEL LOG</small>
                 </article>
-                <button
-                  type="button"
-                  className="green-average-fuel-card green-card-button"
-                  onClick={toggleFuelView}
-                  aria-label="燃費の記録・確認を開く"
-                >
-                  <div className="green-average-fuel" aria-label="Estimated average fuel economy">
-                    <span>
-                      <small>EST. AVERAGE FUEL</small>
-                      <b>{estimatedAverageFuelEconomy === null ? "—" : estimatedAverageFuelEconomy.toFixed(1)}</b>
-                      <em>km/L</em>
-                    </span>
-                    <i>FULL TANK TRIP {Math.round(fuelTripKm)} km / EST {estimatedRemainingLiters?.toFixed(1) ?? "—"} L</i>
-                  </div>
-                </button>
                 <article className="green-speed-card">
                   <div className="green-telemetry-graph green-speed-graph">
                     <header><small>SPEED</small><em>km/h</em></header>
@@ -1805,7 +1832,14 @@ export default function Home() {
                   <p><strong>{obdData.voltage?.toFixed(1) ?? "—"}</strong><em>V</em></p>
                   <span>BATTERY SYSTEM</span>
                 </article>
-                {/* 右下はGoogleマップの起動ボタン。行き先は「DEST」で選んだもの。 */}
+                {/* 目的地を選ぶ・直す。★の場所が下の START の行き先になる。 */}
+                <div className="green-rail-actions">
+                  <button type="button" className="green-rail-action" onClick={openDestDialog}>
+                    <small>CHANGE</small>
+                    <b>DEST</b>
+                  </button>
+                </div>
+                {/* 右下はGoogleマップの起動ボタン。行き先は★の場所(DEST で選ぶ)。 */}
                 <button
                   type="button"
                   className="green-navi-card green-card-button"
