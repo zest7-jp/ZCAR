@@ -136,8 +136,19 @@ export const mergeFuelEntries = (
   right: FuelEntry[],
 ): FuelEntry[] => {
   const byId = new Map<string, FuelEntry>();
+  // 日付・給油量・距離・金額がすべて同じなら同じ給油とみなす
+  // (車とスマホの両方で同じ給油を入れたときに二重にならないように)。
+  const seen = new Set<string>();
   for (const entry of [...left, ...right]) {
-    if (isValidFuelEntry(entry)) byId.set(entry.id, entry);
+    if (!isValidFuelEntry(entry)) continue;
+    if (byId.has(entry.id)) {
+      byId.set(entry.id, entry);
+      continue;
+    }
+    const sameRefuel = `${entry.date}|${entry.liters}|${entry.distanceKm}|${entry.amountYen}`;
+    if (seen.has(sameRefuel)) continue;
+    seen.add(sameRefuel);
+    byId.set(entry.id, entry);
   }
   return [...byId.values()]
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)
@@ -361,6 +372,17 @@ export const pushSharedSettings = async (key: string, settings: Settings) =>
     key,
     updatedAt: Date.now(),
     settings: pickSyncedFields(settings),
+  });
+
+/**
+ * 給油記録だけをサーバーへ送る。
+ * サーバーは届いた記録をいまの記録に足し合わせ、ほかの項目はそのまま残す。
+ */
+export const pushFuelEntries = async (key: string, fuelEntries: FuelEntry[]) =>
+  postSync({
+    key,
+    updatedAt: Date.now(),
+    settings: { fuelEntries },
   });
 
 /* --- 音源置き場 (music.php) --- */

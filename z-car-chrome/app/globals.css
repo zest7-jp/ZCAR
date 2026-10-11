@@ -1392,6 +1392,38 @@ button { cursor: pointer; }
 .fuel-entry-card header b,
 .fuel-history-card header b { color: #59746a; font-family: "SFMono-Regular", Consolas, monospace; font-size: 7px; letter-spacing: .11em; }
 
+/* 給油履歴の見出しの右: スマホとの同期の状態(押すとスマホとつなぐQRが出る)。 */
+.fuel-sync { display: flex; align-items: center; gap: 10px; }
+.fuel-sync-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid #2a4139;
+  border-radius: 999px;
+  background: rgba(8, 13, 12, .85);
+  color: #7fb3a2;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fuel-sync-button i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b5149;
+}
+.fuel-sync-button.is-ok i { background: #5ce6c6; box-shadow: 0 0 6px rgba(92, 230, 198, .7); }
+.fuel-sync-button.is-syncing i { background: #e7b55a; }
+.fuel-sync-button.is-error { color: #d99a8f; }
+.fuel-sync-button.is-error i { background: #e26a5a; }
+.fuel-sync-button:active { border-color: #4f8d83; background: rgba(29, 79, 63, .35); }
+
 .fuel-entry-card form {
   height: calc(100% - 44px);
   padding: 9px;

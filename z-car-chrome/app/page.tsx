@@ -3,13 +3,19 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import {
+  buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
   defaults,
+  fetchSharedSettings,
+  generateSyncKey,
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
+  MIN_SYNC_KEY_LENGTH,
   PHONE_LONG_EDGE_MAX,
   mergeFuelEntries,
+  pushFuelEntries,
   readSettings,
+  sanitizeSyncedSettings,
   SETTINGS_STORAGE_KEY,
   writeSettings,
   type Settings,
@@ -174,6 +180,15 @@ const loadGoogleMaps = (key: string) => {
 };
 
 const FUEL_LOG_STORAGE_KEY = "zcar-fuel-log-v1";
+// スマホで入れた給油記録を取りに行く間隔。
+const FUEL_SYNC_POLL_MS = 30000;
+// 接続用QRを出しておく秒数。合言葉そのものなので出しっぱなしにしない。
+const PAIRING_AUTO_CLOSE_S = 10;
+
+/** 給油記録の並び(id の順)が同じかどうか。 */
+const sameFuelList = (left: FuelEntry[], right: FuelEntry[]) =>
+  left.length === right.length &&
+  left.every((entry, index) => entry.id === right[index]?.id);
 const DAILY_TRIP_STORAGE_KEY = "zcar-daily-trip-v1";
 const IMPORTED_FUEL_ENTRIES: FuelEntry[] = [
   { id: "import-2026-07-05", date: "2026-07-05", liters: 19.33, distanceKm: 300, amountYen: 3131, createdAt: Date.parse("2026-07-05T12:00:00+09:00") },
@@ -411,6 +426,12 @@ export default function Home() {
   const [destEditKey, setDestEditKey] = useState<string | null>(null);
   const [destDraft, setDestDraft] = useState({ label: "", destination: "" });
   const themeDialog = useRef<HTMLDialogElement>(null);
+  // スマホとつなぐためのQR(燃費画面から開く)。
+  const pairingDialog = useRef<HTMLDialogElement>(null);
+  const pairingTimerRef = useRef<number | null>(null);
+  const [pairingLeft, setPairingLeft] = useState(0);
+  const [pairingQr, setPairingQr] = useState<string | null>(null);
+  const [pairingError, setPairingError] = useState(false);
   const fuelMotionRef = useRef<{
     speed: number | null;
     status: ObdConnectionStatus;
@@ -558,6 +579,84 @@ export default function Home() {
   useEffect(() => {
     if (ready) writeSettings(settings);
   }, [ready, settings]);
+
+  // 容量不足などで、ブラウザがこのサイトのデータ(給油記録など)を
+  // 勝手に消さないように頼んでおく。
+  useEffect(() => {
+    if (!ready) return;
+    const storage = navigator.storage;
+    if (storage && typeof storage.persist === "function") {
+      void storage.persist().catch(() => false);
+    }
+  }, [ready]);
+
+  // --- 給油記録の同期 ---
+  // スマホと共有するのは給油記録だけ(目的地やテーマは車だけで完結)。
+  // サーバーは記録を足し合わせるだけなので、どちらで入れても消えない。
+  const syncKey = settings.syncKey.trim();
+  const fuelSyncEnabled = ready && syncKey.length >= MIN_SYNC_KEY_LENGTH;
+  const [fuelSync, setFuelSync] = useState<{
+    state: "syncing" | "ok" | "error";
+    at: number | null;
+  }>({ state: "syncing", at: null });
+  // サーバーが持っている給油記録の id(どの合言葉で読んだかも覚える)。
+  // まだ一度も読めていなければ null。
+  const [serverFuel, setServerFuel] = useState<{
+    key: string;
+    ids: Set<string>;
+  } | null>(null);
+
+  // サーバーの給油記録を読み、車の記録に足し合わせる。
+  useEffect(() => {
+    if (!fuelSyncEnabled) return;
+    let active = true;
+    const pull = async () => {
+      try {
+        const result = await fetchSharedSettings(syncKey);
+        if (!active) return;
+        if (!result.ok) throw new Error("FUEL_SYNC_FAILED");
+        const serverEntries = sanitizeSyncedSettings(result.settings).fuelEntries ?? [];
+        setServerFuel({ key: syncKey, ids: new Set(serverEntries.map((entry) => entry.id)) });
+        setSettings((current) => {
+          const merged = mergeFuelEntries(current.fuelEntries, serverEntries);
+          return sameFuelList(merged, current.fuelEntries)
+            ? current
+            : { ...current, fuelEntries: merged };
+        });
+        setFuelSync({ state: "ok", at: Date.now() });
+      } catch {
+        // 圏外などは次の周期に任せる。
+        if (active) setFuelSync((now) => ({ state: "error", at: now.at }));
+      }
+    };
+    void pull();
+    const timer = window.setInterval(pull, FUEL_SYNC_POLL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [fuelSyncEnabled, syncKey]);
+
+  // 車にあってサーバーに無い記録(車で入れた分)があれば送る。
+  useEffect(() => {
+    if (!fuelSyncEnabled || !serverFuel || serverFuel.key !== syncKey) return;
+    const known = serverFuel.ids;
+    if (fuelEntries.every((entry) => known.has(entry.id))) return;
+    const timer = window.setTimeout(() => {
+      setFuelSync((now) => ({ ...now, state: "syncing" }));
+      void pushFuelEntries(syncKey, fuelEntries)
+        .then((result) => {
+          if (!result.ok) throw new Error("FUEL_PUSH_FAILED");
+          setServerFuel({
+            key: syncKey,
+            ids: new Set([...known, ...fuelEntries.map((entry) => entry.id)]),
+          });
+          setFuelSync({ state: "ok", at: Date.now() });
+        })
+        .catch(() => setFuelSync((now) => ({ state: "error", at: now.at })));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [fuelEntries, fuelSyncEnabled, serverFuel, syncKey]);
 
   // 給油記録は設定と一緒に保存されるが、旧キーにも書いておく(古い版に戻しても読める)。
   useEffect(() => {
@@ -1092,6 +1191,86 @@ export default function Home() {
       navigator.vibrate?.(60);
     }, 900);
   };
+
+  const stopPairingTimer = () => {
+    if (pairingTimerRef.current !== null) {
+      window.clearInterval(pairingTimerRef.current);
+      pairingTimerRef.current = null;
+    }
+  };
+
+  const closePairing = () => {
+    stopPairingTimer();
+    setPairingLeft(0);
+    pairingDialog.current?.close();
+  };
+
+  /** 表示してからの残り秒を数え、0になったら自動で閉じる。 */
+  const armPairingTimer = () => {
+    stopPairingTimer();
+    setPairingLeft(PAIRING_AUTO_CLOSE_S);
+    pairingTimerRef.current = window.setInterval(() => {
+      setPairingLeft((left) => {
+        if (left <= 1) {
+          stopPairingTimer();
+          pairingDialog.current?.close();
+          return 0;
+        }
+        return left - 1;
+      });
+    }, 1000);
+  };
+
+  /**
+   * スマホとつなぐQRを出す。合言葉がまだ無ければここで作る。
+   * 合言葉は「#」より後ろに置くのでサーバーには送信されない。
+   * QRの生成は使うときだけ読み込む(車載機の起動を重くしないため)。
+   */
+  const startPairing = async () => {
+    setPairingError(false);
+    let key = settings.syncKey.trim();
+    if (key.length < MIN_SYNC_KEY_LENGTH) {
+      key = generateSyncKey();
+      const newKey = key;
+      setSettings((current) => ({ ...current, syncKey: newKey, syncedAt: 0 }));
+    }
+    try {
+      const QRCode = (await import("qrcode")).default;
+      const image = await QRCode.toDataURL(buildSyncHandoffUrl(key), {
+        // 実寸より大きめに作り、CSS側で縮小して表示する(粗さが出ないように)。
+        width: 720,
+        margin: 1,
+        errorCorrectionLevel: "M",
+        color: { dark: "#04110c", light: "#e6fbf7" },
+      });
+      setPairingQr(image);
+      armPairingTimer();
+    } catch {
+      setPairingError(true);
+    }
+  };
+
+  const openPairing = () => {
+    setPairingQr(null);
+    setPairingError(false);
+    pairingDialog.current?.showModal();
+    void startPairing();
+  };
+
+  // 燃費画面の右上に出す、スマホとの同期の状態。
+  const fuelSyncState = fuelSyncEnabled ? fuelSync.state : "off";
+  const fuelSyncLabel =
+    fuelSyncState === "off"
+      ? "LINK PHONE"
+      : fuelSyncState === "error"
+        ? "SYNC ERROR"
+        : fuelSync.at
+          ? `PHONE SYNC ${new Date(fuelSync.at).toLocaleTimeString("ja-JP", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}`
+          : "SYNCING";
 
   // 車の画面から直せる場所。出発・帰宅と、登録枠の1〜5。
   const destSlots = [
@@ -1846,7 +2025,19 @@ export default function Home() {
               <section className="fuel-history-card" aria-label="給油履歴">
                 <header>
                   <span><small>FUEL HISTORY</small><strong>給油履歴</strong></span>
-                  <b>{fuelEntries.length} TOTAL</b>
+                  <div className="fuel-sync">
+                    {/* スマホとの同期の状態。押すとスマホとつなぐQRが出る。 */}
+                    <button
+                      type="button"
+                      className={`fuel-sync-button is-${fuelSyncState}`}
+                      onClick={openPairing}
+                      aria-label="スマホとつなぐQRを出す"
+                    >
+                      <i aria-hidden="true" />
+                      {fuelSyncLabel}
+                    </button>
+                    <b>{fuelEntries.length} TOTAL</b>
+                  </div>
                 </header>
                 <div className="fuel-history-table">
                   {sortedFuelEntries.length === 0 ? (
@@ -2052,6 +2243,39 @@ export default function Home() {
         </div>
       </dialog>
 
+      <dialog ref={pairingDialog} onClose={stopPairingTimer}>
+        <div className="dialog-card sync-card">
+          <h2>スマホとつなぐ</h2>
+          {pairingQr ? (
+            <div className="pairing-qr">
+              <img src={pairingQr} alt="接続用QRコード" width={720} height={720} />
+              <p>スマホのカメラで読み取ってください</p>
+              <p className="pairing-warn">他の人には見せないでください</p>
+              <p className="pairing-countdown" role="status">
+                あと {pairingLeft} 秒で閉じます
+              </p>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="pairing-start"
+                onClick={() => void startPairing()}
+              >
+                QRを表示する
+              </button>
+              <p className="settings-hint">
+                {pairingError
+                  ? "QRを作れませんでした。もう一度押してください。"
+                  : "読み取ると、スマホで入れた給油記録が車にも入ります。"}
+              </p>
+            </>
+          )}
+          <div className="two-actions">
+            <button onClick={closePairing}>閉じる</button>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }
