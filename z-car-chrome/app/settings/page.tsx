@@ -789,7 +789,9 @@ export default function PhoneSettingsPage() {
               );
             })}
           </div>
-          <p className="zr-note">押すと車のメーターの色と形も変わります。</p>
+          <p className="zr-note">
+            押すと車のメーターも変わります。形は、車のメーターの真ん中を押しても順番に変わります。
+          </p>
         </section>
       ) : null}
 

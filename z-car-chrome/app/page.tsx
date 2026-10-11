@@ -28,7 +28,7 @@ import {
   type NavChoice,
   type Settings,
 } from "./settings-store";
-import { MeterDesignGauge, SAMPLE_GAUGE_VALUES, type GaugeValues } from "./meter-designs";
+import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
 import { StarMark } from "./star-mark";
 
 type RouteEta = {
@@ -465,8 +465,8 @@ export default function Home() {
   const greenMapElementRef = useRef<HTMLDivElement>(null);
   // 中央メーターの地図タイルが1枚でも描画できたか(待機表示の出し分け用)。
   const [greenMapReady, setGreenMapReady] = useState(false);
-  // メーターの色選びの画面で、色と形のどちらを出しているか。
-  const [pickerTab, setPickerTab] = useState<"color" | "design">("color");
+  // メーターの真ん中を押して形を変えたとき、形の名前を少しだけ出す(数が変わるたびに出し直す)。
+  const [designFlash, setDesignFlash] = useState(0);
   const greenGmapRef = useRef<{
     setCenter: (point: { lat: number; lng: number }) => void;
     moveCamera: (camera: Record<string, unknown>) => void;
@@ -1153,7 +1153,7 @@ export default function Home() {
       // 前はメーターの右下にあった「メーターの色を選ぶ」。
       key: "theme",
       nameJa: "配色",
-      nameEn: "THEME",
+      nameEn: "COLOR",
       stateJa: activeTheme.shortJa,
       stateEn: activeTheme.shortEn,
       tone: "ok",
@@ -1539,8 +1539,29 @@ export default function Home() {
     clock,
     dateLabel: `${todayMonthDay} ${WEEKDAYS_EN[todayWeekdayIndex]}`,
   };
-  // 形選びの見本は、今の色と同じ filter で描く。
-  const designThumbClass = `dg-thumb is-${activeTheme.id}${activeTheme.tinted ? ` is-tinted zt-${activeTheme.id}` : ""}`;
+  // メーターの真ん中を押すと、次の形に変える(最後の次は最初の地図つきに戻る)。
+  const designIndex = METER_DESIGNS.findIndex((design) => design.id === activeDesign.id);
+  const cycleDesign = () => {
+    const next = METER_DESIGNS[(designIndex + 1) % METER_DESIGNS.length];
+    setSettings((current) => ({ ...current, meterDesign: next.id }));
+    setDesignFlash((count) => count + 1);
+  };
+  const gaugeSwitch = (
+    <>
+      <button
+        type="button"
+        className="gauge-switch"
+        onClick={cycleDesign}
+        aria-label={`メーターの形を変える(今は ${activeDesign.name})`}
+      />
+      {designFlash > 0 ? (
+        <span key={designFlash} className="gauge-design-flash" aria-live="polite">
+          <small>DESIGN {designIndex + 1}/{METER_DESIGNS.length}</small>
+          <b>{activeDesign.name}</b>
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
     <div className="screen-shell">
@@ -1816,6 +1837,7 @@ export default function Home() {
               {activeDesign.id === "navi" ? (
                 <article className="performance-main-gauge green-map-gauge" aria-label="Map integrated tachometer and speedometer">
                   {gaugeCorners}
+                  {gaugeSwitch}
                   <div className="performance-rpm-track" aria-hidden="true" />
                   <div className="performance-rpm-ticks" aria-hidden="true" />
                   <div className="performance-rpm-labels" aria-hidden="true">
@@ -1864,6 +1886,7 @@ export default function Home() {
                   aria-label={activeDesign.name}
                 >
                   {gaugeCorners}
+                  {gaugeSwitch}
                   <MeterDesignGauge design={activeDesign.id} values={gaugeValues} />
                 </article>
               )}
@@ -2104,7 +2127,7 @@ export default function Home() {
           <header>
             <span>
               <small>FULLSCREEN DISPLAY</small>
-              <h2>METER THEME</h2>
+              <h2>METER COLOR</h2>
             </span>
             <button
               type="button"
@@ -2114,83 +2137,33 @@ export default function Home() {
               CLOSE
             </button>
           </header>
-          {/* 色(8色)と形(7種類)はタブで切り替える。どちらも押すとすぐ変わって閉じる。 */}
-          <div className="meter-theme-tabs" role="tablist" aria-label="色と形">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={pickerTab === "color"}
-              className={pickerTab === "color" ? "is-active" : undefined}
-              onClick={() => setPickerTab("color")}
-            >
-              <b>色</b>
-              <small>COLOR</small>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={pickerTab === "design"}
-              className={pickerTab === "design" ? "is-active" : undefined}
-              onClick={() => setPickerTab("design")}
-            >
-              <b>形</b>
-              <small>DESIGN</small>
-            </button>
+          {/* 8色。どれも同じ盤面で、ターコイズとオレンジは専用の CSS、
+              ほかは globals.css の .zt-<名前> の色を共通の決まりで使う。
+              形はここでは選ばず、メーターの真ん中を押して変える。 */}
+          <div className="meter-theme-options">
+            {METER_THEMES.map((theme) => {
+              const selected = activeTheme.id === theme.id;
+              const tint = theme.tinted ? ` is-tinted zt-${theme.id}` : "";
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className={`${theme.id}${tint}${selected ? " selected" : ""}`}
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setSettings({ ...settings, meterTheme: theme.id });
+                    themeDialog.current?.close();
+                  }}
+                >
+                  <i className={`theme-preview ${theme.id}${tint}`} aria-hidden="true">
+                    <span>{theme.name}</span>
+                  </i>
+                  <span><b>{theme.name}</b><small>{theme.captionEn}</small></span>
+                  <em>{selected ? "ACTIVE" : "SELECT"}</em>
+                </button>
+              );
+            })}
           </div>
-          {pickerTab === "color" ? (
-            <>
-              {/* 8色。どれも同じ盤面で、ターコイズとオレンジは専用の CSS、
-                  ほかは globals.css の .zt-<名前> の色を共通の決まりで使う。 */}
-              <div className="meter-theme-options">
-                {METER_THEMES.map((theme) => {
-                  const selected = activeTheme.id === theme.id;
-                  const tint = theme.tinted ? ` is-tinted zt-${theme.id}` : "";
-                  return (
-                    <button
-                      key={theme.id}
-                      type="button"
-                      className={`${theme.id}${tint}${selected ? " selected" : ""}`}
-                      aria-pressed={selected}
-                      onClick={() => {
-                        setSettings({ ...settings, meterTheme: theme.id });
-                        themeDialog.current?.close();
-                      }}
-                    >
-                      <i className={`theme-preview ${theme.id}${tint}`} aria-hidden="true">
-                        <span>{theme.name}</span>
-                      </i>
-                      <span><b>{theme.name}</b><small>{theme.captionEn}</small></span>
-                      <em>{selected ? "ACTIVE" : "SELECT"}</em>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="meter-theme-options is-designs">
-              {METER_DESIGNS.map((design) => {
-                const selected = activeDesign.id === design.id;
-                return (
-                  <button
-                    key={design.id}
-                    type="button"
-                    className={`design-option${selected ? " selected" : ""}`}
-                    aria-pressed={selected}
-                    onClick={() => {
-                      setSettings({ ...settings, meterDesign: design.id });
-                      themeDialog.current?.close();
-                    }}
-                  >
-                    <i className={designThumbClass} aria-hidden="true">
-                      <MeterDesignGauge design={design.id} values={SAMPLE_GAUGE_VALUES} />
-                    </i>
-                    <span><b>{design.name}</b><small>{design.captionEn}</small></span>
-                    <em>{selected ? "ACTIVE" : "SELECT"}</em>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
       </dialog>
 
