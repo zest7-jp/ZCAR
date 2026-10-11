@@ -42,6 +42,28 @@ const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "theme", ja: "メーター", en: "THEME" },
 ];
 
+/** 接続まわりの案内。英語を大きく、日本語は小さく添える。 */
+type Note = { en: string; ja: string; warn?: boolean };
+
+const SCAN_NOTES = {
+  starting: { en: "STARTING CAMERA", ja: "カメラを準備しています" },
+  aim: { en: "ALIGN THE QR CODE", ja: "車の画面のQRを枠に入れてください" },
+  blocked: { en: "CAMERA BLOCKED", ja: "設定でカメラを許可してください", warn: true },
+  foreign: { en: "NOT A Z CAR CODE", ja: "車の LINK PHONE で出るQRを読み取ってください", warn: true },
+} satisfies Record<string, Note>;
+
+/** つなぎ方の3ステップ。 */
+const LINK_STEPS: Note[] = [
+  { en: "TAP LINK PHONE", ja: "車の燃費画面か、DEST の画面の下にあります" },
+  { en: "SCAN THE QR", ja: "このスマホのカメラで読み取ります" },
+  { en: "SYNCED", ja: "給油・目的地・メーターの色がそろいます" },
+];
+
+/** QRを読む枠の四隅。 */
+const ScanCorners = () => (
+  <path className="zr-corners" d="M6 30V6h24M90 6h24v24M114 90v24H90M30 114H6V90" />
+);
+
 /** 給油履歴に出す日付(10.10 の形)。 */
 const shortDate = (date: string) => date.slice(5).replace("-", ".");
 
@@ -60,7 +82,7 @@ export default function PhoneSettingsPage() {
   const [pairedNotice, setPairedNotice] = useState(false);
   // カメラでQRを読み取る画面。
   const [scanOpen, setScanOpen] = useState(false);
-  const [scanNote, setScanNote] = useState<string | null>(null);
+  const [scanNote, setScanNote] = useState<Note | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   // 車載機のような大きい画面から来たかどうか。
@@ -148,7 +170,7 @@ export default function PhoneSettingsPage() {
   }, []);
 
   const startScan = async () => {
-    setScanNote("カメラを準備しています…");
+    setScanNote(SCAN_NOTES.starting);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
@@ -156,9 +178,9 @@ export default function PhoneSettingsPage() {
       });
       streamRef.current = stream;
       setScanOpen(true);
-      setScanNote("車の画面のQRを枠に入れてください");
+      setScanNote(SCAN_NOTES.aim);
     } catch {
-      setScanNote("カメラを使えませんでした。設定でカメラを許可してください。");
+      setScanNote(SCAN_NOTES.blocked);
     }
   };
 
@@ -199,7 +221,7 @@ export default function PhoneSettingsPage() {
               setScanNote(null);
               return;
             }
-            setScanNote("Z CAR のQRではないようです");
+            setScanNote(SCAN_NOTES.foreign);
           }
         } catch {
           // 読み取りに失敗しても次のコマで試す。
@@ -326,8 +348,8 @@ export default function PhoneSettingsPage() {
             <circle cx="12" cy="12" r="10" />
             <path d="M7 12.4l3.2 3.2L17 8.8" />
           </svg>
-          <b>接続しました</b>
-          <small>LINK ACTIVE · 車とつながりました</small>
+          <b>LINK ESTABLISHED</b>
+          <small>車とつながりました</small>
         </button>
       ) : null}
 
@@ -340,29 +362,73 @@ export default function PhoneSettingsPage() {
 
       {syncTrouble ? (
         <p className="zr-alert" role="status">
-          車に届いていません。電波が戻ると自動で送ります。
+          <b>NO SIGNAL</b>
+          <span>車に届いていません。電波が戻ると自動で送ります。</span>
         </p>
       ) : null}
 
       {/* つなぐ欄は、まだ車とつないでいないときだけ出す。 */}
       {!linked ? (
-        <section className="zr-panel zr-link" aria-label="車とつなぐ">
-          <header className="zr-panel-head">
-            <span>
-              <small>LINK</small>
-              <b>車とつなぐ</b>
-            </span>
+        <section className="zr-link" aria-label="車とつなぐ">
+          <header className="zr-link-bar">
+            <span>LINK STATUS</span>
+            <em>
+              <i aria-hidden="true" />
+              NOT PAIRED
+            </em>
           </header>
-          <p className="zr-note">
-            車の燃費画面（給油履歴の右）か、DEST の画面の下にある
-            <b>「LINK PHONE」</b>を押すとQRが出ます。読み取ると、給油記録・目的地・
-            メーターの色を、車とこのスマホのどちらからでも変えられます。
-          </p>
-          <button type="button" className="zr-primary" onClick={() => void startScan()}>
-            カメラでQRを読み取る
+          <div className="zr-link-hero">
+            <div className="zr-reticle" aria-hidden="true">
+              <svg viewBox="0 0 120 120">
+                <ScanCorners />
+                <g className="zr-reticle-code">
+                  <rect x="26" y="26" width="20" height="20" rx="3" />
+                  <rect x="74" y="26" width="20" height="20" rx="3" />
+                  <rect x="26" y="74" width="20" height="20" rx="3" />
+                  <rect className="is-fill" x="32" y="32" width="8" height="8" rx="1.5" />
+                  <rect className="is-fill" x="80" y="32" width="8" height="8" rx="1.5" />
+                  <rect className="is-fill" x="32" y="80" width="8" height="8" rx="1.5" />
+                  {[
+                    [56, 27], [62, 38], [54, 49], [66, 55], [79, 56], [88, 65],
+                    [56, 66], [70, 75], [84, 80], [60, 86], [76, 90], [90, 92],
+                  ].map(([x, y]) => (
+                    <rect key={`${x}-${y}`} className="is-dot" x={x} y={y} width="6" height="6" rx="1" />
+                  ))}
+                </g>
+              </svg>
+              <i className="zr-scanline" />
+            </div>
+            <div className="zr-link-title">
+              <b>
+                PAIR WITH
+                <br />
+                YOUR CAR
+              </b>
+              <small>車とつなぐ</small>
+            </div>
+          </div>
+          <ol className="zr-link-steps">
+            {LINK_STEPS.map((step, index) => (
+              <li key={step.en}>
+                <em>{String(index + 1).padStart(2, "0")}</em>
+                <span>
+                  <b>{step.en}</b>
+                  <small>{step.ja}</small>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <button type="button" className="zr-primary zr-scan-button" onClick={() => void startScan()}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M7 12h10" />
+            </svg>
+            SCAN QR CODE
           </button>
           {scanNote && !scanOpen ? (
-            <p className="zr-scan-note" role="status">{scanNote}</p>
+            <p className={`zr-scan-note${scanNote.warn ? " is-warn" : ""}`} role="status">
+              <b>{scanNote.en}</b>
+              <small>{scanNote.ja}</small>
+            </p>
           ) : null}
         </section>
       ) : null}
@@ -648,11 +714,28 @@ export default function PhoneSettingsPage() {
 
       {scanOpen ? (
         <div className="zr-scanner" role="dialog" aria-label="QRの読み取り">
-          <video ref={videoRef} playsInline muted />
-          <div className="zr-scanner-frame" aria-hidden="true" />
-          <p>{scanNote ?? "車の画面のQRを枠に入れてください"}</p>
+          <header className="zr-scanner-bar">
+            <span>
+              <i aria-hidden="true" />
+              SCANNING
+            </span>
+            <small>Z CAR · LINK</small>
+          </header>
+          <div className="zr-scanner-view">
+            <video ref={videoRef} playsInline muted />
+            <div className="zr-scanner-frame" aria-hidden="true">
+              <svg viewBox="0 0 120 120" preserveAspectRatio="none">
+                <ScanCorners />
+              </svg>
+              <i className="zr-scanline" />
+            </div>
+          </div>
+          <p className={`zr-scanner-hint${scanNote?.warn ? " is-warn" : ""}`}>
+            <b>{(scanNote ?? SCAN_NOTES.aim).en}</b>
+            <small>{(scanNote ?? SCAN_NOTES.aim).ja}</small>
+          </p>
           <button type="button" onClick={stopScan}>
-            やめる
+            CANCEL
           </button>
         </div>
       ) : null}
