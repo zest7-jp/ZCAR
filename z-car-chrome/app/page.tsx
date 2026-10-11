@@ -1046,6 +1046,8 @@ export default function Home() {
     stateJa: string;
     stateEn: string;
     tone: "ok" | "warn" | "off";
+    /** 押せる項目だけ。押したときに何をするかの説明(読み上げ用)。 */
+    pressLabel?: string;
   }[] = [
     {
       key: "net",
@@ -1104,6 +1106,8 @@ export default function Home() {
               obdStatus === "requesting"
             ? "warn"
             : "off",
+      // 前はメーターの右上にあった「OBD2 につなぐ」。
+      pressLabel: "OBD2 につなぐ",
     },
     {
       key: "gps",
@@ -1128,7 +1132,23 @@ export default function Home() {
             ? "warn"
             : "off",
     },
+    {
+      // 前はメーターの右下にあった「メーターの色を選ぶ」。
+      key: "theme",
+      nameJa: "配色",
+      nameEn: "THEME",
+      stateJa: settings.meterTheme === "eva" ? "オレンジ" : "ターコイズ",
+      stateEn: settings.meterTheme === "eva" ? "ORANGE" : "TURQUOISE",
+      tone: "ok",
+      pressLabel: "メーターの色を選ぶ",
+    },
   ];
+
+  /** 上のステータスバーの項目を押したとき。OBD2 はつなぐ、色は選ぶ画面を開く。 */
+  const pressStatusItem = (key: string) => {
+    if (key === "obd") void connectObd();
+    if (key === "theme") themeDialog.current?.showModal();
+  };
 
   const cancelFuelReset = () => {
     if (fuelResetTimerRef.current !== null) {
@@ -1545,21 +1565,39 @@ export default function Home() {
               {obdConnectionLabel}
               {obdErrorMessage ? ` · ${obdErrorMessage}` : ""}
             </span>
-            {meterStatusItems.map((item) => (
-              <span key={item.key} className={`meter-status-item is-${item.tone}`}>
-                <i aria-hidden="true" />
-                <span className="meter-status-text">
-                  <small>
-                    {item.nameJa}
-                    <span>{item.nameEn}</span>
-                  </small>
-                  <b>
-                    {item.stateJa}
-                    <span>{item.stateEn}</span>
-                  </b>
+            {/* OBD2 とメーターの色は押せる(OBD2 はつなぐ、色は選ぶ画面を開く)。 */}
+            {meterStatusItems.map((item) => {
+              const content = (
+                <>
+                  <i aria-hidden="true" />
+                  <span className="meter-status-text">
+                    <small>
+                      {item.nameJa}
+                      <span>{item.nameEn}</span>
+                    </small>
+                    <b>
+                      {item.stateJa}
+                      <span>{item.stateEn}</span>
+                    </b>
+                  </span>
+                </>
+              );
+              return item.pressLabel ? (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`meter-status-item is-button is-${item.tone}`}
+                  onClick={() => pressStatusItem(item.key)}
+                  aria-label={item.pressLabel}
+                >
+                  {content}
+                </button>
+              ) : (
+                <span key={item.key} className={`meter-status-item is-${item.tone}`}>
+                  {content}
                 </span>
-              </span>
-            ))}
+              );
+            })}
             {/* 反映確認用のビルド時刻。帯の右端に薄く出す。 */}
             {BUILD_STAMP ? (
               <span className="build-stamp" aria-hidden="true">
@@ -1684,24 +1722,9 @@ export default function Home() {
               </aside>
 
               <article className="performance-main-gauge green-map-gauge" aria-label="Map integrated tachometer and speedometer">
-                {/* 円の外側に余る四隅に、よく見る数字を置く。
-                    左上 電圧 / 右上 水温 / 左下 平均巡行速度 / 右下 平均燃費。
-                    右下だけは押せて、燃費の記録を開く。 */}
-                <div className="gauge-corners" aria-label="メーターの四隅">
-                  <div className="gauge-corner gauge-corner-tl is-readout">
-                    <small>SYSTEM VOLTAGE</small>
-                    <span className="gauge-corner-value">
-                      <b>{obdData.voltage?.toFixed(1) ?? "—"}</b>
-                      <em>V</em>
-                    </span>
-                  </div>
-                  <div className="gauge-corner gauge-corner-tr is-readout">
-                    <small>COOLANT TEMP</small>
-                    <span className="gauge-corner-value">
-                      <b>{obdData.coolant ?? "—"}</b>
-                      <em>°C</em>
-                    </span>
-                  </div>
+                {/* 円の外側に余る下の二隅に、よく見る数字を置く。
+                    左下 平均巡行速度 / 右下 平均燃費(押すと燃費の記録を開く)。 */}
+                <div className="gauge-corners" aria-label="メーターの下の隅">
                   <div className="gauge-corner gauge-corner-bl is-readout">
                     <small>AVG CRUISE · TODAY</small>
                     <span className="gauge-corner-value">
@@ -1789,28 +1812,21 @@ export default function Home() {
                     </div>
                   </div>
                 </article>
-                {/* 前は四隅にあった操作。OBD2 につなぐ / 目的地 / メーターの色。 */}
-                <div className="green-rail-actions" aria-label="操作">
-                  <button
-                    type="button"
-                    className={`green-rail-action obd-${obdStatus}`}
-                    onClick={() => void connectObd()}
-                  >
-                    {/* つながったら、Bluetoothの一覧に出ているその機器の名前を出す。 */}
-                    <small>{obdConnected ? obdDeviceName : "VEHICLE"}</small>
-                    <b>OBD2</b>
-                  </button>
+                <article className="green-obd-card">
+                  <small>COOLANT TEMP</small>
+                  <p><strong>{obdData.coolant ?? "—"}</strong><em>°C</em></p>
+                  <span>ENGINE THERMAL</span>
+                </article>
+                <article className="green-obd-card">
+                  <small>SYSTEM VOLTAGE</small>
+                  <p><strong>{obdData.voltage?.toFixed(1) ?? "—"}</strong><em>V</em></p>
+                  <span>BATTERY SYSTEM</span>
+                </article>
+                {/* 目的地を選ぶ・直す。★の場所が下の START の行き先になる。 */}
+                <div className="green-rail-actions">
                   <button type="button" className="green-rail-action" onClick={openDestDialog}>
                     <small>CHANGE</small>
                     <b>DEST</b>
-                  </button>
-                  <button
-                    type="button"
-                    className="green-rail-action"
-                    onClick={() => themeDialog.current?.showModal()}
-                  >
-                    <small>SWITCH</small>
-                    <b>THEME</b>
                   </button>
                 </div>
                 {/* 右下はGoogleマップの起動ボタン。行き先は★の場所(DEST で選ぶ)。 */}

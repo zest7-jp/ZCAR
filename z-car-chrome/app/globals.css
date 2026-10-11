@@ -4496,6 +4496,21 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   margin-bottom: 0;
 }
 .green-speed-scale i { width: var(--green-speed-level); }
+#app.is-fullscreen .green-obd-card {
+  flex: 0 0 83px;
+  padding: 10px 12px 8px;
+}
+#app.is-fullscreen .green-obd-card p { margin-top: 3px; }
+#app.is-fullscreen .green-obd-card strong { font-size: 30px; }
+.green-obd-card > span {
+  display: block;
+  margin-top: 4px;
+  color: #4f6f54;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 6px;
+  font-weight: 900;
+  letter-spacing: .15em;
+}
 
 /* Unified side instrument towers — replaces the stacked rounded-card treatment. */
 #app.is-fullscreen .green-nav-cluster .green-instrument-rail {
@@ -4597,6 +4612,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .green-daily-distance strong { font-size: 20px; }
   .green-range-card > span { margin-block: 2px 3px; }
   .green-range-card > span strong { font-size: 24px; }
+  #app.is-fullscreen .green-obd-card { flex-basis: 68px; padding: 8px 10px 6px; }
+  #app.is-fullscreen .green-obd-card strong { font-size: 25px; }
   .green-weather-side { min-height: 76px; padding-block: 4px; gap: 2px; }
   .green-weather-timeline > span { grid-template-rows: 10px 29px 10px; }
   .green-weather-timeline svg { width: 27px; height: 27px; }
@@ -5608,7 +5625,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 #app.is-fullscreen .green-instrument-rail small,
-#app.is-fullscreen .green-instrument-rail > article > span {
+#app.is-fullscreen .green-instrument-rail > article > span,
+#app.is-fullscreen .green-obd-card > span {
   color: var(--turquoise-muted);
 }
 
@@ -5828,11 +5846,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   justify-content: center;
 }
 
-/* 前は四隅にあった操作を、START の上に3つ並べる(OBD2 / DEST / THEME)。 */
+/* START の上の操作(いまは DEST だけ)。 */
 #app.is-fullscreen .green-drive-panel .green-rail-actions {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   border-top: 1px solid rgba(83, 222, 104, .13);
 }
 .green-rail-action {
@@ -5867,11 +5886,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   letter-spacing: .12em;
 }
 .green-rail-action:active { background: rgba(93, 226, 208, .1); }
-/* OBD2 は、つながっているかで小さい文字の色を変える。 */
-.green-rail-action.obd-live small { color: #6cf0b2; }
-.green-rail-action.obd-error small,
-.green-rail-action.obd-disconnected small,
-.green-rail-action.obd-unsupported small { color: #e08b7a; }
 @media (max-height: 520px) {
   .green-rail-action { gap: 4px; padding: 8px 3px 7px; }
   .green-rail-action b { font-size: 12px; }
@@ -6011,6 +6025,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   flex-basis: 42px;
   padding: 6px 14px 6px;
 }
+#app.is-fullscreen .green-drive-panel .green-obd-card {
+  flex-basis: 62px;
+  padding: 6px 12px 6px;
+}
+#app.is-fullscreen .green-drive-panel .green-obd-card strong { font-size: 25px; }
+#app.is-fullscreen .green-drive-panel .green-obd-card p { margin-top: 1px; }
+#app.is-fullscreen .green-drive-panel .green-obd-card > span { margin-top: 2px; }
 
 /* 縦が狭い画面(ブラウザのアドレスバーで削られたときなど)では、
    補足の一行を省いて計器を薄くし、映像も小さめにして全部を収める。 */
@@ -6031,6 +6052,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     flex-basis: 36px;
     padding: 4px 12px;
   }
+  #app.is-fullscreen .green-drive-panel .green-obd-card {
+    flex-basis: 44px;
+    padding: 3px 10px;
+  }
+  #app.is-fullscreen .green-drive-panel .green-obd-card strong { font-size: 20px; }
+  #app.is-fullscreen .green-drive-panel .green-obd-card > span { display: none; }
+  #app.is-fullscreen .green-drive-panel .green-obd-card { flex-basis: 46px; }
 }
 
 /* スマホと接続するだけの小さなダイアログ。 */
@@ -6291,6 +6319,18 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   white-space: nowrap;
 }
 
+/* 押せる項目(OBD2・メーターの色)。見た目はほかの項目と同じにし、押したときだけ明るくする。 */
+.meter-status-item.is-button {
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.meter-status-item.is-button:active { background: rgba(92, 230, 198, .1); }
+
 /* 項目と項目のあいだの細い仕切り線。 */
 .meter-status-item + .meter-status-item::before {
   content: "";
@@ -6491,7 +6531,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   align-items: baseline;
   gap: 4px;
 }
-.gauge-corner-tr .gauge-corner-value,
 .gauge-corner-br .gauge-corner-value { justify-content: flex-end; }
 .gauge-corner .gauge-corner-value b {
   font-family: "DIN Alternate", "SFMono-Regular", Consolas, monospace;
@@ -6521,18 +6560,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: default;
 }
 
-.gauge-corner-tl,
 .gauge-corner-bl { align-items: flex-start; }
-.gauge-corner-tr,
 .gauge-corner-br { align-items: flex-end; text-align: right; }
-
-.gauge-corner-tl { top: -4px; left: -8px; }
-.gauge-corner-tr { top: -4px; right: -8px; }
 .gauge-corner-bl { bottom: 0; left: -8px; }
 .gauge-corner-br { bottom: 0; right: -8px; }
-
-.gauge-corner-tl::before { top: 0; left: 0; border-right: 0; border-bottom: 0; }
-.gauge-corner-tr::before { top: 0; right: 0; border-left: 0; border-bottom: 0; }
 .gauge-corner-bl::before { bottom: 0; left: 0; border-right: 0; border-top: 0; }
 .gauge-corner-br::before { bottom: 0; right: 0; border-left: 0; border-top: 0; }
 
@@ -6547,7 +6578,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .gauge-corner b { font-size: 13px; }
   .gauge-corner .gauge-corner-value b { font-size: 21px; }
   .gauge-corner::before { width: 11px; height: 11px; }
-  .gauge-corner-tl, .gauge-corner-tr { top: 4%; }
   .gauge-corner-bl, .gauge-corner-br { bottom: 7%; }
 }
 
