@@ -5742,407 +5742,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     0 8px 20px rgba(0, 0, 0, .22);
 }
 
-/* ============================================================
-   スマホ用の設定ページ (/settings/)
-   車載機ではなく iPhone などから開いたときに表示する。
-   html, body が overflow:hidden なので、ここを縦スクロールの器にする。
-   ============================================================ */
-.zsetup {
-  height: 100%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  padding:
-    calc(env(safe-area-inset-top, 0px) + 26px)
-    calc(env(safe-area-inset-right, 0px) + 18px)
-    calc(env(safe-area-inset-bottom, 0px) + 44px)
-    calc(env(safe-area-inset-left, 0px) + 18px);
-  background:
-    linear-gradient(90deg, rgba(57, 204, 212, .028) 1px, transparent 1px) 0 0 / 26px 26px,
-    linear-gradient(rgba(57, 204, 212, .028) 1px, transparent 1px) 0 0 / 26px 26px,
-    radial-gradient(120% 62% at 50% -10%, rgba(57, 204, 212, .16), transparent 62%),
-    #07090b;
-}
-
-.zsetup-head {
-  margin-bottom: 26px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid rgba(57, 204, 212, .18);
-}
-
-.zsetup-head-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-/* 車とつながっているか。メーターの上のバーと同じ見せ方。 */
-.zsetup-link {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: #000;
-  white-space: nowrap;
-}
-
-.zsetup-link i {
-  align-self: center;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #33474a;
-}
-
-.zsetup-link small {
-  color: #4f8d83;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .22em;
-}
-
-.zsetup-link b {
-  color: #5e7b78;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .14em;
-}
-
-.zsetup-link.is-ok i {
-  background: #5ce6c6;
-  box-shadow: 0 0 8px rgba(92, 230, 198, .8);
-}
-
-.zsetup-link.is-ok b { color: #dffff6; }
-
-.zsetup-eyebrow {
-  margin: 0 0 8px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .34em;
-  color: #4f8f95;
-}
-
-.zsetup-head h1 {
-  margin: 0;
-  font-size: 27px;
-  font-weight: 800;
-  letter-spacing: .02em;
-}
-
-.zsetup-lead {
-  margin: 8px 0 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--muted);
-}
-
-.zsetup-section {
-  margin-bottom: 18px;
-  padding: 17px 16px 6px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(57, 204, 212, .045), transparent 40%), var(--panel);
-}
-
-.zsetup-section > h2 {
-  margin: 0 0 14px;
-  display: grid;
-  gap: 4px;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: .04em;
-}
-
-.zsetup-section > h2 small {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .02em;
-  color: var(--muted);
-}
-
-/* --- メーターテーマの選択 --- */
-.zsetup-themes { display: grid; gap: 10px; padding-bottom: 12px; }
-
-.zsetup-theme {
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
-  align-items: center;
-  gap: 13px;
-  min-height: 68px;
-  padding: 11px 13px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: var(--panel-soft);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color .18s ease, background .18s ease;
-}
-
-.zsetup-theme.is-active {
-  border-color: #39ccd4;
-  background: linear-gradient(180deg, rgba(57, 204, 212, .1), transparent 70%), var(--panel-soft);
-}
-
-.zsetup-theme > i {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, .14);
-  box-shadow: inset 0 0 14px rgba(0, 0, 0, .55);
-}
-
-.zsetup-theme > span { display: grid; gap: 3px; min-width: 0; }
-.zsetup-theme b { font-size: 13px; font-weight: 800; letter-spacing: .07em; }
-.zsetup-theme small { font-size: 11px; color: var(--muted); }
-
-.zsetup-theme em {
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 800;
-  letter-spacing: .12em;
-  color: #5d6b78;
-}
-
-.zsetup-theme.is-active em { color: #39ccd4; }
-
-/* --- 入力欄 --- */
-.zsetup-field {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 15px;
-}
-
-.zsetup-field > span {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .12em;
-  color: #9fb0bd;
-}
-
-.zsetup-field input {
-  width: 100%;
-  height: 50px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #0c1014;
-  color: #f7f9fb;
-  /* iOS で入力時に画面が拡大されないよう 16px 以上にする。 */
-  font-size: 16px;
-  font-family: inherit;
-}
-
-.zsetup-field input:focus {
-  outline: none;
-  border-color: #39ccd4;
-  box-shadow: 0 0 0 3px rgba(57, 204, 212, .16);
-}
-
-.zsetup-field > small {
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
-/* --- 保存 --- */
-.zsetup-actions { margin: 4px 0 22px; }
-
-.zsetup-save {
-  width: 100%;
-  min-height: 54px;
-  border: 1px solid #39ccd4;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(57, 204, 212, .22), rgba(57, 204, 212, .08));
-  color: #ddfbfd;
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: .1em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-save:active { background: rgba(57, 204, 212, .3); }
-
-.zsetup-saved {
-  margin: 10px 0 0;
-  min-height: 17px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  color: #55e0c8;
-}
-
-/* --- 注意書き --- */
-.zsetup-note { padding-bottom: 17px; }
-
-.zsetup-note p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.75;
-  color: var(--muted);
-}
-
-/* 大きな画面(車載機やPC)で開いた場合は中央に寄せて読みやすくする。 */
-@media (min-width: 620px) {
-  .zsetup { padding-inline: max(env(safe-area-inset-left, 0px), 24px); }
-  .zsetup-head,
-  .zsetup-section,
-  .zsetup-actions { max-width: 560px; margin-inline: auto; }
-}
-
-/* --- 設定ページ: 保存後の案内 --- */
-.zsetup-sync-note {
-  margin: 0 0 16px;
-  font-size: 11px;
-  line-height: 1.7;
-  color: #7d8894;
-}
-
-/* 車載機の設定ダイアログから設定ページへ渡すリンク。 */
-.settings-page-link {
-  display: block;
-  margin: 2px 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: #6fe3ea;
-  text-decoration: none;
-}
-
-/* --- 設定ページ: YouTubeプレイリストの編集 --- */
-.zsetup-playlists { display: grid; gap: 12px; margin-bottom: 12px; }
-
-.zsetup-playlist {
-  display: grid;
-  gap: 8px;
-  padding: 12px 12px 13px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: var(--panel-soft);
-}
-
-.zsetup-playlist-head {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-}
-
-.zsetup-playlist-head > b {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
-  font-weight: 700;
-  color: #4f8f95;
-}
-
-.zsetup-playlist input {
-  width: 100%;
-  height: 46px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #0c1014;
-  color: #f7f9fb;
-  /* iOS で入力時に画面が拡大されないよう 16px 以上にする。 */
-  font-size: 16px;
-  font-family: inherit;
-}
-
-.zsetup-playlist input:focus {
-  outline: none;
-  border-color: #39ccd4;
-  box-shadow: 0 0 0 3px rgba(57, 204, 212, .16);
-}
-
-.zsetup-playlist-id {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 14px !important;
-}
-
-.zsetup-playlist-remove {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid #3a2b2e;
-  border-radius: 9px;
-  background: transparent;
-  color: #d78a92;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-playlist-remove:disabled { opacity: .35; cursor: default; }
-
-.zsetup-playlist-add {
-  width: 100%;
-  min-height: 46px;
-  margin-bottom: 14px;
-  border: 1px dashed #2f7f84;
-  border-radius: 12px;
-  background: transparent;
-  color: #9fe4e9;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-playlist-add:disabled {
-  border-style: solid;
-  border-color: var(--line);
-  color: #5d6b78;
-  cursor: default;
-}
-
-/* 設定ページ: 車で再生する / この端末で開く。 */
-
-.zsetup-playlist-play {
-  display: grid;
-  place-items: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid #2f7f84;
-  border-radius: 10px;
-  background: rgba(57, 204, 212, .12);
-  color: #b9f2f5;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-decoration: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-playlist-play:disabled {
-  border-color: var(--line);
-  background: transparent;
-  color: #5d6b78;
-  cursor: default;
-}
-
-.zsetup-play-state {
-  margin: 0 0 12px;
-  min-height: 16px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: #55e0c8;
-}
-
 /* ナビ目的地ボタンに、設定した名前を番号の下に小さく出す。 */
 .map-shortcuts button em {
   max-width: 100%;
@@ -6158,272 +5757,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .map-shortcuts button:disabled em { color: rgba(159, 244, 210, .28); }
-
-/* --- 設定ページ: ナビ開始 --- */
-/* 5枚のカードは同じ見た目に揃える(目立たせるのは開いたカードだけ)。 */
-
-.zsetup-nav-list { display: grid; gap: 10px; padding-bottom: 14px; }
-
-.zsetup-nav-target {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 64px;
-  padding: 11px 13px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: var(--panel-soft);
-  color: inherit;
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-nav-target:active { border-color: #39ccd4; background: rgba(57, 204, 212, .1); }
-
-.zsetup-nav-target > b {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 16px;
-  font-weight: 800;
-  color: #4f8f95;
-}
-
-.zsetup-nav-target > span { display: grid; gap: 3px; min-width: 0; }
-.zsetup-nav-target strong { font-size: 15px; font-weight: 800; }
-
-.zsetup-nav-target small {
-  overflow: hidden;
-  font-size: 11px;
-  color: var(--muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.zsetup-nav-target em {
-  font-style: normal;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .1em;
-  color: #39ccd4;
-}
-
-.zsetup-nav-empty {
-  margin: 0;
-  padding: 14px 4px;
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--muted);
-  text-align: center;
-}
-
-/* --- 車側: スマホから指定された音楽のプレイヤー ---
-   メーター表示中でも操作できるよう、画面の右下に固定で出す。
-   映像は見せる必要がないが、非表示にすると再生が止まる場合があるので
-   小さく表示したままにしておく。 *
-@media (max-width: 720px), (max-height: 470px) {}
-
-/* メーター表示中は計器を隠しすぎないよう、ひとまわり小さくする。 *
-/* 「▶ 再生」を押したあとは、♪ の小さなボタンだけ残して畳む。
-   iframe を消したり display:none にすると音まで止まるので、
-   1pxの透明なまま残しておく。 *
-/* 畳んだときのサイズ指定が、メーター表示中の指定に負けないようにする。 *
-/* --- ホーム画面の待機YouTubeプレイヤー --- */
-/* --- 設定ページ: 満タン法の燃費記録 --- */
-.zsetup-fuel-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
-.zsetup-fuel-form .zsetup-field:first-child { grid-column: 1 / -1; }
-
-.zsetup-fuel-preview {
-  margin: 0 0 12px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--muted);
-  text-align: center;
-}
-
-.zsetup-fuel-preview b {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 20px;
-  color: #8be9ed;
-}
-
-.zsetup-fuel-save {
-  width: 100%;
-  min-height: 50px;
-  border: 1px solid #39ccd4;
-  border-radius: 13px;
-  background: linear-gradient(180deg, rgba(57, 204, 212, .2), rgba(57, 204, 212, .07));
-  color: #ddfbfd;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: .1em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-fuel-save:disabled {
-  border-color: var(--line);
-  background: transparent;
-  color: #5d6b78;
-  cursor: default;
-}
-
-.zsetup-fuel-history { padding-bottom: 14px; }
-
-.zsetup-fuel-history h3 {
-  margin: 0 0 9px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .14em;
-  color: #9fb0bd;
-}
-
-.zsetup-fuel-history ul { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }
-
-.zsetup-fuel-history li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 10px;
-  padding: 9px 11px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-soft);
-}
-
-.zsetup-fuel-history b {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
-  font-weight: 600;
-  color: #9fb0bd;
-}
-
-.zsetup-fuel-history span {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 17px;
-  font-weight: 700;
-  color: #8be9ed;
-}
-
-.zsetup-fuel-history small { font-size: 10px; color: var(--muted); }
-
-.zsetup-fuel-history em {
-  font-style: normal;
-  font-size: 11px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-/* --- 設定ページ: 折りたたみカード --- */
-.zsetup-card {
-  padding: 0;
-  overflow: hidden;
-  /* 計器のカードと同じ、左の細い色帯。 */
-  box-shadow: inset 3px 0 rgba(57, 204, 212, .45);
-  transition: box-shadow .18s ease, border-color .18s ease;
-}
-
-.zsetup-card.is-open { box-shadow: inset 3px 0 #39ccd4; }
-
-/* カードの通し番号と英語名。計器の小さい見出しと同じ字送り。 */
-.zsetup-card-tag {
-  color: #4f8f95;
-  font-size: 9px;
-  font-style: normal;
-  font-weight: 900;
-  letter-spacing: .28em;
-}
-
-.zsetup-card.is-open .zsetup-card-tag { color: #39ccd4; }
-
-.zsetup-card-head {
-  width: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 72px;
-  padding: 14px 16px 14px 18px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-card-head > span { display: grid; gap: 5px; min-width: 0; }
-
-.zsetup-card-head b {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: .06em;
-}
-
-.zsetup-card-head small {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--muted);
-}
-
-/* 開閉を示す山形。閉じているときは下向き、開くと上向き。 */
-.zsetup-card-head > i {
-  width: 11px;
-  height: 11px;
-  margin-right: 3px;
-  border-right: 2px solid #5e7f86;
-  border-bottom: 2px solid #5e7f86;
-  transform: rotate(45deg) translate(-2px, -2px);
-  transition: transform .18s ease, border-color .18s ease;
-}
-
-.zsetup-card.is-open .zsetup-card-head > i {
-  border-color: #39ccd4;
-  transform: rotate(225deg) translate(-2px, -2px);
-}
-
-.zsetup-card.is-open {
-  border-color: #2f7f84;
-  background: linear-gradient(180deg, rgba(57, 204, 212, .07), transparent 34%), var(--panel);
-}
-
-.zsetup-card-body {
-  padding: 2px 16px 6px;
-  border-top: 1px solid var(--line);
-}
-
-/* カード内の見出し直下にあった余白は、カード側で持つので詰める。 */
-.zsetup-card-body > .zsetup-field:first-child { margin-top: 14px; }
-.zsetup-card-body > .zsetup-themes,
-.zsetup-card-body > .zsetup-playlists,
-.zsetup-card-body > .zsetup-nav-list,
-.zsetup-card-body > .zsetup-fuel-form { margin-top: 14px; }
-
-/* ナビカードの中の「目的地を編集」。ふだんは畳んでおく。 */
-.zsetup-dest-toggle {
-  width: 100%;
-  min-height: 46px;
-  margin: 12px 0 0;
-  border: 1px dashed #2f7f84;
-  border-radius: 12px;
-  background: transparent;
-  color: #9fe4e9;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.zsetup-dest-edit {
-  margin-top: 12px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
 
 /* --- 車載機: ⚙の設定ボタンと、スマホと接続するQR --- */
 /* スマホと接続(QR)のボタン。上部バーの他のボタンと同じ丸い形。 */
@@ -6540,21 +5873,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #7fd8de;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-/* 車載機がまちがって設定ページに来たときだけ出す、車の画面への戻り道。 */
-.zsetup-car-link {
-  display: block;
-  margin: 18px 0 4px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  color: #6fe3ea;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-align: center;
-  text-decoration: none;
 }
 
 /* --- TURQUOISE BLUE: 右のレールの組み方 --- */
@@ -6717,9 +6035,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 #app.is-fullscreen .green-drive-panel .green-obd-card p { margin-top: 1px; }
 #app.is-fullscreen .green-drive-panel .green-obd-card > span { margin-top: 2px; }
 
-/* メディアカード本体。いちばん下に貼り付ける。 *
-
-
 /* 縦が狭い画面(ブラウザのアドレスバーで削られたときなど)では、
    補足の一行を省いて計器を薄くし、映像も小さめにして全部を収める。 */
 @media (max-height: 520px) {
@@ -6754,178 +6069,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   #app.is-fullscreen .green-drive-panel .green-obd-card { flex-basis: 46px; }
 }
 
-
-/* --- ターコイズメーター右下: シンプルな音楽プレイヤー --- *
-/* 再生の状態と、いまの位置 / 曲の長さ。 *
-/* プレイリストの切り替え。横に並べて、多いときは横スクロールする。 *
-/* ▶ と ⏸ は塗りのほうが見やすい。 *
-/* --- スマホ設定: 音源フォルダ --- */
-.zsetup-upload { position: relative; display: block; margin-bottom: 10px; }
-
-/* 同上: 消さずに重ねて透明にする。 */
-.zsetup-upload input {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.zsetup-upload span {
-  display: block;
-  min-height: 46px;
-  padding: 14px 12px;
-  border: 1px solid #2f7f84;
-  border-radius: 12px;
-  background: rgba(18, 38, 42, .7);
-  color: #6fe3ea;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: .04em;
-  text-align: center;
-  cursor: pointer;
-}
-
-.zsetup-music-state {
-  margin: 0 0 10px;
-  min-height: 16px;
-  color: #8fb4bb;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.zsetup-tracks { display: grid; gap: 8px; margin-bottom: 12px; }
-
-.zsetup-tracks-empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.zsetup-track {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel-soft);
-}
-
-.zsetup-track > b {
-  color: #55e0c8;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
-}
-
-.zsetup-track > span { min-width: 0; display: grid; gap: 2px; }
-
-.zsetup-track strong {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.zsetup-track small { color: var(--muted); font-size: 11px; }
-
-.zsetup-track button {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: transparent;
-  color: #e0a3aa;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-/* --- スマホ設定: 音源のプレイリスト --- */
-.zsetup-lists {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  margin-bottom: 10px;
-  padding-bottom: 4px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.zsetup-list {
-  flex: 0 0 auto;
-  display: grid;
-  gap: 2px;
-  min-width: 96px;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel-soft);
-  color: inherit;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.zsetup-list b { font-size: 13px; font-weight: 800; }
-.zsetup-list small { color: var(--muted); font-size: 11px; }
-
-.zsetup-list.is-active {
-  border-color: #2f7f84;
-  background: rgba(18, 38, 42, .8);
-}
-
-.zsetup-list.is-active b { color: #6fe3ea; }
-
-.zsetup-list-add b { color: #55e0c8; }
-
-.zsetup-list-tools {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(18, 38, 42, .45);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.zsetup-list-tools > div { display: flex; gap: 8px; }
-
-.zsetup-list-tools button {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: transparent;
-  color: #9ba6b1;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.zsetup-track.is-in-list {
-  border-color: #2f7f84;
-  background: rgba(18, 38, 42, .7);
-}
-
-.zsetup-track-toggle { color: #6fe3ea !important; }
-.zsetup-track.is-in-list .zsetup-track-toggle {
-  border-color: #2f7f84;
-  background: rgba(47, 127, 132, .22);
-}
-
-/* 縦が狭い画面では、進み具合のバーを省いてボタンを少し小さくする。
-   (基本のスタイルより後ろに置く必要があるので、ここにまとめている) */
-@media (max-height: 520px) {}
-
-/* 端末に保存済みの曲に付ける印(通信なしで鳴らせる)。 *
 /* スマホと接続するだけの小さなダイアログ。 */
 .sync-card { width: min(420px, 92vw); text-align: center; }
 .sync-card h2 { margin-bottom: 16px; }
@@ -6940,7 +6083,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   text-align: center;
 }
 
-/* --- ホーム画面の音楽プレイヤー(右パネルの一番下) --- *
 /* --- 車のホーム: 目的地を選ぶダイアログ --- */
 .dest-card { width: min(520px, 92vw); }
 .dest-card h2 { margin-bottom: 14px; }
@@ -7061,238 +6203,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #c98a8a;
   font-family: inherit;
   font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-/* --- スマホ設定: 車と接続(カメラでQRを読む) --- */
-.zsetup-scan {
-  width: 100%;
-  min-height: 48px;
-  margin-bottom: 10px;
-  border: 1px solid #2f7f84;
-  border-radius: 12px;
-  background: rgba(18, 38, 42, .75);
-  color: #6fe3ea;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: .04em;
-  cursor: pointer;
-}
-
-/* 合言葉をコードで受け渡しするところ(カメラの無いパソコン用)。 */
-.zsetup-code {
-  margin-top: 14px;
-  padding: 12px;
-  border: 1px solid #234b50;
-  border-radius: 12px;
-  background: rgba(12, 28, 32, .6);
-}
-
-.zsetup-code > b {
-  display: block;
-  margin-bottom: 6px;
-  color: #6fe3ea;
-  font-size: 13px;
-  letter-spacing: .04em;
-}
-
-.zsetup-code > p {
-  margin: 0 0 10px;
-  font-size: 12px;
-  line-height: 1.7;
-  color: #8fb6bb;
-}
-
-.zsetup-code-row {
-  display: flex;
-  gap: 8px;
-}
-
-.zsetup-code-row input {
-  flex: 1;
-  min-width: 0;
-  min-height: 46px;
-  padding: 0 12px;
-  border: 1px solid #2f7f84;
-  border-radius: 10px;
-  background: rgba(6, 18, 21, .9);
-  color: #d6fbff;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 18px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-}
-
-.zsetup-code-row button {
-  min-height: 46px;
-  padding: 0 18px;
-  border: 1px solid #2f7f84;
-  border-radius: 10px;
-  background: rgba(18, 38, 42, .85);
-  color: #6fe3ea;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.zsetup-code-row button:disabled {
-  opacity: .55;
-  cursor: default;
-}
-
-.zsetup-code-shown {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  padding: 12px 8px;
-  border: 1px solid #3ddfe6;
-  border-radius: 10px;
-  background: rgba(8, 28, 32, .9);
-}
-
-.zsetup-code-shown strong {
-  color: #8dfbff;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: .28em;
-  text-indent: .28em;
-}
-
-.zsetup-code-shown small {
-  color: #8fc4c9;
-  font-size: 11px;
-  letter-spacing: .04em;
-}
-
-.zsetup-code-note {
-  margin: 10px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #e0a3aa;
-}
-
-/* 読み取った瞬間に画面の上へ出す「接続完了！」。押すと消える。 */
-.zsetup-paired {
-  position: fixed;
-  z-index: 40;
-  top: max(14px, env(safe-area-inset-top));
-  left: 14px;
-  right: 14px;
-  display: grid;
-  grid-template-columns: 34px 1fr;
-  grid-template-rows: auto auto;
-  align-items: center;
-  gap: 0 12px;
-  padding: 14px 16px;
-  border: 1px solid #3ddfe6;
-  border-radius: 16px;
-  background: linear-gradient(160deg, rgba(16, 62, 66, .97), rgba(7, 24, 27, .97));
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .5), 0 0 22px rgba(61, 223, 230, .3);
-  color: #d6fbff;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  animation: zsetup-paired-in .28s cubic-bezier(.2, .9, .3, 1.4);
-}
-
-.zsetup-paired svg {
-  grid-row: 1 / span 2;
-  width: 34px;
-  height: 34px;
-  fill: none;
-  stroke: #3ddfe6;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.zsetup-paired b {
-  font-size: 19px;
-  font-weight: 900;
-  letter-spacing: .06em;
-  color: #8dfbff;
-}
-
-.zsetup-paired small {
-  font-size: 12px;
-  letter-spacing: .04em;
-  color: #8fc4c9;
-}
-
-@keyframes zsetup-paired-in {
-  from { opacity: 0; transform: translateY(-14px) scale(.96); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .zsetup-paired { animation: none; }
-}
-
-.zsetup-notice {
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(85, 224, 200, .3);
-  border-radius: 12px;
-  background: rgba(18, 38, 42, .5);
-  color: #9fd6dc;
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.zsetup-scanner {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 16px;
-  padding: 24px;
-  background: #04080a;
-}
-
-.zsetup-scanner video {
-  width: min(86vw, 380px);
-  aspect-ratio: 3 / 4;
-  border-radius: 18px;
-  background: #000;
-  object-fit: cover;
-}
-
-.zsetup-scanner-frame {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: min(58vw, 250px);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%) translateY(-28px);
-  border: 2px solid rgba(111, 227, 234, .85);
-  border-radius: 16px;
-  box-shadow: 0 0 0 9999px rgba(4, 8, 10, .35);
-  pointer-events: none;
-}
-
-.zsetup-scanner p {
-  margin: 0;
-  color: #cfe9ec;
-  font-size: 13px;
-  line-height: 1.6;
-  text-align: center;
-}
-
-.zsetup-scanner button {
-  min-height: 46px;
-  padding: 0 28px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: transparent;
-  color: #9ba6b1;
-  font-family: inherit;
-  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -7623,4 +6533,607 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .gauge-corner::before { width: 11px; height: 11px; }
   .gauge-corner-tl, .gauge-corner-tr { top: 4%; }
   .gauge-corner-bl, .gauge-corner-br { bottom: 7%; }
+}
+
+/* ============================================================
+   スマホ用ページ (/settings/) — Z CAR REMOTE
+   車のメーターと同じ黒とアクセント色。給油・目的地・メーターの色の3つだけ。
+   色は車のテーマに合わせる(ターコイズ / オレンジ)。
+   html, body は overflow:hidden なので、ここを縦スクロールの器にする。
+   ============================================================ */
+.zr {
+  --zr-accent: #5ce6c6;
+  --zr-accent-strong: #b5fbe9;
+  --zr-accent-rgb: 92, 230, 198;
+  --zr-ink: #eafbf6;
+  --zr-muted: #6f908a;
+  --zr-panel: rgba(9, 16, 15, .88);
+  --zr-edge: rgba(255, 255, 255, .06);
+  --zr-field: #050a09;
+  position: relative;
+  height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(130% 55% at 50% -12%, rgba(var(--zr-accent-rgb), .17), transparent 62%),
+    linear-gradient(rgba(var(--zr-accent-rgb), .035) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, rgba(var(--zr-accent-rgb), .035) 1px, transparent 1px) 0 0 / 28px 28px,
+    #040706;
+  color: var(--zr-ink);
+}
+
+.zr[data-theme="eva"] {
+  --zr-accent: #ff9d47;
+  --zr-accent-strong: #ffd8b0;
+  --zr-accent-rgb: 255, 157, 71;
+  --zr-ink: #fff4ea;
+  --zr-muted: #9a7d66;
+  --zr-panel: rgba(17, 11, 7, .88);
+  --zr-field: #0a0603;
+  background-color: #070402;
+}
+
+.zr * { -webkit-tap-highlight-color: transparent; }
+
+/* --- 見出し: ロゴ --- */
+.zr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 2px 18px;
+}
+
+.zr-brand { display: grid; gap: 4px; }
+.zr-brand b {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  line-height: 1;
+  transform: skewX(-6deg);
+  text-shadow: 0 0 18px rgba(var(--zr-accent-rgb), .35);
+}
+.zr-brand small {
+  color: var(--zr-accent);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .32em;
+}
+
+/* 車に送れないときだけ出す一行。 */
+.zr-alert {
+  margin: -6px 0 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(231, 181, 90, .32);
+  border-radius: 12px;
+  background: rgba(231, 181, 90, .08);
+  color: #f1cf8d;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+/* --- 切り替え(給油 / 目的地 / メーター) --- */
+.zr-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 -16px 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--zr-edge);
+  background: rgba(4, 7, 6, .86);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.zr[data-theme="eva"] .zr-tabs { background: rgba(7, 4, 2, .86); }
+.zr-tabs button {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 4px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--zr-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+.zr-tabs b { font-size: 15px; font-weight: 800; letter-spacing: .04em; }
+.zr-tabs small {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .26em;
+}
+.zr-tabs button.is-active { color: var(--zr-ink); }
+.zr-tabs button.is-active small { color: var(--zr-accent); }
+.zr-tabs button.is-active::after {
+  content: "";
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--zr-accent);
+  box-shadow: 0 0 10px rgba(var(--zr-accent-rgb), .8);
+}
+
+/* --- 今月の燃費(大きな数字はメーターの速度と同じ書体) --- */
+.zr-hero {
+  position: relative;
+  margin-bottom: 14px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 18px;
+  background:
+    linear-gradient(120deg, rgba(var(--zr-accent-rgb), .14), transparent 55%),
+    var(--zr-panel);
+  box-shadow: inset 3px 0 var(--zr-accent);
+}
+.zr-hero header { display: flex; align-items: baseline; gap: 8px; }
+.zr-hero header small,
+.zr-panel-head small {
+  color: var(--zr-accent);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .26em;
+}
+.zr-hero header span { color: var(--zr-muted); font-size: 12px; font-weight: 700; }
+.zr-hero-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+.zr-hero-value strong {
+  color: #fffaf4;
+  font-size: 68px;
+  font-weight: 900;
+  line-height: .95;
+  letter-spacing: -.02em;
+  transform: skewX(-6deg);
+  text-shadow: 0 0 22px rgba(var(--zr-accent-rgb), .4);
+}
+.zr-hero-value em {
+  color: var(--zr-accent);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 800;
+}
+.zr-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--zr-edge);
+}
+.zr-hero-stats div { padding: 10px 0 0; }
+.zr-hero-stats div + div { padding-left: 12px; border-left: 1px solid var(--zr-edge); }
+.zr-hero-stats dt { color: var(--zr-muted); font-size: 10px; font-weight: 700; }
+.zr-hero-stats dd {
+  margin: 3px 0 0;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 17px;
+  font-weight: 700;
+}
+.zr-hero-stats dd em,
+.zr-history em,
+.zr-preview em {
+  margin-left: 3px;
+  color: var(--zr-muted);
+  font-family: inherit;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* --- 共通のパネル --- */
+.zr-panel {
+  margin-bottom: 14px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 18px;
+  background: var(--zr-panel);
+}
+.zr-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.zr-panel-head span { display: grid; gap: 4px; }
+.zr-panel-head b { font-size: 17px; font-weight: 800; letter-spacing: .03em; }
+.zr-panel-head > em {
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.zr-note {
+  margin: 0 0 12px;
+  color: var(--zr-muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+.zr-note b { color: var(--zr-accent-strong); }
+
+/* --- 入力欄 --- */
+.zr-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.zr-field { display: grid; gap: 6px; min-width: 0; }
+.zr-field-wide { grid-column: 1 / -1; }
+.zr-field > span { color: var(--zr-muted); font-size: 11px; font-weight: 700; }
+.zr-field > div {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 50px;
+  padding: 0 12px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .16);
+  border-radius: 12px;
+  background: var(--zr-field);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.zr-field > div:focus-within {
+  border-color: rgba(var(--zr-accent-rgb), .7);
+  box-shadow: 0 0 0 3px rgba(var(--zr-accent-rgb), .12);
+}
+.zr-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--zr-ink);
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  color-scheme: dark;
+}
+.zr-field input::placeholder { color: rgba(255, 255, 255, .22); font-weight: 500; }
+.zr-field input[type="number"] { font-family: "SFMono-Regular", Consolas, monospace; }
+.zr-field > div em {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  color: var(--zr-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.zr-preview {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: 14px 2px 12px;
+}
+.zr-preview small { margin-right: auto; color: var(--zr-muted); font-size: 12px; font-weight: 700; }
+.zr-preview strong {
+  color: var(--zr-accent-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+/* --- ボタン --- */
+.zr-primary {
+  width: 100%;
+  min-height: 54px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--zr-accent-strong), var(--zr-accent));
+  box-shadow: 0 8px 22px rgba(var(--zr-accent-rgb), .25);
+  color: #03110e;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+.zr[data-theme="eva"] .zr-primary { color: #1c0b00; }
+.zr-primary:active { transform: translateY(1px); filter: brightness(1.06); }
+.zr-primary:disabled {
+  background: rgba(var(--zr-accent-rgb), .14);
+  box-shadow: none;
+  color: rgba(255, 255, 255, .35);
+  cursor: default;
+}
+.zr-ghost {
+  min-height: 54px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--zr-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.zr-danger {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border: 1px solid rgba(226, 106, 90, .32);
+  border-radius: 12px;
+  background: transparent;
+  color: #e79a8f;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* --- 給油履歴 --- */
+.zr-history { margin: 0; padding: 0; list-style: none; }
+.zr-history li {
+  display: grid;
+  grid-template-columns: 52px 1fr auto auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 2px;
+  border-top: 1px solid var(--zr-edge);
+}
+.zr-history time {
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+.zr-history strong {
+  color: var(--zr-accent-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 20px;
+  font-weight: 800;
+}
+.zr-history span {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* --- 目的地 --- */
+.zr-places { margin: 0 0 12px; padding: 0; list-style: none; }
+.zr-places li { border-top: 1px solid var(--zr-edge); }
+.zr-place {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 13px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--zr-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.zr-place-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.zr-place-name b { font-size: 15px; font-weight: 800; letter-spacing: .03em; }
+.zr-place-name small { color: var(--zr-muted); font-size: 11px; font-weight: 700; }
+.zr-place-addr {
+  grid-column: 1;
+  overflow: hidden;
+  color: var(--zr-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zr-place i {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--zr-muted);
+  border-bottom: 2px solid var(--zr-muted);
+  transform: rotate(-45deg);
+  transition: transform .15s ease;
+}
+.zr-places li.is-editing .zr-place i { transform: rotate(45deg); border-color: var(--zr-accent); }
+.zr-places li.is-editing .zr-place-name b { color: var(--zr-accent-strong); }
+.zr-editor { display: grid; gap: 10px; padding: 2px 0 16px; }
+.zr-editor-actions { display: grid; grid-template-columns: auto 1fr; gap: 10px; }
+
+/* --- メーターの色 --- */
+.zr-themes { display: grid; gap: 12px; }
+.zr-theme {
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 18px;
+  background: var(--zr-panel);
+  color: var(--zr-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.zr-theme i {
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 29%, var(--zr-theme-ring) 30% 34%, transparent 35%),
+    radial-gradient(circle at 50% 50%, transparent 0 44%, var(--zr-theme-ring-soft) 45% 48%, transparent 49%),
+    var(--zr-theme-bg);
+}
+.zr-theme.is-green {
+  --zr-theme-ring: rgba(39, 220, 227, .75);
+  --zr-theme-ring-soft: rgba(39, 220, 227, .3);
+  --zr-theme-bg: linear-gradient(160deg, #092a2f, #020708 72%);
+}
+.zr-theme.is-eva {
+  --zr-theme-ring: rgba(255, 122, 26, .75);
+  --zr-theme-ring-soft: rgba(255, 122, 26, .3);
+  --zr-theme-bg: linear-gradient(160deg, #241104, #070301 72%);
+}
+.zr-theme span { display: grid; gap: 5px; min-width: 0; }
+.zr-theme b { font-size: 14px; font-weight: 900; letter-spacing: .08em; }
+.zr-theme small { color: var(--zr-muted); font-size: 11px; }
+.zr-theme em {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+.zr-theme.is-active {
+  border-color: rgba(var(--zr-accent-rgb), .6);
+  box-shadow: 0 0 0 1px rgba(var(--zr-accent-rgb), .25), 0 10px 28px rgba(var(--zr-accent-rgb), .14);
+}
+.zr-theme.is-active em {
+  border-color: var(--zr-accent);
+  background: rgba(var(--zr-accent-rgb), .14);
+  color: var(--zr-accent-strong);
+}
+.zr-themes .zr-note { margin-top: 2px; }
+
+/* --- 接続 --- */
+.zr-link .zr-primary { margin-top: 2px; }
+.zr-scan-note { margin: 10px 0 0; color: var(--zr-accent-strong); font-size: 12px; }
+
+.zr-paired {
+  position: fixed;
+  z-index: 40;
+  top: max(14px, env(safe-area-inset-top));
+  left: 14px;
+  right: 14px;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--zr-accent);
+  border-radius: 16px;
+  background: rgba(4, 10, 9, .96);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .5), 0 0 24px rgba(var(--zr-accent-rgb), .3);
+  color: var(--zr-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: zr-drop-in .28s cubic-bezier(.2, .9, .3, 1.4);
+}
+.zr-paired svg {
+  grid-row: 1 / span 2;
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: var(--zr-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.zr-paired b { font-size: 18px; font-weight: 900; letter-spacing: .06em; color: var(--zr-accent-strong); }
+.zr-paired small { color: var(--zr-muted); font-size: 11px; letter-spacing: .06em; }
+
+.zr-toast {
+  position: fixed;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 12px 18px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .45);
+  border-radius: 999px;
+  background: rgba(3, 7, 6, .94);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .5);
+  color: var(--zr-accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: zr-rise-in .22s ease-out;
+}
+
+@keyframes zr-drop-in {
+  from { opacity: 0; transform: translateY(-14px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes zr-rise-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zr-paired,
+  .zr-toast { animation: none; }
+}
+
+/* --- カメラ --- */
+.zr-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: #020403;
+}
+.zr-scanner video {
+  width: min(86vw, 380px);
+  aspect-ratio: 3 / 4;
+  border-radius: 18px;
+  background: #000;
+  object-fit: cover;
+}
+.zr-scanner-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(58vw, 250px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) translateY(-28px);
+  border: 2px solid var(--zr-accent);
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(2, 4, 3, .35), 0 0 18px rgba(var(--zr-accent-rgb), .5);
+  pointer-events: none;
+}
+.zr-scanner p { margin: 0; color: var(--zr-ink); font-size: 13px; line-height: 1.6; text-align: center; }
+.zr-scanner button {
+  min-height: 46px;
+  padding: 0 28px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--zr-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 車載機がまちがってこの画面に来たときの戻り道。 */
+.zr-car-link {
+  display: block;
+  margin: 18px 0 0;
+  color: var(--zr-muted);
+  font-size: 12px;
+  text-align: center;
 }

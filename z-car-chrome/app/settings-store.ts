@@ -6,82 +6,6 @@ export type CarState = "not_departed" | "departed" | "checked_out";
 
 export type MeterTheme = "green" | "eva";
 
-/** ミュージック画面と待機画面に出す YouTube プレイリスト1件分。 */
-export type Playlist = {
-  /** 画面に出すジャンル名(例: REGGAE)。 */
-  label: string;
-  /** YouTube のプレイリストID(PL... で始まる文字列)。 */
-  playlistId: string;
-};
-
-export const MAX_PLAYLISTS = 8;
-export const MAX_PLAYLIST_LABEL = 24;
-
-export const defaultPlaylists: Playlist[] = [
-  { label: "YOUTUBE", playlistId: "PLMC9KNkIncKtGvr2kFRuXBVmBev6cAJ2u" },
-  { label: "ANIME NOW", playlistId: "PLaodxkj-4NkRFKJZwtT3wvmC3rN8qG2n1" },
-  { label: "REGGAE", playlistId: "PLjF50Dlp9ieks26oOKahUFiRTj18o6YGt" },
-  { label: "EDM", playlistId: "PLPbMT4wSxX89gUYpgYMrmOqsupKMRR5Rj" },
-];
-
-/**
- * 貼り付けられた文字列からプレイリストIDを取り出す。
- * YouTube のURL(list=... を含むもの)でも、ID単体でも受け付ける。
- */
-export const extractPlaylistId = (input: string) => {
-  const value = input.trim();
-  const fromUrl = /[?&]list=([A-Za-z0-9_-]+)/.exec(value);
-  if (fromUrl) return fromUrl[1];
-  return /^[A-Za-z0-9_-]{2,64}$/.test(value) ? value : "";
-};
-
-const sanitizePlaylists = (value: unknown): Playlist[] => {
-  if (!Array.isArray(value)) return defaultPlaylists;
-  const cleaned: Playlist[] = [];
-  for (const entry of value) {
-    if (!entry || typeof entry !== "object") continue;
-    const { label, playlistId } = entry as Partial<Playlist>;
-    const id = typeof playlistId === "string" ? extractPlaylistId(playlistId) : "";
-    if (!id) continue;
-    cleaned.push({
-      label: (typeof label === "string" ? label : "").slice(0, MAX_PLAYLIST_LABEL) || "PLAYLIST",
-      playlistId: id,
-    });
-    if (cleaned.length >= MAX_PLAYLISTS) break;
-  }
-  // 1件も残らないと画面が空になってしまうので、その場合は既定に戻す。
-  return cleaned.length > 0 ? cleaned : defaultPlaylists;
-};
-
-/**
- * スマホから車へ「これを再生して」と伝えるための指示。
- * 設定と同じ入れ物で運ぶが、中身は設定ではなく一度きりの指示。
- */
-export type PlayCommand = {
-  playlistId: string;
-  label: string;
-  /** 指示を出した時刻(ミリ秒)。古い指示を再生し直さないための目印。 */
-  requestedAt: number;
-};
-
-/**
- * 指示の有効期限。これより古い指示は無視する。
- * 車のブラウザを開き直したときに、前回の指示で急に音が鳴らないようにするため。
- */
-export const PLAY_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
-
-const sanitizePlayCommand = (value: unknown): PlayCommand | null => {
-  if (!value || typeof value !== "object") return null;
-  const { playlistId, label, requestedAt } = value as Partial<PlayCommand>;
-  const id = typeof playlistId === "string" ? extractPlaylistId(playlistId) : "";
-  if (!id || !Number.isFinite(requestedAt)) return null;
-  return {
-    playlistId: id,
-    label: (typeof label === "string" ? label : "").slice(0, MAX_PLAYLIST_LABEL),
-    requestedAt: Number(requestedAt),
-  };
-};
-
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
   id: string;
@@ -212,12 +136,8 @@ export type Settings = {
   pairedAt: number;
   /** 最後に同期できた内容の時刻(ミリ秒)。これより新しいものが来たら取り込む。 */
   syncedAt: number;
-  /** ミュージック画面に並べる YouTube プレイリスト。 */
-  playlists: Playlist[];
   /** 車のマップ画面の 1〜5 のナビ目的地。 */
   mapDestinations: MapDestination[];
-  /** スマホから車へ送る再生指示。指示が無ければ null。 */
-  nowPlaying: PlayCommand | null;
   /** 満タン法の給油記録。車とスマホのどちらで記録しても共有する。 */
   fuelEntries: FuelEntry[];
 };
@@ -236,9 +156,7 @@ export const defaults: Settings = {
   syncKey: "",
   pairedAt: 0,
   syncedAt: 0,
-  playlists: defaultPlaylists,
   mapDestinations: defaultMapDestinations,
-  nowPlaying: null,
   fuelEntries: [],
 };
 
@@ -250,9 +168,7 @@ export const SYNCED_FIELDS = [
   "start",
   "homeDest",
   "carId",
-  "playlists",
   "mapDestinations",
-  "nowPlaying",
   "fuelEntries",
 ] as const;
 
@@ -293,19 +209,6 @@ export const readSyncKeyFromHash = (hash: string) => {
   }
 };
 
-export const pickSyncedFields = (settings: Settings): SyncedSettings => ({
-  meterTheme: settings.meterTheme,
-  storeName: settings.storeName,
-  storeDest: settings.storeDest,
-  start: settings.start,
-  homeDest: settings.homeDest,
-  carId: settings.carId,
-  playlists: settings.playlists,
-  mapDestinations: settings.mapDestinations,
-  nowPlaying: settings.nowPlaying,
-  fuelEntries: settings.fuelEntries,
-});
-
 const postSync = async (payload: Record<string, unknown>) => {
   const response = await fetch(SYNC_ENDPOINT, {
     method: "POST",
@@ -323,7 +226,7 @@ const postSync = async (payload: Record<string, unknown>) => {
 
 /**
  * サーバーから戻ってきた内容を、そのまま信用せず整えてから取り込む。
- * (壊れたプレイリストが1件でも入ると画面が崩れるため)
+ * (壊れた値が1件でも入ると画面が崩れるため)
  */
 export const sanitizeSyncedSettings = (
   value: Partial<SyncedSettings> | null | undefined,
@@ -331,14 +234,7 @@ export const sanitizeSyncedSettings = (
   if (!value || typeof value !== "object") return {};
   const cleaned: Partial<SyncedSettings> = {};
   for (const field of SYNCED_FIELDS) {
-    if (
-      field === "playlists" ||
-      field === "mapDestinations" ||
-      field === "nowPlaying" ||
-      field === "fuelEntries"
-    ) {
-      continue;
-    }
+    if (field === "mapDestinations" || field === "fuelEntries") continue;
     const entry = value[field];
     if (typeof entry === "string") cleaned[field] = entry as never;
   }
@@ -347,14 +243,8 @@ export const sanitizeSyncedSettings = (
   } else {
     delete cleaned.meterTheme;
   }
-  if (Array.isArray(value.playlists)) {
-    cleaned.playlists = sanitizePlaylists(value.playlists);
-  }
   if (Array.isArray(value.mapDestinations)) {
     cleaned.mapDestinations = sanitizeMapDestinations(value.mapDestinations);
-  }
-  if (value.nowPlaying !== undefined) {
-    cleaned.nowPlaying = sanitizePlayCommand(value.nowPlaying);
   }
   if (Array.isArray(value.fuelEntries)) {
     cleaned.fuelEntries = sanitizeFuelEntries(value.fuelEntries);
@@ -365,14 +255,6 @@ export const sanitizeSyncedSettings = (
 /** サーバーに置いてある設定を読む。まだ何も無ければ settings は null。 */
 export const fetchSharedSettings = async (key: string) =>
   postSync({ key });
-
-/** サーバーへ設定を送る。updatedAt は端末の時計(ミリ秒)。 */
-export const pushSharedSettings = async (key: string, settings: Settings) =>
-  postSync({
-    key,
-    updatedAt: Date.now(),
-    settings: pickSyncedFields(settings),
-  });
 
 /**
  * 車とスマホのどちらからでも変えられる項目(給油記録は別に足し合わせる)。
@@ -425,329 +307,7 @@ export const pushFuelEntries = async (key: string, fuelEntries: FuelEntry[]) =>
     settings: { fuelEntries },
   });
 
-/* --- 音源置き場 (music.php) --- */
-
-export const MUSIC_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/music.php`;
-
-/** 合言葉を渡すコードの長さ(music.php の LINK_CODE_LENGTH と同じ)。 */
-export const LINK_CODE_LENGTH = 8;
-
-/** 「パソコンでここを開いて」と案内するときに見せるアドレス。 */
-export const SETTINGS_URL_HINT = "zest7.jp/zcar/settings/";
-
-/** 音源置き場の1曲。url はエンドポイントからの相対パス。 */
-export type MusicTrack = {
-  id: string;
-  title: string;
-  url: string;
-  size: number;
-};
-
-/** 音源のプレイリスト(曲そのものではなく、並び順の名簿)。 */
-export type MusicPlaylist = {
-  id: string;
-  name: string;
-  trackIds: string[];
-};
-
-export type MusicListResult = {
-  ok: boolean;
-  tracks: MusicTrack[];
-  totalBytes: number;
-  playlists: MusicPlaylist[];
-  activePlaylistId: string;
-  skipped?: Array<{ name: string; reason: string }>;
-  saved?: number;
-};
-
-export const MAX_MUSIC_PLAYLISTS = 12;
-export const MAX_MUSIC_PLAYLIST_NAME = 24;
-
-/** 曲の URL を、そのまま再生できる絶対パスにする。 */
-export const musicTrackUrl = (track: MusicTrack) =>
-  `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/${track.url}`;
-
-const emptyLibrary: MusicListResult = {
-  ok: false,
-  tracks: [],
-  totalBytes: 0,
-  playlists: [],
-  activePlaylistId: "",
-};
-
-const readMusicResponse = async (response: Response): Promise<MusicListResult> => {
-  if (!response.ok) return emptyLibrary;
-  const data = (await response.json()) as {
-    ok?: boolean;
-    tracks?: unknown;
-    totalBytes?: unknown;
-    playlists?: unknown;
-    activePlaylistId?: unknown;
-    skipped?: unknown;
-    saved?: unknown;
-  };
-  const tracks = Array.isArray(data.tracks)
-    ? data.tracks.flatMap((entry) => {
-        if (!entry || typeof entry !== "object") return [];
-        const item = entry as Record<string, unknown>;
-        if (typeof item.id !== "string" || typeof item.url !== "string") return [];
-        return [
-          {
-            id: item.id,
-            title: typeof item.title === "string" ? item.title : "TRACK",
-            url: item.url,
-            size: typeof item.size === "number" ? item.size : 0,
-          },
-        ];
-      })
-    : [];
-  const playlists = Array.isArray(data.playlists)
-    ? data.playlists.flatMap((entry) => {
-        if (!entry || typeof entry !== "object") return [];
-        const item = entry as Record<string, unknown>;
-        if (typeof item.id !== "string") return [];
-        return [
-          {
-            id: item.id,
-            name: typeof item.name === "string" ? item.name : "PLAYLIST",
-            trackIds: Array.isArray(item.trackIds)
-              ? item.trackIds.filter((id): id is string => typeof id === "string")
-              : [],
-          },
-        ];
-      })
-    : [];
-  return {
-    ok: data.ok === true,
-    tracks,
-    playlists,
-    activePlaylistId:
-      typeof data.activePlaylistId === "string" ? data.activePlaylistId : "",
-    totalBytes: typeof data.totalBytes === "number" ? data.totalBytes : 0,
-    skipped: Array.isArray(data.skipped)
-      ? (data.skipped as Array<{ name: string; reason: string }>)
-      : undefined,
-    saved: typeof data.saved === "number" ? data.saved : undefined,
-  };
-};
-
-/** 置いてある曲の一覧を取る。 */
-export const fetchMusicTracks = async (key: string) =>
-  readMusicResponse(
-    await fetch(MUSIC_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, action: "list" }),
-      cache: "no-store",
-    }),
-  );
-
-/**
- * 音楽ファイルを預ける。1曲ずつ順番に送る。
- *
- * まとめて1回で送ると、曲数が多いときにサーバーの受け取り上限
- * (post_max_size) や時間切れに引っかかって全部やり直しになる。
- * 1曲ずつなら、途中で失敗しても失敗した曲だけが残る。
- * onProgress には「何曲目まで終わったか」を渡す。
- */
-export const uploadMusicFiles = async (
-  key: string,
-  files: File[],
-  onProgress?: (done: number, total: number, name: string) => void,
-) => {
-  let last: MusicListResult | null = null;
-  const skipped: Array<{ name: string; reason: string }> = [];
-  let saved = 0;
-
-  for (const [index, file] of files.entries()) {
-    onProgress?.(index, files.length, file.name);
-    const form = new FormData();
-    form.append("key", key);
-    form.append("file[]", file);
-    let result: MusicListResult;
-    try {
-      result = await readMusicResponse(
-        await fetch(MUSIC_ENDPOINT, { method: "POST", body: form }),
-      );
-    } catch {
-      skipped.push({ name: file.name, reason: "通信できませんでした" });
-      continue;
-    }
-    if (!result.ok) {
-      skipped.push({ name: file.name, reason: "保存できませんでした" });
-      continue;
-    }
-    last = result;
-    saved += result.saved ?? 0;
-    if (result.skipped) skipped.push(...result.skipped);
-  }
-  onProgress?.(files.length, files.length, "");
-
-  if (!last) {
-    // 1曲も入らなかったときは、今の一覧を読み直して返す。
-    const current = await fetchMusicTracks(key).catch(() => null);
-    return current
-      ? { ...current, saved: 0, skipped }
-      : {
-          ok: false,
-          tracks: [],
-          playlists: [],
-          activePlaylistId: "",
-          totalBytes: 0,
-          saved: 0,
-          skipped,
-        };
-  }
-  return { ...last, saved, skipped };
-};
-
-/**
- * 合言葉を短い文字列で別の端末に渡す。カメラの無いパソコンでも
- * 車とつなげるようにするため。コードは10分で切れ、1回使うと消える。
- */
-export const createLinkCode = async (key: string) => {
-  const response = await fetch(MUSIC_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key, action: "linkcode" }),
-    cache: "no-store",
-  });
-  const data = (await response.json().catch(() => null)) as {
-    ok?: boolean;
-    code?: string;
-    expiresIn?: number;
-  } | null;
-  if (!data || data.ok !== true || typeof data.code !== "string") return null;
-  return {
-    code: data.code,
-    expiresIn: typeof data.expiresIn === "number" ? data.expiresIn : 600,
-  };
-};
-
-/** 受け取ったコードを合言葉に引き換える。 */
-export const claimLinkCode = async (code: string) => {
-  const response = await fetch(MUSIC_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "linkclaim", code }),
-    cache: "no-store",
-  });
-  const data = (await response.json().catch(() => null)) as {
-    ok?: boolean;
-    key?: string;
-  } | null;
-  if (!data || data.ok !== true || typeof data.key !== "string") {
-    return { ok: false as const, status: response.status };
-  }
-  return { ok: true as const, key: data.key };
-};
-
-/** プレイリストと「車で流す一覧」をまとめて保存する。 */
-export const saveMusicPlaylists = async (
-  key: string,
-  playlists: MusicPlaylist[],
-  activePlaylistId: string,
-) =>
-  readMusicResponse(
-    await fetch(MUSIC_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, action: "playlists", playlists, activePlaylistId }),
-      cache: "no-store",
-    }),
-  );
-
-/**
- * 車とつなぐ前にスマホへ入れた曲を、車の置き場へ引っ越す。
- * 両方の合言葉を知っているこの端末からだけ呼べる。
- */
-export const adoptMusicLibrary = async (key: string, fromKey: string) =>
-  readMusicResponse(
-    await fetch(MUSIC_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, action: "adopt", fromKey }),
-      cache: "no-store",
-    }),
-  );
-
-/** 曲を消す。 */
-export const deleteMusicTrack = async (key: string, id: string) =>
-  readMusicResponse(
-    await fetch(MUSIC_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, action: "delete", id }),
-      cache: "no-store",
-    }),
-  );
-
-/** 車に貯めた曲を入れておく場所(sw.js の MUSIC_CACHE_NAME と同じ名前)。 */
-export const MUSIC_CACHE_NAME = "zcar-music-v1";
-
-/** 通信できないときのために、最後に見た一覧を端末に控えておく。 */
-export const MUSIC_LIBRARY_KEY = "zcar-music-library";
-
-export const readStoredLibrary = (): {
-  tracks: MusicTrack[];
-  playlists: MusicPlaylist[];
-  activePlaylistId: string;
-} => {
-  const empty = { tracks: [], playlists: [], activePlaylistId: "" };
-  if (typeof window === "undefined") return empty;
-  try {
-    const raw = window.localStorage.getItem(MUSIC_LIBRARY_KEY);
-    if (!raw) return empty;
-    const stored = JSON.parse(raw) as Partial<MusicListResult>;
-    return {
-      tracks: Array.isArray(stored.tracks) ? stored.tracks : [],
-      playlists: Array.isArray(stored.playlists) ? stored.playlists : [],
-      activePlaylistId:
-        typeof stored.activePlaylistId === "string" ? stored.activePlaylistId : "",
-    };
-  } catch {
-    return empty;
-  }
-};
-
-export const writeStoredLibrary = (library: {
-  tracks: MusicTrack[];
-  playlists: MusicPlaylist[];
-  activePlaylistId: string;
-}) => {
-  try {
-    window.localStorage.setItem(MUSIC_LIBRARY_KEY, JSON.stringify(library));
-  } catch {
-    // 保存できなくても再生には支障がない。
-  }
-};
-
 export const SETTINGS_STORAGE_KEY = "zcar";
-
-/**
- * 最後に反応した再生指示の時刻を端末に覚えておくためのキー。
- * これが無いと、車の画面を開き直すたびに前の指示で音が鳴ってしまう。
- */
-const HANDLED_PLAY_KEY = "zcar-handled-play";
-
-export const readHandledPlayAt = () => {
-  if (typeof window === "undefined") return 0;
-  try {
-    const value = Number(window.localStorage.getItem(HANDLED_PLAY_KEY));
-    return Number.isFinite(value) ? value : 0;
-  } catch {
-    return 0;
-  }
-};
-
-export const writeHandledPlayAt = (requestedAt: number) => {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(HANDLED_PLAY_KEY, String(requestedAt));
-  } catch {
-    // 保存できなくても、その画面を開いている間は覚えている。
-  }
-};
 
 export const METER_THEMES: {
   id: MeterTheme;
@@ -772,13 +332,18 @@ export const METER_THEMES: {
 const isMeterTheme = (value: unknown): value is MeterTheme =>
   value === "green" || value === "eva";
 
+/** 前のバージョンが保存していた、もう使わない項目。 */
+const OBSOLETE_SETTINGS_FIELDS = ["playlists", "nowPlaying"];
+
 /** 保存済みの設定を読む。壊れていたり廃止した値だった場合は初期値に寄せる。 */
 export const readSettings = (): Settings => {
   if (typeof window === "undefined") return defaults;
   try {
     const stored = JSON.parse(
       window.localStorage.getItem(SETTINGS_STORAGE_KEY) || "{}",
-    ) as Partial<Settings>;
+    ) as Partial<Settings> & Record<string, unknown>;
+    // やめた機能(YouTube・音楽の再生指示)の値は持ち越さない。
+    for (const field of OBSOLETE_SETTINGS_FIELDS) delete stored[field];
     return {
       ...defaults,
       ...stored,
@@ -791,9 +356,7 @@ export const readSettings = (): Settings => {
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       syncedAt: Number.isFinite(stored.syncedAt) ? Number(stored.syncedAt) : 0,
-      playlists: sanitizePlaylists(stored.playlists),
       mapDestinations: sanitizeMapDestinations(stored.mapDestinations),
-      nowPlaying: sanitizePlayCommand(stored.nowPlaying),
       // 古いバージョンは給油記録を別のキーに置いていたので、そこからも拾う。
       fuelEntries: mergeFuelEntries(
         sanitizeFuelEntries(stored.fuelEntries),

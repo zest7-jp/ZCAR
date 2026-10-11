@@ -1,0 +1,271 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import {
+  fetchSharedSettings,
+  mergeFuelEntries,
+  MIN_SYNC_KEY_LENGTH,
+  overlayChangedDestinations,
+  pushFuelEntries,
+  pushSyncedFields,
+  sanitizeSyncedSettings,
+  SHARED_EDIT_FIELDS,
+  type FuelEntry,
+  type MapDestination,
+  type Settings,
+  type SyncedSettings,
+} from "../settings-store";
+
+/** off は合言葉が無い(まだつないでいない)状態。 */
+export type SharedSyncState = "off" | "syncing" | "ok" | "error";
+
+type Options = {
+  settings: Settings;
+  setSettings: Dispatch<SetStateAction<Settings>>;
+  /** 端末の保存内容を読み終えたか。読む前は何もしない。 */
+  ready: boolean;
+  /** サーバーを読みに行く間隔(ミリ秒)。 */
+  pollMs: number;
+  /**
+   * 開いた直後(まだサーバーと照合していないとき)に、手元とサーバーで
+   * 違う項目があったら手元を正とするか。false ならサーバーの内容を取り込む。
+   */
+  keepLocalOnFirstSync: (serverUpdatedAt: number, local: Settings) => boolean;
+  /** 手元とサーバーがそろったときに呼ぶ。 */
+  onInSync?: () => void;
+};
+
+/** 給油記録の並び(id の順)が同じかどうか。 */
+const sameFuelList = (left: FuelEntry[], right: FuelEntry[]) =>
+  left.length === right.length &&
+  left.every((entry, index) => entry.id === right[index]?.id);
+
+/**
+ * 車とスマホで、給油記録・目的地・メーターの色を共有する。
+ *
+ * - 給油記録は足し合わせる(消す操作が無いので、どちらで入れても消えない)
+ * - それ以外は項目ごとに「変えた方」を正とし、変えた項目だけを送る
+ * - 目的地は5枠で1項目なので、送る直前に最新を取り直し、変えた枠だけ重ねる
+ * - まだ送っていない手元の変更は、サーバーを読んでも上書きしない
+ */
+export function useSharedSync({
+  settings,
+  setSettings,
+  ready,
+  pollMs,
+  keepLocalOnFirstSync,
+  onInSync,
+}: Options) {
+  const syncKey = settings.syncKey.trim();
+  const enabled = ready && syncKey.length >= MIN_SYNC_KEY_LENGTH;
+  const [status, setStatus] = useState<{
+    state: "syncing" | "ok" | "error";
+    at: number | null;
+  }>({ state: "syncing", at: null });
+  // サーバーが持っている給油記録の id(どの合言葉で読んだかも覚える)。
+  const [serverFuel, setServerFuel] = useState<{
+    key: string;
+    ids: Set<string>;
+  } | null>(null);
+  // 項目ごとの「いまサーバーにある値」(JSON)。変えた項目だけを送るのに使う。
+  const baseRef = useRef<{ key: string; values: Record<string, string> } | null>(null);
+  const [tick, setTick] = useState(0);
+  const [pullCount, setPullCount] = useState(0);
+
+  // 非同期の処理から最新の値を読めるようにしておく。
+  const settingsRef = useRef(settings);
+  const callbacksRef = useRef({ keepLocalOnFirstSync, onInSync });
+  useEffect(() => {
+    settingsRef.current = settings;
+    callbacksRef.current = { keepLocalOnFirstSync, onInSync };
+  });
+
+  // 共有する項目だけの中身(送り比べに使う)。
+  const sharedJson = JSON.stringify(
+    Object.fromEntries(SHARED_EDIT_FIELDS.map((field) => [field, settings[field]])),
+  );
+  const fuelEntries = settings.fuelEntries;
+
+  /** すぐに読み直す(画面に戻ってきたときなど)。 */
+  const refresh = useCallback(() => setPullCount((count) => count + 1), []);
+
+  // サーバーを読み、給油記録は足し合わせ、ほかの項目は変わっていれば取り込む。
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    const pull = async () => {
+      try {
+        const result = await fetchSharedSettings(syncKey);
+        if (!active) return;
+        if (!result.ok) throw new Error("SHARED_SYNC_FAILED");
+        const shared = sanitizeSyncedSettings(result.settings);
+        const serverEntries = shared.fuelEntries ?? [];
+        const updatedAt = result.updatedAt ?? 0;
+        const local = settingsRef.current;
+        const base =
+          baseRef.current && baseRef.current.key === syncKey
+            ? baseRef.current.values
+            : null;
+        const keepLocalFirst = base
+          ? false
+          : callbacksRef.current.keepLocalOnFirstSync(updatedAt, local);
+
+        const take: Partial<Settings> = {};
+        const nextBase: Record<string, string> = {};
+        for (const field of SHARED_EDIT_FIELDS) {
+          const remote = shared[field];
+          const remoteJson = remote === undefined ? "" : JSON.stringify(remote);
+          const localJson = JSON.stringify(local[field]);
+          nextBase[field] = remoteJson;
+          if (remote === undefined || remoteJson === localJson) continue;
+          // 手元で変えたばかり(まだ送っていない)項目は手元のまま。そうでなければ取り込む。
+          const changedHere = base ? localJson !== base[field] : keepLocalFirst;
+          if (!changedHere) Object.assign(take, { [field]: remote });
+        }
+        baseRef.current = { key: syncKey, values: nextBase };
+
+        setServerFuel({ key: syncKey, ids: new Set(serverEntries.map((entry) => entry.id)) });
+        setSettings((current) => {
+          const merged = mergeFuelEntries(current.fuelEntries, serverEntries);
+          const fuelChanged = !sameFuelList(merged, current.fuelEntries);
+          // 読んでいる間に手元で変えた項目は、取り込まない。
+          const apply = Object.fromEntries(
+            Object.entries(take).filter(
+              ([field]) =>
+                JSON.stringify(current[field as keyof Settings]) ===
+                JSON.stringify(local[field as keyof Settings]),
+            ),
+          ) as Partial<Settings>;
+          const nextSyncedAt = Math.max(current.syncedAt, updatedAt);
+          if (
+            !fuelChanged &&
+            Object.keys(apply).length === 0 &&
+            nextSyncedAt === current.syncedAt
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            ...apply,
+            fuelEntries: fuelChanged ? merged : current.fuelEntries,
+            syncedAt: nextSyncedAt,
+          };
+        });
+        setTick((count) => count + 1);
+        setStatus({ state: "ok", at: Date.now() });
+      } catch {
+        // 圏外などは次の周期に任せる。
+        if (active) setStatus((now) => ({ state: "error", at: now.at }));
+      }
+    };
+    void pull();
+    const timer = window.setInterval(pull, pollMs);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [enabled, syncKey, pollMs, pullCount, setSettings]);
+
+  // 画面に戻ってきたら、すぐ読み直す(スマホで変えた直後に車を見たときなど)。
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+
+  // 手元で変えた項目(目的地・色)を送る。
+  useEffect(() => {
+    if (!enabled) return;
+    const base = baseRef.current;
+    if (!base || base.key !== syncKey) return;
+    const local = JSON.parse(sharedJson) as Partial<SyncedSettings>;
+    const changed = Object.fromEntries(
+      SHARED_EDIT_FIELDS.filter(
+        (field) => JSON.stringify(local[field]) !== base.values[field],
+      ).map((field) => [field, local[field]]),
+    ) as Partial<SyncedSettings>;
+    if (Object.keys(changed).length === 0) {
+      callbacksRef.current.onInSync?.();
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      setStatus((now) => ({ ...now, state: "syncing" }));
+      let fields = changed;
+      // 目的地は、もう片方で変えた別の枠を消さないよう、最新に自分の変更だけ重ねる。
+      if (changed.mapDestinations) {
+        try {
+          const latest = await fetchSharedSettings(syncKey);
+          const before = base.values.mapDestinations
+            ? (JSON.parse(base.values.mapDestinations) as MapDestination[])
+            : null;
+          const overlaid = overlayChangedDestinations(
+            changed.mapDestinations,
+            before,
+            sanitizeSyncedSettings(latest.settings).mapDestinations,
+          );
+          fields = { ...changed, mapDestinations: overlaid };
+          if (JSON.stringify(overlaid) !== JSON.stringify(changed.mapDestinations)) {
+            setSettings((now) => ({ ...now, mapDestinations: overlaid }));
+          }
+        } catch {
+          // 読めなければ、そのまま送る。
+        }
+      }
+      void pushSyncedFields(syncKey, fields)
+        .then((result) => {
+          if (!result.ok) throw new Error("SHARED_PUSH_FAILED");
+          const current = baseRef.current;
+          if (current && current.key === syncKey) {
+            for (const [field, value] of Object.entries(fields)) {
+              current.values[field] = JSON.stringify(value);
+            }
+          }
+          callbacksRef.current.onInSync?.();
+          const updatedAt = result.updatedAt ?? 0;
+          setSettings((now) =>
+            updatedAt > now.syncedAt ? { ...now, syncedAt: updatedAt } : now,
+          );
+          setStatus({ state: "ok", at: Date.now() });
+          setTick((count) => count + 1);
+        })
+        .catch(() => setStatus((now) => ({ state: "error", at: now.at })));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [enabled, sharedJson, syncKey, tick, setSettings]);
+
+  // 手元にあってサーバーに無い給油記録(この端末で入れた分)があれば送る。
+  useEffect(() => {
+    if (!enabled || !serverFuel || serverFuel.key !== syncKey) return;
+    const known = serverFuel.ids;
+    if (fuelEntries.every((entry) => known.has(entry.id))) return;
+    const timer = window.setTimeout(() => {
+      setStatus((now) => ({ ...now, state: "syncing" }));
+      void pushFuelEntries(syncKey, fuelEntries)
+        .then((result) => {
+          if (!result.ok) throw new Error("FUEL_PUSH_FAILED");
+          setServerFuel({
+            key: syncKey,
+            ids: new Set([...known, ...fuelEntries.map((entry) => entry.id)]),
+          });
+          setStatus({ state: "ok", at: Date.now() });
+        })
+        .catch(() => setStatus((now) => ({ state: "error", at: now.at })));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [enabled, fuelEntries, serverFuel, syncKey]);
+
+  return {
+    state: (enabled ? status.state : "off") as SharedSyncState,
+    at: enabled ? status.at : null,
+    refresh,
+  };
+}

@@ -24,8 +24,6 @@ header('X-Content-Type-Options: nosniff');
 
 const MAX_BODY_BYTES = 65536;
 const MAX_FUEL_ENTRIES = 120;
-const MAX_PLAYLISTS = 8;
-const MAX_PLAYLIST_LABEL = 24;
 const MAP_DESTINATION_COUNT = 5;
 const MAX_DESTINATION_LABEL = 8;
 const MAX_DESTINATION_TEXT = 200;
@@ -127,33 +125,6 @@ foreach (ALLOWED_FIELDS as $field => $maxLength) {
     }
     $clean[$field] = $value;
 }
-// プレイリストは配列なので個別に検証する。IDは YouTube が使う文字だけ許可。
-if (isset($incoming['playlists']) && is_array($incoming['playlists'])) {
-    $playlists = [];
-    foreach ($incoming['playlists'] as $entry) {
-        if (!is_array($entry)) {
-            continue;
-        }
-        $id = isset($entry['playlistId']) && is_string($entry['playlistId'])
-            ? $entry['playlistId']
-            : '';
-        if ($id === '' || !preg_match('/^[A-Za-z0-9_-]{2,64}$/', $id)) {
-            continue;
-        }
-        $label = isset($entry['label']) && is_string($entry['label']) ? $entry['label'] : '';
-        if (mb_strlen($label, 'UTF-8') > MAX_PLAYLIST_LABEL) {
-            $label = mb_substr($label, 0, MAX_PLAYLIST_LABEL, 'UTF-8');
-        }
-        $playlists[] = ['label' => $label !== '' ? $label : 'PLAYLIST', 'playlistId' => $id];
-        if (count($playlists) >= MAX_PLAYLISTS) {
-            break;
-        }
-    }
-    if ($playlists !== []) {
-        $clean['playlists'] = $playlists;
-    }
-}
-
 // ナビの目的地はボタンと同じ5件ちょうどに揃える。空欄は未登録として保存する。
 if (isset($incoming['mapDestinations']) && is_array($incoming['mapDestinations'])) {
     $destinations = [];
@@ -171,28 +142,6 @@ if (isset($incoming['mapDestinations']) && is_array($incoming['mapDestinations']
         ];
     }
     $clean['mapDestinations'] = $destinations;
-}
-
-// スマホからの再生指示。設定ではなく一度きりの指示なので、null も受け付ける。
-if (array_key_exists('nowPlaying', $incoming)) {
-    $command = $incoming['nowPlaying'];
-    $clean['nowPlaying'] = null;
-    if (is_array($command)) {
-        $id = isset($command['playlistId']) && is_string($command['playlistId'])
-            ? $command['playlistId']
-            : '';
-        $requestedAt = isset($command['requestedAt']) ? (int) $command['requestedAt'] : 0;
-        if ($requestedAt > 0 && preg_match('/^[A-Za-z0-9_-]{2,64}$/', $id)) {
-            $label = isset($command['label']) && is_string($command['label'])
-                ? mb_substr($command['label'], 0, MAX_PLAYLIST_LABEL, 'UTF-8')
-                : '';
-            $clean['nowPlaying'] = [
-                'playlistId' => $id,
-                'label' => $label,
-                'requestedAt' => $requestedAt,
-            ];
-        }
-    }
 }
 
 // 給油記録。消す操作が無いので、送られてきた分を検査してから
@@ -264,7 +213,9 @@ if ($clean === []) {
 }
 
 // 送られてこなかった項目は、いま保存してある内容をそのまま残す。
+// ただし、やめた機能(YouTube・音楽の再生指示)の値は持ち越さない。
 $final = $previous;
+unset($final['playlists'], $final['nowPlaying']);
 foreach ($clean as $field => $value) {
     $final[$field] = $value;
 }
