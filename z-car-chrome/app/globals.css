@@ -1659,16 +1659,21 @@ button { cursor: pointer; }
   font-weight: 800;
   letter-spacing: .32em;
 }
-/* 日の出・日の入りの弧はカードのいちばん上。左の列は上から詰めて並べ、
-   余った分はいちばん下の「今日の走行距離」が伸びて受け持つ(上に空きを作らない)。 */
+/* 日の出・日の入りの弧はカードのいちばん上。 */
 .solar-clock-card .solar-cycle { margin: 0; }
-#app.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail { justify-content: flex-start; }
+
+/* 左の列: 余った高さをどの欄にも同じだけ配り、中身は欄の上下の真ん中に置く
+   (欄と欄の間隔をそろえ、上や下だけが空かないようにする)。 */
+#app.is-fullscreen .green-nav-cluster .performance-left.green-instrument-rail > article { flex-grow: 1; }
+#app.is-fullscreen .green-nav-cluster .performance-left > .solar-clock-card,
+#app.is-fullscreen .green-nav-cluster .performance-left > .green-temperature-card,
+#app.is-fullscreen .green-nav-cluster .performance-left > .green-world-times-card,
 #app.is-fullscreen .green-nav-cluster .performance-left > .green-daily-distance-card {
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
+#app.is-fullscreen .green-nav-cluster .performance-left > .green-weather { align-content: center; }
 .solar-clock-card .solar-clock-today { margin-top: 8px; }
 
 /* 一週間の帯。今日だけ明るく、下に光る線。 */
