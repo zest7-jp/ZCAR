@@ -1465,7 +1465,7 @@ export default function Home() {
           >
             <img
               className="launch-landscape"
-              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/z-car-launch-landscape.png`}
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/z-car-launch-landscape.webp`}
               alt=""
             />
             <span className="launch-vignette" aria-hidden="true" />
