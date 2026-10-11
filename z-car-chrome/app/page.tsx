@@ -1793,9 +1793,19 @@ export default function Home() {
               </article>
 
               <aside className="performance-side performance-right green-drive-panel green-instrument-rail">
+                {/* 走行可能距離も、右下の平均燃費と同じく押すと燃費の記録を開く。 */}
                 <article
-                  className="green-range-card"
-                  aria-label={`Safe estimated range ${Math.round(fuelRangeKm)} kilometers. Resets automatically when a refuel record is saved.`}
+                  className="green-range-card is-pressable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={toggleFuelView}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleFuelView();
+                    }
+                  }}
+                  aria-label={`走行可能距離 ${Math.round(fuelRangeKm)} km。押すと燃費の記録を開く`}
                 >
                   <small>SAFE EST. RANGE</small>
                   <span><strong>{Math.round(fuelRangeKm)}</strong><em>km</em></span>

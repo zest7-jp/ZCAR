@@ -6463,6 +6463,16 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   background: rgba(93, 226, 208, .09);
 }
 
+/* 右の列の走行可能距離も押せる(燃費の記録を開く)。見た目はそのまま、押したときだけ明るくする。 */
+.green-range-card.is-pressable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s ease;
+}
+#app.is-fullscreen .green-nav-cluster .green-drive-panel.green-instrument-rail > .green-range-card.is-pressable:active {
+  background: rgba(93, 226, 208, .09);
+}
+
 /* ------------------------------------------------------------------
    中央メーターの四隅の操作
    丸い計器の外側に余る三角の隙間を使う。箱は描かず、計器の表示と
