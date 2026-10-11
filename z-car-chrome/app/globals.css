@@ -1617,36 +1617,31 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 9px rgba(91, 255, 113, .42), 0 0 22px rgba(91, 255, 113, .18);
 }
-/* 時計の上に出す今日の日付(曜日・日・月)。 */
+/* 時計の上に出す今日の日付(例: 10/11（日）)。 */
 .solar-clock-today {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 1px;
   margin-bottom: 5px;
-  font-family: "SFMono-Regular", Consolas, monospace;
   line-height: 1;
+}
+/* 左の列の日付の大きな文字(.performance-date strong)を受け継がないよう、card の中で指定する。 */
+.solar-clock-card .solar-clock-today strong {
+  margin: 0;
+  color: #effff1;
+  font-family: "DIN Alternate", "SFMono-Regular", Consolas, monospace;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 9px rgba(91, 255, 113, .25);
 }
 .solar-clock-today b {
   color: #8fe39a;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .22em;
-}
-.solar-clock-today span {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  color: #a8d9ae;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: .2em;
-}
-.solar-clock-today strong {
-  color: #effff1;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: .02em;
 }
 .solar-cycle {
   min-width: 0;

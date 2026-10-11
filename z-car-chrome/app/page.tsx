@@ -1006,15 +1006,11 @@ export default function Home() {
   // 平均巡行速度: 今日走った距離 ÷ 動いていた時間。1分走るまでは出さない。
   const averageCruiseKmh =
     dailyMovingSec >= 60 ? dailyTripKm / (dailyMovingSec / 3600) : null;
-  // 時計の上に出す今日の日付(例: SUN 11 OCT)。
-  const todayDate = new Date(`${today}T00:00:00+09:00`);
-  const todayParts = (option: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", ...option })
-      .format(todayDate)
-      .toUpperCase();
-  const todayWeekday = todayParts({ weekday: "short" });
-  const todayMonth = todayParts({ month: "short" });
-  const todayDay = String(Number(today.slice(8, 10)));
+  // 時計の上に出す今日の日付(例: 10/11（日）)。
+  const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
+  const todayMonthDay = `${todayMonth}/${todayDay}`;
+  const todayWeekday =
+    "日月火水木金土"[new Date(Date.UTC(todayYear, todayMonth - 1, todayDay)).getUTCDay()];
   const solarSunrise = weather?.sunrise ?? null;
   const solarSunset = weather?.sunset ?? null;
   const solarNowMinutes = minutesFromHm(clock);
@@ -1578,12 +1574,9 @@ export default function Home() {
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
-                  <div className="solar-clock-today" aria-label={`今日 ${today}`}>
-                    <b>{todayWeekday}</b>
-                    <span>
-                      <strong>{todayDay}</strong>
-                      {todayMonth}
-                    </span>
+                  <div className="solar-clock-today">
+                    <strong>{todayMonthDay}</strong>
+                    <b>（{todayWeekday}）</b>
                   </div>
                   <div className="solar-clock-heading">
                     <small>LOCAL TIME · JST</small>
