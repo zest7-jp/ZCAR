@@ -136,8 +136,19 @@ export const mergeFuelEntries = (
   right: FuelEntry[],
 ): FuelEntry[] => {
   const byId = new Map<string, FuelEntry>();
+  // 日付・給油量・距離・金額がすべて同じなら同じ給油とみなす
+  // (車とスマホの両方で同じ給油を入れたときに二重にならないように)。
+  const seen = new Set<string>();
   for (const entry of [...left, ...right]) {
-    if (isValidFuelEntry(entry)) byId.set(entry.id, entry);
+    if (!isValidFuelEntry(entry)) continue;
+    if (byId.has(entry.id)) {
+      byId.set(entry.id, entry);
+      continue;
+    }
+    const sameRefuel = `${entry.date}|${entry.liters}|${entry.distanceKm}|${entry.amountYen}`;
+    if (seen.has(sameRefuel)) continue;
+    seen.add(sameRefuel);
+    byId.set(entry.id, entry);
   }
   return [...byId.values()]
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)
@@ -361,6 +372,57 @@ export const pushSharedSettings = async (key: string, settings: Settings) =>
     key,
     updatedAt: Date.now(),
     settings: pickSyncedFields(settings),
+  });
+
+/**
+ * 車とスマホのどちらからでも変えられる項目(給油記録は別に足し合わせる)。
+ * 片方で変えた項目だけを送るので、もう片方の変更を古い値で上書きしない。
+ */
+export const SHARED_EDIT_FIELDS = [
+  "meterTheme",
+  "storeName",
+  "storeDest",
+  "homeDest",
+  "mapDestinations",
+] as const;
+export type SharedEditField = (typeof SHARED_EDIT_FIELDS)[number];
+
+/**
+ * 目的地は5枠まとめて1項目なので、送る前に最新の内容を取り直し、
+ * 自分で変えた枠だけをその上に重ねる(もう片方で変えた別の枠を消さないため)。
+ * before は「前回サーバーと一致していた5枠」。分からなければ自分の内容をそのまま使う。
+ */
+export const overlayChangedDestinations = (
+  mine: MapDestination[],
+  before: MapDestination[] | null,
+  latest: MapDestination[] | undefined,
+): MapDestination[] => {
+  if (!before || !latest) return mine;
+  return mine.map((slot, index) =>
+    JSON.stringify(slot) !== JSON.stringify(before[index]) ? slot : latest[index] ?? slot,
+  );
+};
+
+/** 指定した項目だけをサーバーへ送る(送らなかった項目はサーバー側でそのまま残る)。 */
+export const pushSyncedFields = async (
+  key: string,
+  fields: Partial<SyncedSettings>,
+) =>
+  postSync({
+    key,
+    updatedAt: Date.now(),
+    settings: fields,
+  });
+
+/**
+ * 給油記録だけをサーバーへ送る。
+ * サーバーは届いた記録をいまの記録に足し合わせ、ほかの項目はそのまま残す。
+ */
+export const pushFuelEntries = async (key: string, fuelEntries: FuelEntry[]) =>
+  postSync({
+    key,
+    updatedAt: Date.now(),
+    settings: { fuelEntries },
   });
 
 /* --- 音源置き場 (music.php) --- */

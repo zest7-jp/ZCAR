@@ -3,16 +3,27 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import {
+  buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
   defaults,
+  fetchSharedSettings,
+  generateSyncKey,
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
+  MIN_SYNC_KEY_LENGTH,
   PHONE_LONG_EDGE_MAX,
   mergeFuelEntries,
+  overlayChangedDestinations,
+  pushFuelEntries,
+  pushSyncedFields,
   readSettings,
+  sanitizeSyncedSettings,
+  SHARED_EDIT_FIELDS,
   SETTINGS_STORAGE_KEY,
   writeSettings,
   type Settings,
+  type MapDestination,
+  type SyncedSettings,
 } from "./settings-store";
 
 type RouteEta = {
@@ -174,6 +185,36 @@ const loadGoogleMaps = (key: string) => {
 };
 
 const FUEL_LOG_STORAGE_KEY = "zcar-fuel-log-v1";
+// スマホで変えた内容(給油記録・目的地・色)を取りに行く間隔。
+const PHONE_SYNC_POLL_MS = 30000;
+/**
+ * 車とスマホの同期をやり直したとき、最初の1回だけは車の内容を正とする印。
+ * (10/10 から車はスマホと切り離していたので、その間に車で直した目的地や
+ *  色を、スマホに残っていた古い値で上書きしないため)
+ */
+const SHARED_SYNC_READY_KEY = "zcar-shared-sync-v2";
+const readSharedSyncReady = () => {
+  try {
+    return localStorage.getItem(SHARED_SYNC_READY_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+const markSharedSyncReady = () => {
+  try {
+    localStorage.setItem(SHARED_SYNC_READY_KEY, "1");
+  } catch {
+    // 保存できなくても、次回もう一度車を正として送るだけ。
+  }
+};
+
+// 接続用QRを出しておく秒数。合言葉そのものなので出しっぱなしにしない。
+const PAIRING_AUTO_CLOSE_S = 10;
+
+/** 給油記録の並び(id の順)が同じかどうか。 */
+const sameFuelList = (left: FuelEntry[], right: FuelEntry[]) =>
+  left.length === right.length &&
+  left.every((entry, index) => entry.id === right[index]?.id);
 const DAILY_TRIP_STORAGE_KEY = "zcar-daily-trip-v1";
 const IMPORTED_FUEL_ENTRIES: FuelEntry[] = [
   { id: "import-2026-07-05", date: "2026-07-05", liters: 19.33, distanceKm: 300, amountYen: 3131, createdAt: Date.parse("2026-07-05T12:00:00+09:00") },
@@ -411,6 +452,12 @@ export default function Home() {
   const [destEditKey, setDestEditKey] = useState<string | null>(null);
   const [destDraft, setDestDraft] = useState({ label: "", destination: "" });
   const themeDialog = useRef<HTMLDialogElement>(null);
+  // スマホとつなぐためのQR(燃費画面から開く)。
+  const pairingDialog = useRef<HTMLDialogElement>(null);
+  const pairingTimerRef = useRef<number | null>(null);
+  const [pairingLeft, setPairingLeft] = useState(0);
+  const [pairingQr, setPairingQr] = useState<string | null>(null);
+  const [pairingError, setPairingError] = useState(false);
   const fuelMotionRef = useRef<{
     speed: number | null;
     status: ObdConnectionStatus;
@@ -558,6 +605,196 @@ export default function Home() {
   useEffect(() => {
     if (ready) writeSettings(settings);
   }, [ready, settings]);
+
+  // 容量不足などで、ブラウザがこのサイトのデータ(給油記録など)を
+  // 勝手に消さないように頼んでおく。
+  useEffect(() => {
+    if (!ready) return;
+    const storage = navigator.storage;
+    if (storage && typeof storage.persist === "function") {
+      void storage.persist().catch(() => false);
+    }
+  }, [ready]);
+
+  // --- スマホとの同期 ---
+  // 給油記録・目的地・メーターの色を、車とスマホのどちらからでも変えられる。
+  // 給油記録は足し合わせ、それ以外は項目ごとに「変えた方」を正とする。
+  const syncKey = settings.syncKey.trim();
+  const phoneSyncEnabled = ready && syncKey.length >= MIN_SYNC_KEY_LENGTH;
+  const [phoneSync, setPhoneSync] = useState<{
+    state: "syncing" | "ok" | "error";
+    at: number | null;
+  }>({ state: "syncing", at: null });
+  // サーバーが持っている給油記録の id(どの合言葉で読んだかも覚える)。
+  const [serverFuel, setServerFuel] = useState<{
+    key: string;
+    ids: Set<string>;
+  } | null>(null);
+  // 項目ごとの「いまサーバーにある値」(JSON)。車で変えた項目だけを送るのに使う。
+  const syncBaseRef = useRef<{ key: string; values: Record<string, string> } | null>(null);
+  const [syncTick, setSyncTick] = useState(0);
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  });
+  // 送り比べに使う、共有する項目だけの中身。
+  const sharedJson = JSON.stringify(
+    Object.fromEntries(SHARED_EDIT_FIELDS.map((field) => [field, settings[field]])),
+  );
+
+  // サーバーを読み、給油記録は足し合わせ、ほかの項目は変わっていれば取り込む。
+  useEffect(() => {
+    if (!phoneSyncEnabled) return;
+    let active = true;
+    const pull = async () => {
+      try {
+        const result = await fetchSharedSettings(syncKey);
+        if (!active) return;
+        if (!result.ok) throw new Error("PHONE_SYNC_FAILED");
+        const shared = sanitizeSyncedSettings(result.settings);
+        const serverEntries = shared.fuelEntries ?? [];
+        const updatedAt = result.updatedAt ?? 0;
+        const local = settingsRef.current;
+        const base =
+          syncBaseRef.current && syncBaseRef.current.key === syncKey
+            ? syncBaseRef.current.values
+            : null;
+        // 初回(base 無し)は時刻で判断する。切り離していた後の最初の1回は車を正とする。
+        const serverNewer = readSharedSyncReady() && updatedAt > local.syncedAt;
+
+        const take: Partial<Settings> = {};
+        const nextBase: Record<string, string> = {};
+        for (const field of SHARED_EDIT_FIELDS) {
+          const remote = shared[field];
+          const remoteJson = remote === undefined ? "" : JSON.stringify(remote);
+          const localJson = JSON.stringify(local[field]);
+          nextBase[field] = remoteJson;
+          if (remote === undefined || remoteJson === localJson) continue;
+          // 車で変えたばかり(まだ送っていない)項目は車のまま。そうでなければ取り込む。
+          const changedHere = base ? localJson !== base[field] : !serverNewer;
+          if (!changedHere) Object.assign(take, { [field]: remote });
+        }
+        syncBaseRef.current = { key: syncKey, values: nextBase };
+
+        setServerFuel({ key: syncKey, ids: new Set(serverEntries.map((entry) => entry.id)) });
+        setSettings((current) => {
+          const merged = mergeFuelEntries(current.fuelEntries, serverEntries);
+          const fuelChanged = !sameFuelList(merged, current.fuelEntries);
+          // 読んでいる間に車で変えた項目は、取り込まない。
+          const apply = Object.fromEntries(
+            Object.entries(take).filter(
+              ([field]) =>
+                JSON.stringify(current[field as keyof Settings]) ===
+                JSON.stringify(local[field as keyof Settings]),
+            ),
+          ) as Partial<Settings>;
+          const nextSyncedAt = Math.max(current.syncedAt, updatedAt);
+          if (!fuelChanged && Object.keys(apply).length === 0 && nextSyncedAt === current.syncedAt) {
+            return current;
+          }
+          return {
+            ...current,
+            ...apply,
+            fuelEntries: fuelChanged ? merged : current.fuelEntries,
+            syncedAt: nextSyncedAt,
+          };
+        });
+        setSyncTick((tick) => tick + 1);
+        setPhoneSync({ state: "ok", at: Date.now() });
+      } catch {
+        // 圏外などは次の周期に任せる。
+        if (active) setPhoneSync((now) => ({ state: "error", at: now.at }));
+      }
+    };
+    void pull();
+    const timer = window.setInterval(pull, PHONE_SYNC_POLL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [phoneSyncEnabled, syncKey]);
+
+  // 車で変えた項目(目的地・色)を送る。
+  useEffect(() => {
+    if (!phoneSyncEnabled) return;
+    const base = syncBaseRef.current;
+    if (!base || base.key !== syncKey) return;
+    const local = JSON.parse(sharedJson) as Partial<SyncedSettings>;
+    const changed = Object.fromEntries(
+      SHARED_EDIT_FIELDS.filter(
+        (field) => JSON.stringify(local[field]) !== base.values[field],
+      ).map((field) => [field, local[field]]),
+    ) as Partial<SyncedSettings>;
+    if (Object.keys(changed).length === 0) {
+      // サーバーと同じになった。以後はふつうに「変えた方」を正とする。
+      if (!readSharedSyncReady()) markSharedSyncReady();
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      setPhoneSync((now) => ({ ...now, state: "syncing" }));
+      let fields = changed;
+      // 目的地は、スマホで変えた別の枠を消さないよう、最新に自分の変更だけ重ねる。
+      if (changed.mapDestinations) {
+        try {
+          const latest = await fetchSharedSettings(syncKey);
+          const before = base.values.mapDestinations
+            ? (JSON.parse(base.values.mapDestinations) as MapDestination[])
+            : null;
+          const overlaid = overlayChangedDestinations(
+            changed.mapDestinations,
+            before,
+            sanitizeSyncedSettings(latest.settings).mapDestinations,
+          );
+          fields = { ...changed, mapDestinations: overlaid };
+          if (JSON.stringify(overlaid) !== JSON.stringify(changed.mapDestinations)) {
+            setSettings((now) => ({ ...now, mapDestinations: overlaid }));
+          }
+        } catch {
+          // 読めなければ、そのまま送る。
+        }
+      }
+      void pushSyncedFields(syncKey, fields)
+        .then((result) => {
+          if (!result.ok) throw new Error("PHONE_PUSH_FAILED");
+          const current = syncBaseRef.current;
+          if (current && current.key === syncKey) {
+            for (const [field, value] of Object.entries(fields)) {
+              current.values[field] = JSON.stringify(value);
+            }
+          }
+          markSharedSyncReady();
+          const updatedAt = result.updatedAt ?? 0;
+          setSettings((now) =>
+            updatedAt > now.syncedAt ? { ...now, syncedAt: updatedAt } : now,
+          );
+          setPhoneSync({ state: "ok", at: Date.now() });
+          setSyncTick((tick) => tick + 1);
+        })
+        .catch(() => setPhoneSync((now) => ({ state: "error", at: now.at })));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [phoneSyncEnabled, sharedJson, syncKey, syncTick]);
+
+  // 車にあってサーバーに無い給油記録(車で入れた分)があれば送る。
+  useEffect(() => {
+    if (!phoneSyncEnabled || !serverFuel || serverFuel.key !== syncKey) return;
+    const known = serverFuel.ids;
+    if (fuelEntries.every((entry) => known.has(entry.id))) return;
+    const timer = window.setTimeout(() => {
+      setPhoneSync((now) => ({ ...now, state: "syncing" }));
+      void pushFuelEntries(syncKey, fuelEntries)
+        .then((result) => {
+          if (!result.ok) throw new Error("FUEL_PUSH_FAILED");
+          setServerFuel({
+            key: syncKey,
+            ids: new Set([...known, ...fuelEntries.map((entry) => entry.id)]),
+          });
+          setPhoneSync({ state: "ok", at: Date.now() });
+        })
+        .catch(() => setPhoneSync((now) => ({ state: "error", at: now.at })));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [fuelEntries, phoneSyncEnabled, serverFuel, syncKey]);
 
   // 給油記録は設定と一緒に保存されるが、旧キーにも書いておく(古い版に戻しても読める)。
   useEffect(() => {
@@ -1092,6 +1329,86 @@ export default function Home() {
       navigator.vibrate?.(60);
     }, 900);
   };
+
+  const stopPairingTimer = () => {
+    if (pairingTimerRef.current !== null) {
+      window.clearInterval(pairingTimerRef.current);
+      pairingTimerRef.current = null;
+    }
+  };
+
+  const closePairing = () => {
+    stopPairingTimer();
+    setPairingLeft(0);
+    pairingDialog.current?.close();
+  };
+
+  /** 表示してからの残り秒を数え、0になったら自動で閉じる。 */
+  const armPairingTimer = () => {
+    stopPairingTimer();
+    setPairingLeft(PAIRING_AUTO_CLOSE_S);
+    pairingTimerRef.current = window.setInterval(() => {
+      setPairingLeft((left) => {
+        if (left <= 1) {
+          stopPairingTimer();
+          pairingDialog.current?.close();
+          return 0;
+        }
+        return left - 1;
+      });
+    }, 1000);
+  };
+
+  /**
+   * スマホとつなぐQRを出す。合言葉がまだ無ければここで作る。
+   * 合言葉は「#」より後ろに置くのでサーバーには送信されない。
+   * QRの生成は使うときだけ読み込む(車載機の起動を重くしないため)。
+   */
+  const startPairing = async () => {
+    setPairingError(false);
+    let key = settings.syncKey.trim();
+    if (key.length < MIN_SYNC_KEY_LENGTH) {
+      key = generateSyncKey();
+      const newKey = key;
+      setSettings((current) => ({ ...current, syncKey: newKey, syncedAt: 0 }));
+    }
+    try {
+      const QRCode = (await import("qrcode")).default;
+      const image = await QRCode.toDataURL(buildSyncHandoffUrl(key), {
+        // 実寸より大きめに作り、CSS側で縮小して表示する(粗さが出ないように)。
+        width: 720,
+        margin: 1,
+        errorCorrectionLevel: "M",
+        color: { dark: "#04110c", light: "#e6fbf7" },
+      });
+      setPairingQr(image);
+      armPairingTimer();
+    } catch {
+      setPairingError(true);
+    }
+  };
+
+  const openPairing = () => {
+    setPairingQr(null);
+    setPairingError(false);
+    pairingDialog.current?.showModal();
+    void startPairing();
+  };
+
+  // 燃費画面と目的地ダイアログに出す、スマホとの同期の状態。
+  const phoneSyncState = phoneSyncEnabled ? phoneSync.state : "off";
+  const phoneSyncLabel =
+    phoneSyncState === "off"
+      ? "LINK PHONE"
+      : phoneSyncState === "error"
+        ? "SYNC ERROR"
+        : phoneSync.at
+          ? `PHONE SYNC ${new Date(phoneSync.at).toLocaleTimeString("ja-JP", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}`
+          : "SYNCING";
 
   // 車の画面から直せる場所。出発・帰宅と、登録枠の1〜5。
   const destSlots = [
@@ -1846,7 +2163,19 @@ export default function Home() {
               <section className="fuel-history-card" aria-label="給油履歴">
                 <header>
                   <span><small>FUEL HISTORY</small><strong>給油履歴</strong></span>
-                  <b>{fuelEntries.length} TOTAL</b>
+                  <div className="fuel-sync">
+                    {/* スマホとの同期の状態。押すとスマホとつなぐQRが出る。 */}
+                    <button
+                      type="button"
+                      className={`fuel-sync-button is-${phoneSyncState}`}
+                      onClick={openPairing}
+                      aria-label="スマホとつなぐQRを出す"
+                    >
+                      <i aria-hidden="true" />
+                      {phoneSyncLabel}
+                    </button>
+                    <b>{fuelEntries.length} TOTAL</b>
+                  </div>
                 </header>
                 <div className="fuel-history-table">
                   {sortedFuelEntries.length === 0 ? (
@@ -2046,12 +2375,58 @@ export default function Home() {
             </div>
           )}
 
-          <div className="two-actions">
+          <div className="two-actions dest-actions">
+            {/* 目的地はスマホからも直せる。同期の状態と、つなぐためのQR。 */}
+            <button
+              type="button"
+              className={`fuel-sync-button is-${phoneSyncState}`}
+              onClick={() => {
+                closeDestDialog();
+                openPairing();
+              }}
+              aria-label="スマホとつなぐQRを出す"
+            >
+              <i aria-hidden="true" />
+              {phoneSyncLabel}
+            </button>
             <button onClick={closeDestDialog}>閉じる</button>
           </div>
         </div>
       </dialog>
 
+      <dialog ref={pairingDialog} onClose={stopPairingTimer}>
+        <div className="dialog-card sync-card">
+          <h2>スマホとつなぐ</h2>
+          {pairingQr ? (
+            <div className="pairing-qr">
+              <img src={pairingQr} alt="接続用QRコード" width={720} height={720} />
+              <p>スマホのカメラで読み取ってください</p>
+              <p className="pairing-warn">他の人には見せないでください</p>
+              <p className="pairing-countdown" role="status">
+                あと {pairingLeft} 秒で閉じます
+              </p>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="pairing-start"
+                onClick={() => void startPairing()}
+              >
+                QRを表示する
+              </button>
+              <p className="settings-hint">
+                {pairingError
+                  ? "QRを作れませんでした。もう一度押してください。"
+                  : "読み取ると、給油記録・目的地・メーターの色を、スマホからも変えられるようになります。"}
+              </p>
+            </>
+          )}
+          <div className="two-actions">
+            <button onClick={closePairing}>閉じる</button>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }
