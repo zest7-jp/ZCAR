@@ -18,6 +18,19 @@ export type MeterTheme =
   | "classic"
   | "silver";
 
+/**
+ * 真ん中のメーターの形。navi は地図の入った今の形。ほかは色とは別に選べる。
+ * 中身(名前や説明)は下の METER_DESIGNS、絵は app/meter-designs.tsx。
+ */
+export type MeterDesign =
+  | "navi"
+  | "arc"
+  | "frame"
+  | "halo"
+  | "sport"
+  | "analog"
+  | "tacho";
+
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
   id: string;
@@ -321,6 +334,8 @@ export type Settings = {
   departedAt: string;
   checkedOutAt: string;
   meterTheme: MeterTheme;
+  /** 真ん中のメーターの形。 */
+  meterDesign: MeterDesign;
   /** 設定同期の合言葉。空なら同期しない。端末内だけに保存し、送信内容には含めない。 */
   syncKey: string;
   /** 車とつないだ時刻(0なら未接続)。端末ごとの値なので同期しない。 */
@@ -346,6 +361,7 @@ export const defaults: Settings = {
   departedAt: "",
   checkedOutAt: "",
   meterTheme: "green",
+  meterDesign: "navi",
   syncKey: "",
   pairedAt: 0,
   syncedAt: 0,
@@ -357,6 +373,7 @@ export const defaults: Settings = {
 /** サーバーと共有する項目。走行状態やAPIキーは端末ごとなので送らない。 */
 export const SYNCED_FIELDS = [
   "meterTheme",
+  "meterDesign",
   "storeName",
   "storeDest",
   "start",
@@ -438,6 +455,7 @@ export const sanitizeSyncedSettings = (
   } else {
     delete cleaned.meterTheme;
   }
+  if (!isMeterDesign(cleaned.meterDesign)) delete cleaned.meterDesign;
   // サーバーにまだ一覧が無ければ、前のバージョンの1〜5の枠から移す。
   const legacy = value as { places?: unknown; mapDestinations?: unknown };
   if (Array.isArray(legacy.places) || Array.isArray(legacy.mapDestinations)) {
@@ -459,6 +477,7 @@ export const fetchSharedSettings = async (key: string) =>
  */
 export const SHARED_EDIT_FIELDS = [
   "meterTheme",
+  "meterDesign",
   "storeName",
   "storeDest",
   "homeDest",
@@ -623,6 +642,33 @@ export const meterThemeInfo = (id: string): MeterThemeInfo =>
 const isMeterTheme = (value: unknown): value is MeterTheme =>
   METER_THEMES.some((theme) => theme.id === value);
 
+export type MeterDesignInfo = {
+  id: MeterDesign;
+  name: string;
+  /** スマホの形選びに出す説明。 */
+  caption: string;
+  /** 車の形選びに出す説明(英語)。 */
+  captionEn: string;
+};
+
+/** 形選びに並べる順。最初は地図の入った今の形。 */
+export const METER_DESIGNS: MeterDesignInfo[] = [
+  { id: "navi", name: "NAVI GAUGE", caption: "地図つき(今の形)", captionEn: "MAP + TACHOMETER" },
+  { id: "arc", name: "ARC GAUGE", caption: "光る弧と大きな数字", captionEn: "GLOWING ARC" },
+  { id: "frame", name: "HUD FRAME", caption: "四角い枠のHUD", captionEn: "SQUARE HUD PANEL" },
+  { id: "halo", name: "HALO RING", caption: "光の輪", captionEn: "LAYERED RINGS" },
+  { id: "sport", name: "SPORT DIAL", caption: "半円と警告ランプ", captionEn: "HALF DIAL + LAMPS" },
+  { id: "analog", name: "ANALOG NEEDLE", caption: "針のメーター", captionEn: "CLASSIC NEEDLE" },
+  { id: "tacho", name: "TACHO RING", caption: "回転計の目盛り", captionEn: "DENSE TACHO TICKS" },
+];
+
+/** 形の説明を引く。知らない名前なら今の形(NAVI)。 */
+export const meterDesignInfo = (id: string): MeterDesignInfo =>
+  METER_DESIGNS.find((design) => design.id === id) ?? METER_DESIGNS[0];
+
+const isMeterDesign = (value: unknown): value is MeterDesign =>
+  METER_DESIGNS.some((design) => design.id === value);
+
 /** 前のバージョンが保存していた、もう使わない項目(目的地の枠は places に移してから消す)。 */
 const OBSOLETE_SETTINGS_FIELDS = ["playlists", "nowPlaying", "mapDestinations"];
 
@@ -646,6 +692,9 @@ export const readSettings = (): Settings => {
       meterTheme: isMeterTheme(stored.meterTheme)
         ? stored.meterTheme
         : defaults.meterTheme,
+      meterDesign: isMeterDesign(stored.meterDesign)
+        ? stored.meterDesign
+        : defaults.meterDesign,
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       syncedAt: Number.isFinite(stored.syncedAt) ? Number(stored.syncedAt) : 0,

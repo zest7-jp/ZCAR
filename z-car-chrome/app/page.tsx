@@ -12,6 +12,8 @@ import {
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
   MAX_PLACES,
+  METER_DESIGNS,
+  meterDesignInfo,
   METER_THEMES,
   meterThemeInfo,
   MIN_SYNC_KEY_LENGTH,
@@ -26,6 +28,7 @@ import {
   type NavChoice,
   type Settings,
 } from "./settings-store";
+import { MeterDesignGauge, SAMPLE_GAUGE_VALUES, type GaugeValues } from "./meter-designs";
 import { StarMark } from "./star-mark";
 
 type RouteEta = {
@@ -351,6 +354,7 @@ function WeatherGlyph({
 
 /** 曜日(Date の getDay と同じ並び: 0 が日曜)。時計の上の日付に使う。 */
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
+const WEEKDAYS_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 /** 一週間の帯は月曜はじまりで並べる(WEEKDAYS_JA の番号)。 */
 const WEEK_STRIP_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -461,6 +465,8 @@ export default function Home() {
   const greenMapElementRef = useRef<HTMLDivElement>(null);
   // 中央メーターの地図タイルが1枚でも描画できたか(待機表示の出し分け用)。
   const [greenMapReady, setGreenMapReady] = useState(false);
+  // メーターの色選びの画面で、色と形のどちらを出しているか。
+  const [pickerTab, setPickerTab] = useState<"color" | "design">("color");
   const greenGmapRef = useRef<{
     setCenter: (point: { lat: number; lng: number }) => void;
     moveCamera: (camera: Record<string, unknown>) => void;
@@ -907,16 +913,18 @@ export default function Home() {
   }, [weatherLocationKey]);
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
+  // 地図は、地図の入った形(NAVI)のメーターを出しているときだけ作る。
+  const mapGaugeShown = !showFuel && meterDesignInfo(settings.meterDesign).id === "navi";
 
-  // 燃費画面へ移ると地図の器が外れるので、次に戻ったとき作り直す。
+  // 燃費画面や別の形へ移ると地図の器が外れるので、次に戻ったとき作り直す。
   useEffect(() => {
-    if (!showFuel) return;
+    if (mapGaugeShown) return;
     greenGmapRef.current = null;
     setGreenMapReady(false);
-  }, [showFuel]);
+  }, [mapGaugeShown]);
 
   useEffect(() => {
-    if (showFuel || !mapsApiKey || !greenMapElementRef.current) return;
+    if (!mapGaugeShown || !mapsApiKey || !greenMapElementRef.current) return;
     let cancelled = false;
     const focusPoint = location
       ? { lat: location.lat, lng: location.lng }
@@ -971,7 +979,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [showFuel, location, mapsApiKey]);
+  }, [mapGaugeShown, location, mapsApiKey]);
 
 
   const hour = new Date().getHours();
@@ -1042,6 +1050,7 @@ export default function Home() {
   // 上のバーは出さず、状態だけの細いバーにする。
   const hideTopbar = !showFuel;
   const activeTheme = meterThemeInfo(settings.meterTheme);
+  const activeDesign = meterDesignInfo(settings.meterDesign);
 
   // 上のバーに出す4つの状態。
   // 見た目は前のオレンジ計器と同じ「日本語 + 英語」の二段組み。
@@ -1489,6 +1498,50 @@ export default function Home() {
     );
   }
 
+  // 円の外側に余る下の二隅に、よく見る数字を置く(どの形のメーターでも同じ)。
+  // 左下 平均巡行速度 / 右下 平均燃費(押すと燃費の記録を開く)。
+  const gaugeCorners = (
+    <div className="gauge-corners" aria-label="メーターの下の隅">
+      <div className="gauge-corner gauge-corner-bl is-readout">
+        <small>AVG CRUISE · TODAY</small>
+        <span className="gauge-corner-value">
+          <b>{averageCruiseKmh === null ? "—" : Math.round(averageCruiseKmh)}</b>
+          <em>km/h</em>
+        </span>
+      </div>
+      <button
+        type="button"
+        className="gauge-corner gauge-corner-br"
+        onClick={toggleFuelView}
+        aria-label="燃費の記録・確認を開く"
+      >
+        <small>AVG FUEL</small>
+        <span className="gauge-corner-value">
+          <b>
+            {estimatedAverageFuelEconomy === null
+              ? "—"
+              : estimatedAverageFuelEconomy.toFixed(1)}
+          </b>
+          <em>km/L</em>
+        </span>
+      </button>
+    </div>
+  );
+  // 地図の無い形のメーターに渡す値。
+  const gaugeValues: GaugeValues = {
+    speed: greenCenterSpeed,
+    rpm: obdData.rpm ?? null,
+    coolant: obdData.coolant ?? null,
+    voltage: obdData.voltage ?? null,
+    fuelPercent,
+    rangeKm: fuelRangeKm,
+    tripKm: dailyTripKm,
+    clock,
+    dateLabel: `${todayMonthDay} ${WEEKDAYS_EN[todayWeekdayIndex]}`,
+  };
+  // 形選びの見本は、今の色と同じ filter で描く。
+  const designThumbClass = `dg-thumb is-${activeTheme.id}${activeTheme.tinted ? ` is-tinted zt-${activeTheme.id}` : ""}`;
+
   return (
     <div className="screen-shell">
       <div
@@ -1760,76 +1813,60 @@ export default function Home() {
 
               </aside>
 
-              <article className="performance-main-gauge green-map-gauge" aria-label="Map integrated tachometer and speedometer">
-                {/* 円の外側に余る下の二隅に、よく見る数字を置く。
-                    左下 平均巡行速度 / 右下 平均燃費(押すと燃費の記録を開く)。 */}
-                <div className="gauge-corners" aria-label="メーターの下の隅">
-                  <div className="gauge-corner gauge-corner-bl is-readout">
-                    <small>AVG CRUISE · TODAY</small>
-                    <span className="gauge-corner-value">
-                      <b>{averageCruiseKmh === null ? "—" : Math.round(averageCruiseKmh)}</b>
-                      <em>km/h</em>
-                    </span>
+              {activeDesign.id === "navi" ? (
+                <article className="performance-main-gauge green-map-gauge" aria-label="Map integrated tachometer and speedometer">
+                  {gaugeCorners}
+                  <div className="performance-rpm-track" aria-hidden="true" />
+                  <div className="performance-rpm-ticks" aria-hidden="true" />
+                  <div className="performance-rpm-labels" aria-hidden="true">
+                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+                    <span>5</span><span>6</span><span>7</span><span>8</span>
                   </div>
-                  <button
-                    type="button"
-                    className="gauge-corner gauge-corner-br"
-                    onClick={toggleFuelView}
-                    aria-label="燃費の記録・確認を開く"
-                  >
-                    <small>AVG FUEL</small>
-                    <span className="gauge-corner-value">
-                      <b>
-                        {estimatedAverageFuelEconomy === null
-                          ? "—"
-                          : estimatedAverageFuelEconomy.toFixed(1)}
-                      </b>
-                      <em>km/L</em>
-                    </span>
-                  </button>
-                </div>
-                <div className="performance-rpm-track" aria-hidden="true" />
-                <div className="performance-rpm-ticks" aria-hidden="true" />
-                <div className="performance-rpm-labels" aria-hidden="true">
-                  <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
-                  <span>5</span><span>6</span><span>7</span><span>8</span>
-                </div>
-                <small className="performance-rpm-title">ENGINE SPEED · ×1000 RPM</small>
+                  <small className="performance-rpm-title">ENGINE SPEED · ×1000 RPM</small>
 
-                <div className="green-gauge-map-window">
-                  <div
-                    ref={greenMapElementRef}
-                    className="green-nav-map-canvas"
-                    aria-hidden="true"
-                  />
-                  <div
-                    className={`green-map-standby${greenMapReady ? " is-ready" : ""}`}
-                    aria-hidden="true"
-                  >
-                    <i className="green-map-standby-sweep" />
-                    <b>ACQUIRING MAP</b>
+                  <div className="green-gauge-map-window">
+                    <div
+                      ref={greenMapElementRef}
+                      className="green-nav-map-canvas"
+                      aria-hidden="true"
+                    />
+                    <div
+                      className={`green-map-standby${greenMapReady ? " is-ready" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <i className="green-map-standby-sweep" />
+                      <b>ACQUIRING MAP</b>
+                    </div>
+                    <div className="green-map-grid" aria-hidden="true" />
+                    <div className="green-map-vignette" aria-hidden="true" />
+                    <div className={`green-compass-bearing ${locationStatus}`} aria-hidden="true">
+                      <span className="north">N</span>
+                      <span className="east">E</span>
+                      <span className="south">S</span>
+                      <span className="west">W</span>
+                    </div>
+                    <div className="green-gauge-speed">
+                      <small>SPEED</small>
+                      <strong>{greenCenterSpeed ?? "—"}</strong>
+                      <span>km/h</span>
+                    </div>
                   </div>
-                  <div className="green-map-grid" aria-hidden="true" />
-                  <div className="green-map-vignette" aria-hidden="true" />
-                  <div className={`green-compass-bearing ${locationStatus}`} aria-hidden="true">
-                    <span className="north">N</span>
-                    <span className="east">E</span>
-                    <span className="south">S</span>
-                    <span className="west">W</span>
-                  </div>
-                  <div className="green-gauge-speed">
-                    <small>SPEED</small>
-                    <strong>{greenCenterSpeed ?? "—"}</strong>
-                    <span>km/h</span>
-                  </div>
-                </div>
 
-                <div className="performance-rpm-digital">
-                  <small>RPM</small>
-                  <b>{obdData.rpm ?? "—"}</b>
-                  <span>rpm</span>
-                </div>
-              </article>
+                  <div className="performance-rpm-digital">
+                    <small>RPM</small>
+                    <b>{obdData.rpm ?? "—"}</b>
+                    <span>rpm</span>
+                  </div>
+                </article>
+              ) : (
+                <article
+                  className={`meter-design-gauge is-${activeDesign.id}`}
+                  aria-label={activeDesign.name}
+                >
+                  {gaugeCorners}
+                  <MeterDesignGauge design={activeDesign.id} values={gaugeValues} />
+                </article>
+              )}
 
               <aside className="performance-side performance-right green-drive-panel green-instrument-rail">
                 {/* 走行可能距離も、右下の平均燃費と同じく押すと燃費の記録を開く。 */}
@@ -2077,32 +2114,83 @@ export default function Home() {
               CLOSE
             </button>
           </header>
-          {/* 8色。どれも同じ盤面で、ターコイズとオレンジは専用の CSS、
-              ほかは globals.css の .zt-<名前> の色を共通の決まりで使う。 */}
-          <div className="meter-theme-options">
-            {METER_THEMES.map((theme) => {
-              const selected = activeTheme.id === theme.id;
-              const tint = theme.tinted ? ` is-tinted zt-${theme.id}` : "";
-              return (
-                <button
-                  key={theme.id}
-                  type="button"
-                  className={`${theme.id}${tint}${selected ? " selected" : ""}`}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    setSettings({ ...settings, meterTheme: theme.id });
-                    themeDialog.current?.close();
-                  }}
-                >
-                  <i className={`theme-preview ${theme.id}${tint}`} aria-hidden="true">
-                    <span>{theme.name}</span>
-                  </i>
-                  <span><b>{theme.name}</b><small>{theme.captionEn}</small></span>
-                  <em>{selected ? "ACTIVE" : "SELECT"}</em>
-                </button>
-              );
-            })}
+          {/* 色(8色)と形(7種類)はタブで切り替える。どちらも押すとすぐ変わって閉じる。 */}
+          <div className="meter-theme-tabs" role="tablist" aria-label="色と形">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pickerTab === "color"}
+              className={pickerTab === "color" ? "is-active" : undefined}
+              onClick={() => setPickerTab("color")}
+            >
+              <b>色</b>
+              <small>COLOR</small>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pickerTab === "design"}
+              className={pickerTab === "design" ? "is-active" : undefined}
+              onClick={() => setPickerTab("design")}
+            >
+              <b>形</b>
+              <small>DESIGN</small>
+            </button>
           </div>
+          {pickerTab === "color" ? (
+            <>
+              {/* 8色。どれも同じ盤面で、ターコイズとオレンジは専用の CSS、
+                  ほかは globals.css の .zt-<名前> の色を共通の決まりで使う。 */}
+              <div className="meter-theme-options">
+                {METER_THEMES.map((theme) => {
+                  const selected = activeTheme.id === theme.id;
+                  const tint = theme.tinted ? ` is-tinted zt-${theme.id}` : "";
+                  return (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      className={`${theme.id}${tint}${selected ? " selected" : ""}`}
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setSettings({ ...settings, meterTheme: theme.id });
+                        themeDialog.current?.close();
+                      }}
+                    >
+                      <i className={`theme-preview ${theme.id}${tint}`} aria-hidden="true">
+                        <span>{theme.name}</span>
+                      </i>
+                      <span><b>{theme.name}</b><small>{theme.captionEn}</small></span>
+                      <em>{selected ? "ACTIVE" : "SELECT"}</em>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="meter-theme-options is-designs">
+              {METER_DESIGNS.map((design) => {
+                const selected = activeDesign.id === design.id;
+                return (
+                  <button
+                    key={design.id}
+                    type="button"
+                    className={`design-option${selected ? " selected" : ""}`}
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setSettings({ ...settings, meterDesign: design.id });
+                      themeDialog.current?.close();
+                    }}
+                  >
+                    <i className={designThumbClass} aria-hidden="true">
+                      <MeterDesignGauge design={design.id} values={SAMPLE_GAUGE_VALUES} />
+                    </i>
+                    <span><b>{design.name}</b><small>{design.captionEn}</small></span>
+                    <em>{selected ? "ACTIVE" : "SELECT"}</em>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </dialog>
 

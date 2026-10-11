@@ -7868,3 +7868,271 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-size: 12px;
   text-align: center;
 }
+
+/* ------------------------------------------------------------------
+   真ん中のメーターの形(ARC / HUD FRAME / HALO RING / SPORT DIAL /
+   ANALOG NEEDLE / TACHO RING)。絵は app/meter-designs.tsx の SVG。
+   計器のほかの部品と同じく緑で塗り、計器にかかる filter で8色それぞれの
+   色になる。--dg-alt は少し青寄りの緑で、どの色でも隣り合う色の差し色になる。
+   ------------------------------------------------------------------ */
+.meter-design-gauge {
+  position: relative;
+  z-index: 9;
+  width: min(100%, 456px);
+  aspect-ratio: 1;
+  place-self: center;
+}
+@media (max-height: 520px) {
+  #app.is-fullscreen .meter-design-gauge { width: min(100%, 390px); }
+}
+
+.dg {
+  --dg-hi: #62ff78;
+  --dg-mid: #3fd957;
+  --dg-deep: #13802a;
+  --dg-dim: #133f1c;
+  --dg-ink: #f3fff4;
+  --dg-label: #7ccf88;
+  --dg-alt: #3dffbe;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  font-family: inherit;
+}
+.dg text { fill: var(--dg-label); font-weight: 800; }
+
+.dg .dg-stop-hi { stop-color: var(--dg-hi); }
+.dg .dg-stop-deep { stop-color: var(--dg-deep); }
+.dg .dg-stop-alt { stop-color: var(--dg-alt); }
+.dg .dg-stop-ink { stop-color: var(--dg-ink); }
+.dg .dg-stop-face { stop-color: #020703; }
+.dg .dg-stop-edge { stop-color: #0b2512; }
+.dg .dg-stop-glow { stop-color: rgba(70, 230, 95, .16); }
+.dg .dg-stop-none { stop-color: rgba(70, 230, 95, 0); }
+
+/* 文字盤・輪 */
+.dg .dg-face { fill: #030a05; }
+.dg .dg-ring-bright { fill: none; stroke: var(--dg-hi); stroke-width: 2.4; stroke-linecap: round; opacity: .85; }
+.dg .dg-ring-soft { fill: none; stroke: var(--dg-mid); stroke-width: 1.2; opacity: .35; }
+.dg .dg-ring-dots { fill: none; stroke: var(--dg-mid); stroke-width: 2; stroke-dasharray: 1 7; opacity: .55; }
+.dg .dg-ring-dash { fill: none; stroke: var(--dg-mid); stroke-width: 1.5; stroke-dasharray: 3 5; opacity: .45; }
+.dg .dg-ring-dash-wide { fill: none; stroke: var(--dg-hi); stroke-width: 5; stroke-dasharray: 2 7; opacity: .5; }
+.dg .dg-ring-dashed { fill: none; stroke: var(--dg-mid); stroke-width: 2; stroke-dasharray: 4 4; opacity: .45; }
+.dg .dg-ring-grad { fill: none; stroke-width: 9; }
+.dg .dg-ring-grad-glow { fill: none; stroke-width: 24; opacity: .16; }
+.dg .dg-redline { fill: none; stroke: var(--dg-alt); stroke-width: 5; opacity: .9; }
+.dg .dg-track { fill: none; stroke: var(--dg-dim); stroke-linecap: round; opacity: .8; }
+.dg .dg-disc { fill: #020804; stroke: var(--dg-mid); stroke-width: 2; stroke-opacity: .7; }
+.dg .dg-disc-ring { fill: none; stroke: var(--dg-hi); stroke-width: 1; opacity: .35; }
+
+/* 光る弧(外の淡い光・中の光・芯・芯の白い線) */
+.dg .dg-glow-arc path { fill: none; stroke-linecap: round; transition: stroke-dasharray .45s ease-out; }
+.dg .dg-glow-far { opacity: .1; }
+.dg .dg-glow-near { opacity: .22; }
+.dg .dg-glow-line { stroke: #ffffff; opacity: .5; }
+.dg .dg-glow-arc.is-empty { opacity: 0; }
+
+/* 目盛り */
+.dg .dg-tick { stroke: var(--dg-label); stroke-width: 1.4; opacity: .55; }
+.dg .dg-tick.is-mid { stroke-width: 2; opacity: .8; }
+.dg .dg-tick.is-major { stroke: var(--dg-ink); stroke-width: 3; opacity: .9; }
+.dg .dg-tick.is-lit { stroke: var(--dg-hi); opacity: 1; }
+.dg .dg-tick.is-red { stroke: var(--dg-alt); }
+.dg .dg-tick.is-red:not(.is-lit) { opacity: .45; }
+
+/* 区切った輪・柱 */
+.dg .dg-seg { fill: var(--dg-dim); opacity: .75; }
+.dg .dg-seg.is-lit { fill: var(--dg-mid); opacity: 1; }
+.dg .dg-seg.is-hot { fill: var(--dg-hi); }
+.dg .dg-seg.is-red { fill: var(--dg-alt); }
+.dg .dg-seg.is-head { fill: var(--dg-ink); }
+.dg .dg-seg-glow {
+  fill: none;
+  stroke: var(--dg-hi);
+  stroke-width: 34;
+  opacity: .16;
+  transition: stroke-dasharray .35s ease-out;
+}
+.dg .dg-bar { fill: var(--dg-dim); opacity: .85; }
+.dg .dg-bar.is-lit { opacity: 1; }
+.dg .dg-signal { fill: var(--dg-dim); }
+.dg .dg-signal.is-lit { fill: var(--dg-hi); }
+.dg .dg-eq { fill: var(--dg-hi); opacity: .85; }
+
+/* 針 */
+.dg .dg-needle-glow { stroke: var(--dg-hi); stroke-width: 9; stroke-linecap: round; opacity: .22; }
+.dg .dg-needle-line { stroke: var(--dg-ink); stroke-width: 2.4; stroke-linecap: round; }
+.dg .dg-tip { fill: var(--dg-ink); }
+.dg .dg-tip-halo { fill: var(--dg-hi); opacity: .3; }
+.dg .dg-needle {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+  transition: transform .45s ease-out;
+}
+.dg .dg-needle-shadow { fill: var(--dg-hi); opacity: .3; }
+.dg .dg-needle-body { fill: var(--dg-ink); }
+.dg .dg-needle-tip { fill: var(--dg-hi); }
+.dg .dg-cap { fill: #030b05; stroke: var(--dg-mid); stroke-width: 2.4; }
+.dg .dg-rim { fill: none; stroke: var(--dg-hi); stroke-width: 3; }
+.dg .dg-rim-glow { fill: none; stroke: var(--dg-hi); stroke-width: 14; opacity: .14; }
+.dg .dg-trail { fill: none; stroke: var(--dg-hi); stroke-width: 26; }
+
+/* 四角い枠(HUD FRAME) */
+.dg .dg-frame-fill { fill: rgba(2, 10, 4, .72); stroke: var(--dg-hi); stroke-width: 2.6; stroke-linejoin: round; }
+.dg .dg-frame-glow { fill: none; stroke: var(--dg-hi); stroke-width: 12; opacity: .12; stroke-linejoin: round; }
+.dg .dg-frame-inner { fill: none; stroke: var(--dg-mid); stroke-width: 1; opacity: .35; }
+.dg .dg-frame-accent { stroke: var(--dg-ink); stroke-width: 4; stroke-linecap: round; }
+.dg .dg-stripe { fill: var(--dg-hi); }
+.dg .dg-stripes { opacity: .75; }
+.dg .dg-ruler { stroke: var(--dg-label); stroke-width: 1.4; opacity: .7; }
+
+/* 角の丸い枠(HALO RING)・小窓(ANALOG NEEDLE) */
+.dg .dg-pill { fill: #020a04; stroke: var(--dg-hi); stroke-width: 2.4; }
+.dg .dg-pill-glow { fill: none; stroke: var(--dg-hi); stroke-width: 12; opacity: .16; }
+.dg .dg-chevron { fill: none; stroke: var(--dg-hi); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.dg .dg-panel { fill: rgba(2, 10, 4, .94); stroke: var(--dg-mid); stroke-width: 1.6; }
+.dg .dg-panel-glow { fill: none; stroke: var(--dg-hi); stroke-width: 8; opacity: .12; }
+
+/* 警告ランプ(SPORT DIAL)。注意のときは白く点滅する。 */
+.dg .dg-lamp-icon { fill: none; stroke: var(--dg-label); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dg .dg-lamp.is-warn .dg-lamp-icon {
+  stroke: #ffffff;
+  animation: dg-blink 1s steps(1, end) infinite;
+}
+.dg .dg-lamp.is-warn .dg-lamp-value { fill: #ffffff; }
+@keyframes dg-blink {
+  50% { opacity: .25; }
+}
+
+/* 地図つき(今の形)の見本 */
+.dg .dg-map { fill: #061a0b; stroke: var(--dg-mid); stroke-width: 2; }
+.dg .dg-map-road { fill: none; stroke: var(--dg-mid); stroke-width: 3; opacity: .35; }
+
+/* 文字 */
+.dg .dg-caption { font-size: 10px; letter-spacing: .3em; }
+.dg .dg-unit { font-size: 13px; letter-spacing: .12em; fill: var(--dg-hi); }
+.dg .dg-foot { font-size: 11px; letter-spacing: .22em; font-variant-numeric: tabular-nums; }
+.dg .dg-foot.is-strong { font-size: 14px; fill: var(--dg-ink); }
+.dg .dg-mini-label { font-size: 9px; letter-spacing: .2em; }
+.dg .dg-mini-value { font-size: 21px; font-weight: 700; fill: var(--dg-ink); font-variant-numeric: tabular-nums; }
+.dg .dg-scale { font-size: 16px; font-weight: 700; fill: var(--dg-ink); opacity: .82; }
+.dg .dg-scale.is-large { font-size: 19px; }
+.dg .dg-scale.is-red { fill: var(--dg-alt); opacity: 1; }
+.dg .dg-scale-small { font-size: 9px; }
+.dg .dg-lamp-value { font-size: 12px; font-variant-numeric: tabular-nums; }
+.dg .dg-panel-small { font-size: 10px; font-weight: 700; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.dg .dg-panel-speed { font-size: 32px; font-weight: 900; fill: var(--dg-ink); font-variant-numeric: tabular-nums; }
+.dg .dg-panel-unit { font-size: 10px; fill: var(--dg-hi); }
+.dg .dg-speed {
+  font-weight: 900;
+  fill: #fffaf4;
+  font-variant-numeric: tabular-nums;
+  filter: drop-shadow(0 0 10px rgba(66, 255, 86, .45));
+}
+.dg .dg-speed-thin {
+  font-size: 68px;
+  font-weight: 300;
+  letter-spacing: -.02em;
+  fill: var(--dg-ink);
+  font-variant-numeric: tabular-nums;
+  filter: drop-shadow(0 0 8px rgba(98, 255, 120, .5));
+}
+.dg .dg-speed-mono {
+  font-family: "DIN Alternate", "SFMono-Regular", Consolas, monospace;
+  font-size: 46px;
+  font-weight: 700;
+  fill: var(--dg-ink);
+  filter: drop-shadow(0 0 8px rgba(98, 255, 120, .5));
+}
+
+/* 形選びの見本。計器の外にあるので、今の色と同じ filter をかける。 */
+.dg-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  filter: hue-rotate(48deg) saturate(1.13);
+}
+.dg-thumb.is-eva { filter: hue-rotate(-90deg) saturate(1.2); }
+.dg-thumb.is-tinted { filter: var(--zt-filter); }
+
+/* メーターの色選びの「色 / 形」のタブ */
+.meter-theme-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+.meter-theme-tabs button {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  border: 1px solid #2b343c;
+  border-radius: 10px;
+  background: #0c1115;
+  color: #8d979f;
+  font-family: inherit;
+  cursor: pointer;
+}
+.meter-theme-tabs button b { font-size: 14px; font-weight: 900; }
+.meter-theme-tabs button small { font-size: 8px; font-weight: 900; letter-spacing: .2em; }
+.meter-theme-tabs button.is-active {
+  border-color: #6f7b85;
+  background: #1a2128;
+  color: #f2f6f8;
+}
+
+/* 形のカードは見本の絵を大きめに出す。 */
+.meter-theme-options.is-designs > button { grid-template-rows: 92px auto auto; }
+.meter-theme-options.is-designs .dg-thumb {
+  width: 92px;
+  height: 92px;
+  justify-self: center;
+}
+
+/* スマホ: メーターの形の一覧(2列) */
+.zr-designs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.zr-design {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 10px 14px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 18px;
+  background: var(--zr-panel);
+  color: var(--zr-ink);
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.zr-design .dg-thumb { width: min(100%, 132px); margin-bottom: 4px; }
+.zr-design b { font-size: 12px; font-weight: 900; letter-spacing: .08em; }
+.zr-design small { color: var(--zr-muted); font-size: 10px; }
+.zr-design em {
+  margin-top: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+.zr-design.is-active {
+  border-color: rgba(var(--zr-accent-rgb), .6);
+  box-shadow: 0 0 0 1px rgba(var(--zr-accent-rgb), .25), 0 10px 28px rgba(var(--zr-accent-rgb), .14);
+}
+.zr-design.is-active em {
+  border-color: var(--zr-accent);
+  background: rgba(var(--zr-accent-rgb), .14);
+  color: var(--zr-accent-strong);
+}
