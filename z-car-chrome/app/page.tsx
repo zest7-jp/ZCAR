@@ -347,8 +347,10 @@ function WeatherGlyph({
   );
 }
 
-/** 曜日(日曜はじまり)。時計の上の日付と、一週間の帯に使う。 */
+/** 曜日(Date の getDay と同じ並び: 0 が日曜)。時計の上の日付に使う。 */
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
+/** 一週間の帯は月曜はじまりで並べる(WEEKDAYS_JA の番号)。 */
+const WEEK_STRIP_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 const BUILD_STAMP = (() => {
   const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
@@ -1628,28 +1630,7 @@ export default function Home() {
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
-                  {/* 今日の日付。曜日は光る札にして、下に一週間の帯(今日だけ点く)を添える。 */}
-                  <div
-                    className="solar-clock-today"
-                    aria-label={`今日 ${todayMonthDay}（${todayWeekday}）`}
-                  >
-                    <span className="solar-clock-day">
-                      <i aria-hidden="true">{todayWeekday}</i>
-                      <strong>{todayMonthDay}</strong>
-                    </span>
-                    <small aria-hidden="true">{todayYear}</small>
-                  </div>
-                  <ol className="solar-clock-week" aria-hidden="true">
-                    {WEEKDAYS_JA.map((day, index) => (
-                      <li key={day} className={index === todayWeekdayIndex ? "is-today" : undefined}>
-                        {day}
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="solar-clock-heading">
-                    <small>LOCAL TIME · JST</small>
-                    <time>{clock}</time>
-                  </div>
+                  {/* 日の出・日の入りの弧はカードのいちばん上。日付と時計は下にまとめる。 */}
                   <div className={`solar-cycle ${weatherStatus}`} aria-label={`Sunrise ${solarSunrise ?? "unavailable"}, sunset ${solarSunset ?? "unavailable"}`}>
                     <span className="sunrise">
                       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1672,6 +1653,31 @@ export default function Home() {
                       </svg>
                       <b>{solarSunset ?? "--:--"}</b>
                     </span>
+                  </div>
+                  {/* 今日の日付。曜日は光る札にして、下に一週間の帯(月曜はじまり・今日だけ点く)を添える。 */}
+                  <div
+                    className="solar-clock-today"
+                    aria-label={`今日 ${todayMonthDay}（${todayWeekday}）`}
+                  >
+                    <span className="solar-clock-day">
+                      <i aria-hidden="true">{todayWeekday}</i>
+                      <strong>{todayMonthDay}</strong>
+                    </span>
+                    <small aria-hidden="true">{todayYear}</small>
+                  </div>
+                  <ol className="solar-clock-week" aria-hidden="true">
+                    {WEEK_STRIP_ORDER.map((dayIndex) => (
+                      <li
+                        key={dayIndex}
+                        className={dayIndex === todayWeekdayIndex ? "is-today" : undefined}
+                      >
+                        {WEEKDAYS_JA[dayIndex]}
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="solar-clock-heading">
+                    <small>LOCAL TIME · JST</small>
+                    <time>{clock}</time>
                   </div>
                 </article>
 
