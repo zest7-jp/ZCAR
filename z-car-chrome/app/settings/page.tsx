@@ -56,13 +56,16 @@ const SCAN_NOTES = {
   starting: { en: "STARTING CAMERA", ja: "カメラを準備しています" },
   aim: { en: "ALIGN THE QR CODE", ja: "車の画面のQRを枠に入れてください" },
   blocked: { en: "CAMERA BLOCKED", ja: "設定でカメラを許可してください", warn: true },
-  foreign: { en: "NOT A Z CAR CODE", ja: "車の LINK PHONE で出るQRを読み取ってください", warn: true },
+  foreign: { en: "NOT A Z CAR CODE", ja: "車の PHONE SYNC で出るQRを読み取ってください", warn: true },
 } satisfies Record<string, Note>;
 
 /** つなぎ方の3ステップ。 */
 const LINK_STEPS: Note[] = [
-  { en: "TAP LINK PHONE", ja: "車の燃費画面か、DEST の画面の下にあります" },
-  { en: "SCAN THE QR", ja: "このスマホのカメラで読み取ります" },
+  {
+    en: "TAP PHONE SYNC",
+    ja: "車の右の列の DEST を押した画面の左下。押して「QRを表示する」",
+  },
+  { en: "SCAN THE QR", ja: "このスマホのカメラで読み取ります（QRは10秒で閉じます）" },
   { en: "SYNCED", ja: "給油・目的地・メーターの色がそろいます" },
 ];
 
