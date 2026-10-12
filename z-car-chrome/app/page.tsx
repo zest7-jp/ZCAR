@@ -354,7 +354,6 @@ function WeatherGlyph({
 
 /** 曜日(Date の getDay と同じ並び: 0 が日曜)。時計の上の日付に使う。 */
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
-const WEEKDAYS_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 /** 一週間の帯は月曜はじまりで並べる(WEEKDAYS_JA の番号)。 */
 const WEEK_STRIP_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -915,18 +914,17 @@ export default function Home() {
   }, [weatherLocationKey]);
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
-  // 地図は、地図の入った形(NAVI)のメーターを出しているときだけ作る。
-  const mapGaugeShown = !showFuel && meterDesignInfo(settings.meterDesign).id === "navi";
+  // 地図はメーター(NAVI・ORBIT のどちらにも地図がある)を出しているときだけ作る。
+  const mapHost = showFuel ? null : meterDesignInfo(settings.meterDesign).id;
 
-  // 燃費画面や別の形へ移ると地図の器が外れるので、次に戻ったとき作り直す。
+  // 燃費画面や別の形へ移ると、地図の器が外れる(または別の器になる)ので作り直す。
   useEffect(() => {
-    if (mapGaugeShown) return;
     greenGmapRef.current = null;
     setGreenMapReady(false);
-  }, [mapGaugeShown]);
+  }, [mapHost]);
 
   useEffect(() => {
-    if (!mapGaugeShown || !mapsApiKey || !greenMapElementRef.current) return;
+    if (!mapHost || !mapsApiKey || !greenMapElementRef.current) return;
     let cancelled = false;
     const focusPoint = location
       ? { lat: location.lat, lng: location.lng }
@@ -981,7 +979,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [mapGaugeShown, location, mapsApiKey]);
+  }, [mapHost, location, mapsApiKey]);
 
 
   const hour = new Date().getHours();
@@ -1529,17 +1527,11 @@ export default function Home() {
       </button>
     </div>
   );
-  // 地図の無い形のメーターに渡す値。
+  // ORBIT NAVI の輪と文字に渡す値(北の印は地図と同じ角度で回す)。
   const gaugeValues: GaugeValues = {
     speed: greenCenterSpeed,
     rpm: obdData.rpm ?? null,
-    coolant: obdData.coolant ?? null,
-    voltage: obdData.voltage ?? null,
-    fuelPercent,
-    rangeKm: fuelRangeKm,
-    tripKm: dailyTripKm,
-    clock,
-    dateLabel: `${todayMonthDay} ${WEEKDAYS_EN[todayWeekdayIndex]}`,
+    heading: greenHeading === null ? null : greenMeterHeading,
   };
   // メーターの真ん中を押すと、次の形に変える(最後の次は最初の地図つきに戻る)。
   const designIndex = METER_DESIGNS.findIndex((design) => design.id === activeDesign.id);
@@ -1883,13 +1875,22 @@ export default function Home() {
                   </div>
                 </article>
               ) : (
-                <article
-                  className={`meter-design-gauge is-${activeDesign.id}`}
-                  aria-label={activeDesign.name}
-                >
+                // 大きな丸い地図(NAVI と同じ作り方)の上に、回転計の輪を重ねる。
+                <article className="meter-design-gauge is-orbit" aria-label={activeDesign.name}>
                   {gaugeCorners}
                   {gaugeSwitch}
-                  <MeterDesignGauge design={activeDesign.id} values={gaugeValues} />
+                  <div className="orbit-map-window">
+                    <div ref={greenMapElementRef} className="green-nav-map-canvas" aria-hidden="true" />
+                    <div
+                      className={`green-map-standby${greenMapReady ? " is-ready" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <i className="green-map-standby-sweep" />
+                      <b>ACQUIRING MAP</b>
+                    </div>
+                    <div className="orbit-map-shade" aria-hidden="true" />
+                  </div>
+                  <MeterDesignGauge design="orbit" values={gaugeValues} liveMap />
                 </article>
               )}
 

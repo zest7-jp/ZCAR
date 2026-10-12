@@ -19,17 +19,12 @@ export type MeterTheme =
   | "silver";
 
 /**
- * 真ん中のメーターの形。navi は地図の入った今の形。ほかは色とは別に選べる。
- * 中身(名前や説明)は下の METER_DESIGNS、絵は app/meter-designs.tsx。
+ * 真ん中のメーターの形。色とは別に選べる。
+ * navi は地図の入った今までの形、orbit は大きな地図のまわりに細かい目盛りの回転計。
+ * 中身(名前や説明)は下の METER_DESIGNS、ORBIT の絵は app/meter-designs.tsx。
+ * (前に足した ARC・SPORT などの形はやめた。保存されていたら navi に戻す)
  */
-export type MeterDesign =
-  | "navi"
-  | "arc"
-  | "frame"
-  | "halo"
-  | "sport"
-  | "analog"
-  | "tacho";
+export type MeterDesign = "navi" | "orbit";
 
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
@@ -645,8 +640,6 @@ const isMeterTheme = (value: unknown): value is MeterTheme =>
 export type MeterDesignInfo = {
   id: MeterDesign;
   name: string;
-  /** スマホの小さな一覧に出す短い名前。 */
-  short: string;
   /** スマホの形選びに出す説明。 */
   caption: string;
   /** 車の形選びに出す説明(英語)。 */
@@ -655,13 +648,8 @@ export type MeterDesignInfo = {
 
 /** 形選びに並べる順。最初は地図の入った今の形。 */
 export const METER_DESIGNS: MeterDesignInfo[] = [
-  { id: "navi", name: "NAVI GAUGE", short: "NAVI", caption: "地図つき(今の形)", captionEn: "MAP + TACHOMETER" },
-  { id: "arc", name: "ARC GAUGE", short: "ARC", caption: "光る弧と大きな数字", captionEn: "GLOWING ARC" },
-  { id: "frame", name: "HUD FRAME", short: "FRAME", caption: "四角い枠のHUD", captionEn: "SQUARE HUD PANEL" },
-  { id: "halo", name: "HALO RING", short: "HALO", caption: "光の輪", captionEn: "LAYERED RINGS" },
-  { id: "sport", name: "SPORT DIAL", short: "SPORT", caption: "半円と警告ランプ", captionEn: "HALF DIAL + LAMPS" },
-  { id: "analog", name: "ANALOG NEEDLE", short: "NEEDLE", caption: "針のメーター", captionEn: "CLASSIC NEEDLE" },
-  { id: "tacho", name: "TACHO RING", short: "TACHO", caption: "回転計の目盛り", captionEn: "DENSE TACHO TICKS" },
+  { id: "navi", name: "NAVI GAUGE", caption: "地図つき(今までの形)", captionEn: "MAP + TACHOMETER" },
+  { id: "orbit", name: "ORBIT NAVI", caption: "大きな地図と回転計", captionEn: "MAP + DENSE TACHO" },
 ];
 
 /** 形の説明を引く。知らない名前なら今の形(NAVI)。 */
