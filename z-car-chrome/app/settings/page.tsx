@@ -828,14 +828,15 @@ export default function PhoneSettingsPage() {
                   <i className={designThumbClass} aria-hidden="true">
                     <MeterDesignGauge design={design.id} values={SAMPLE_GAUGE_VALUES} />
                   </i>
-                  <b>{design.short}</b>
+                  <b>{design.name}</b>
+                  <small>{design.caption}</small>
                   <em>{active ? "ACTIVE" : "SELECT"}</em>
                 </button>
               );
             })}
           </div>
           <p className="zr-note">
-            押すと車のメーターも変わります。形は、車のメーターの真ん中を押しても順番に変わります。
+            押すと車のメーターも変わります。形は、車のメーターの真ん中を押しても切り替わります。
           </p>
         </section>
       ) : null}
