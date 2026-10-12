@@ -915,18 +915,19 @@ export default function Home() {
   }, [weatherLocationKey]);
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
-  // 地図は、地図の入った形(NAVI)のメーターを出しているときだけ作る。
-  const mapGaugeShown = !showFuel && meterDesignInfo(settings.meterDesign).id === "navi";
+  // 地図は、地図の入った形(NAVI・ORBIT)のメーターを出しているときだけ作る。
+  const mapDesign = meterDesignInfo(settings.meterDesign).id;
+  const mapHost =
+    !showFuel && (mapDesign === "navi" || mapDesign === "orbit") ? mapDesign : null;
 
-  // 燃費画面や別の形へ移ると地図の器が外れるので、次に戻ったとき作り直す。
+  // 燃費画面や別の形へ移ると、地図の器が外れる(または別の器になる)ので作り直す。
   useEffect(() => {
-    if (mapGaugeShown) return;
     greenGmapRef.current = null;
     setGreenMapReady(false);
-  }, [mapGaugeShown]);
+  }, [mapHost]);
 
   useEffect(() => {
-    if (!mapGaugeShown || !mapsApiKey || !greenMapElementRef.current) return;
+    if (!mapHost || !mapsApiKey || !greenMapElementRef.current) return;
     let cancelled = false;
     const focusPoint = location
       ? { lat: location.lat, lng: location.lng }
@@ -981,7 +982,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [mapGaugeShown, location, mapsApiKey]);
+  }, [mapHost, location, mapsApiKey]);
 
 
   const hour = new Date().getHours();
@@ -1540,6 +1541,7 @@ export default function Home() {
     tripKm: dailyTripKm,
     clock,
     dateLabel: `${todayMonthDay} ${WEEKDAYS_EN[todayWeekdayIndex]}`,
+    heading: greenHeading === null ? null : greenMeterHeading,
   };
   // メーターの真ん中を押すと、次の形に変える(最後の次は最初の地図つきに戻る)。
   const designIndex = METER_DESIGNS.findIndex((design) => design.id === activeDesign.id);
@@ -1881,6 +1883,24 @@ export default function Home() {
                     <b>{obdData.rpm ?? "—"}</b>
                     <span>rpm</span>
                   </div>
+                </article>
+              ) : activeDesign.id === "orbit" ? (
+                // 大きな丸い地図(NAVI と同じ作り方)の上に、回転計の輪を重ねる。
+                <article className="meter-design-gauge is-orbit" aria-label={activeDesign.name}>
+                  {gaugeCorners}
+                  {gaugeSwitch}
+                  <div className="orbit-map-window">
+                    <div ref={greenMapElementRef} className="green-nav-map-canvas" aria-hidden="true" />
+                    <div
+                      className={`green-map-standby${greenMapReady ? " is-ready" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <i className="green-map-standby-sweep" />
+                      <b>ACQUIRING MAP</b>
+                    </div>
+                    <div className="orbit-map-shade" aria-hidden="true" />
+                  </div>
+                  <MeterDesignGauge design="orbit" values={gaugeValues} liveMap />
                 </article>
               ) : (
                 <article

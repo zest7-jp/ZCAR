@@ -19,7 +19,8 @@ export type MeterTheme =
   | "silver";
 
 /**
- * 真ん中のメーターの形。navi は地図の入った今の形。ほかは色とは別に選べる。
+ * 真ん中のメーターの形。navi は地図の入った今の形、orbit は大きな地図のまわりに回転計。
+ * ほかは色とは別に選べる。
  * 中身(名前や説明)は下の METER_DESIGNS、絵は app/meter-designs.tsx。
  */
 export type MeterDesign =
@@ -29,7 +30,8 @@ export type MeterDesign =
   | "halo"
   | "sport"
   | "analog"
-  | "tacho";
+  | "tacho"
+  | "orbit";
 
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
@@ -662,6 +664,7 @@ export const METER_DESIGNS: MeterDesignInfo[] = [
   { id: "sport", name: "SPORT DIAL", short: "SPORT", caption: "半円と警告ランプ", captionEn: "HALF DIAL + LAMPS" },
   { id: "analog", name: "ANALOG NEEDLE", short: "NEEDLE", caption: "針のメーター", captionEn: "CLASSIC NEEDLE" },
   { id: "tacho", name: "TACHO RING", short: "TACHO", caption: "回転計の目盛り", captionEn: "DENSE TACHO TICKS" },
+  { id: "orbit", name: "ORBIT NAVI", short: "ORBIT", caption: "大きな地図と回転計", captionEn: "MAP + DENSE TACHO" },
 ];
 
 /** 形の説明を引く。知らない名前なら今の形(NAVI)。 */

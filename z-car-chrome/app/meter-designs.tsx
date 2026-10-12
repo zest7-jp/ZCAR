@@ -29,6 +29,8 @@ export type GaugeValues = {
   clock: string;
   /** 今日の日付(例: 10/11 SUN)。 */
   dateLabel: string;
+  /** 進んでいる向き(北が0、時計回りの度)。分からなければ null。地図はこの分だけ逆に回る。 */
+  heading: number | null;
 };
 
 /** 形選びの見本に出す値。 */
@@ -42,6 +44,7 @@ export const SAMPLE_GAUGE_VALUES: GaugeValues = {
   tripKm: 12.4,
   clock: "13:21",
   dateLabel: "10/11 SUN",
+  heading: 0,
 };
 
 const SPEED_MAX = 160;
@@ -728,6 +731,125 @@ function TachoDesign({ v }: { v: GaugeValues }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* ORBIT NAVI: 大きな丸い地図のまわりに、細かい目盛りの回転計。          */
+/* 地図そのものは page.tsx が下に敷く(NAVI と同じ作り方)。ここは輪と文字。 */
+/* ------------------------------------------------------------------ */
+/** 中心(200,200)の、内側 r1・外側 r2 の輪(内側は抜ける。fill-rule は evenodd)。 */
+const annulus = (r1: number, r2: number) =>
+  `M ${200 - r2} 200 a ${r2} ${r2} 0 1 0 ${2 * r2} 0 a ${r2} ${r2} 0 1 0 ${-2 * r2} 0 Z ` +
+  `M ${200 - r1} 200 a ${r1} ${r1} 0 1 0 ${2 * r1} 0 a ${r1} ${r1} 0 1 0 ${-2 * r1} 0 Z`;
+
+function OrbitDesign({ v, liveMap }: { v: GaugeValues; liveMap: boolean }) {
+  const id = useSvgId();
+  const START = -135;
+  const END = 135;
+  const rpm = ratio(v.rpm, RPM_MAX);
+  const angle = START + (END - START) * rpm;
+  const redFrom = START + (END - START) * (RPM_RED / RPM_MAX);
+  const SEGMENTS = 45;
+  const step = (END - START) / SEGMENTS;
+  const lit = Math.round(rpm * SEGMENTS);
+  const heading = v.heading ?? 0;
+  return (
+    <svg
+      viewBox="0 0 400 400"
+      className="dg dg-orbit"
+      role="img"
+      aria-label={`速度 ${show(v.speed)} km/h、回転数 ${show(v.rpm)} rpm`}
+    >
+      <defs>
+        <radialGradient id={`${id}p`} cx=".5" cy=".5" r=".5">
+          <stop offset="0" className="dg-stop-pod" />
+          <stop offset=".7" className="dg-stop-pod-mid" />
+          <stop offset="1" className="dg-stop-pod-end" />
+        </radialGradient>
+      </defs>
+      {/* 地図の外側の暗い面(地図の窓は抜けている)。見本では地図の代わりに道を描く。 */}
+      <path d={annulus(150, 199)} className="dg-orbit-face" fillRule="evenodd" />
+      {!liveMap ? (
+        <g>
+          <circle cx="200" cy="200" r="150" className="dg-map" />
+          <path
+            d="M 60 232 L 340 168 M 150 52 L 236 348 M 78 118 L 322 298 M 252 58 L 118 342"
+            className="dg-map-road"
+          />
+        </g>
+      ) : null}
+      <circle cx="200" cy="200" r="198" className="dg-bezel" />
+      <path d={arcPath(200, 200, 198, -48, 48)} className="dg-bezel-light" />
+      {/* 細かい目盛り(今の回転数までが光る。6500回転から上は差し色) */}
+      {Array.from({ length: 121 }, (_, index) => {
+        const deg = START + index * 2.25;
+        const major = index % 15 === 0;
+        const on = rpm > 0 && deg <= angle + 0.01;
+        return (
+          <Tick
+            key={index}
+            cx={200}
+            cy={200}
+            r1={major ? 170 : 180}
+            r2={194}
+            deg={deg}
+            className={`dg-tick${major ? " is-major" : ""}${on ? " is-lit" : ""}${deg >= redFrom - 0.01 ? " is-red" : ""}`}
+          />
+        );
+      })}
+      {Array.from({ length: 9 }, (_, index) => {
+        const [x, y] = at(200, 200, 160, START + ((END - START) * index) / 8);
+        return (
+          <text key={index} x={n2(x)} y={n2(y + 5)} className={index >= 7 ? "dg-scale is-red" : "dg-scale"} textAnchor="middle">
+            {index}
+          </text>
+        );
+      })}
+      {/* 地図の窓のふちと、その内側の区切った回転数の輪(地図が少し透ける暗い帯の上) */}
+      <circle cx="200" cy="200" r="150" className="dg-orbit-rim-glow" />
+      <circle cx="200" cy="200" r="150" className="dg-orbit-rim" />
+      <path d={annulus(126, 149)} className="dg-orbit-band" fillRule="evenodd" />
+      <ellipse cx="200" cy="296" rx="96" ry="52" style={{ fill: `url(#${id}p)` }} />
+      <path
+        d={arcPath(200, 200, 137, START, END)}
+        pathLength={100}
+        strokeDasharray={`${n2(lit * (100 / SEGMENTS))} 100`}
+        className="dg-seg-glow is-thin"
+      />
+      {Array.from({ length: SEGMENTS }, (_, index) => {
+        const from = START + step * index + 0.8;
+        const to = START + step * (index + 1) - 0.8;
+        const on = index < lit;
+        const zone =
+          index >= SEGMENTS * (RPM_RED / RPM_MAX) ? " is-red" : index >= SEGMENTS * 0.55 ? " is-hot" : "";
+        return (
+          <path
+            key={index}
+            d={bandPath(200, 200, 130, 145, from, to)}
+            className={`dg-seg${on ? " is-lit" : ""}${on ? zone : ""}${on && index === lit - 1 ? " is-head" : ""}`}
+          />
+        );
+      })}
+      {/* 北の印(地図と同じだけ回る) */}
+      <g className="dg-orbit-north" style={{ transform: `rotate(${n2(-heading)}deg)` }}>
+        <circle cx="200" cy="84" r="9" className="dg-orbit-north-dot" />
+        <text x="200" y="88" className="dg-orbit-north-text" textAnchor="middle">
+          N
+        </text>
+      </g>
+      {/* 自分の車(地図の真ん中。地図は進む向きが上) */}
+      <circle cx="200" cy="200" r="16" className="dg-tip-halo" />
+      <path d="M 200 185 L 211 211 L 200 204.5 L 189 211 Z" className="dg-orbit-car" />
+      {/* 下に大きな速度 */}
+      <BigSpeed x={200} y={312} size={60} value={v.speed} />
+      <text x="200" y="334" className="dg-unit" textAnchor="middle">
+        km/h
+      </text>
+      <text x="200" y="376" className="dg-foot is-strong" textAnchor="middle">
+        {show(v.rpm)} RPM
+      </text>
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* NAVI GAUGE(今の形)の見本。本物は page.tsx で地図と一緒に描く。      */
 /* ------------------------------------------------------------------ */
 function NaviPreview() {
@@ -755,8 +877,19 @@ function NaviPreview() {
   );
 }
 
-/** 形の絵。navi は見本(本物の地図つきメーターは page.tsx)。 */
-export function MeterDesignGauge({ design, values }: { design: MeterDesign; values: GaugeValues }) {
+/**
+ * 形の絵。navi は見本(本物の地図つきメーターは page.tsx)。
+ * orbit は liveMap のとき地図の所を空け、下に敷いた本物の地図を見せる。
+ */
+export function MeterDesignGauge({
+  design,
+  values,
+  liveMap = false,
+}: {
+  design: MeterDesign;
+  values: GaugeValues;
+  liveMap?: boolean;
+}) {
   switch (design) {
     case "arc":
       return <ArcDesign v={values} />;
@@ -770,6 +903,8 @@ export function MeterDesignGauge({ design, values }: { design: MeterDesign; valu
       return <AnalogDesign v={values} />;
     case "tacho":
       return <TachoDesign v={values} />;
+    case "orbit":
+      return <OrbitDesign v={values} liveMap={liveMap} />;
     default:
       return <NaviPreview />;
   }

@@ -8392,3 +8392,52 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .dg .dg-rpm-value,
   .dg .dg-needle { transition: none; }
 }
+
+/* ORBIT NAVI: 大きな丸い地図(HTML)の上に、回転計の輪(SVG)を重ねる */
+.orbit-map-window {
+  position: absolute;
+  inset: 12.5%;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #000301;
+  isolation: isolate;
+}
+.orbit-map-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 0 62%, rgba(0, 4, 1, .35) 82%, rgba(0, 2, 1, .7) 100%);
+  pointer-events: none;
+}
+.dg .dg-orbit-face { fill: #020804; }
+.dg .dg-orbit-rim { fill: none; stroke: var(--dg-hi); stroke-width: 2.4; }
+.dg .dg-orbit-rim-glow { fill: none; stroke: var(--dg-hi); stroke-width: 12; opacity: .16; }
+.dg .dg-orbit-band { fill: rgba(1, 6, 3, .62); }
+.dg .dg-seg-glow.is-thin { stroke-width: 26; }
+.dg .dg-stop-pod { stop-color: rgba(1, 6, 3, .9); }
+.dg .dg-stop-pod-mid { stop-color: rgba(1, 6, 3, .62); }
+.dg .dg-stop-pod-end { stop-color: rgba(1, 6, 3, 0); }
+.dg .dg-orbit-north {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+  transition: transform .9s cubic-bezier(.2, .68, .22, 1);
+}
+.dg .dg-orbit-north-dot { fill: rgba(2, 10, 4, .9); stroke: var(--dg-hi); stroke-width: 1.4; }
+.dg .dg-orbit-north-text { font-size: 10px; font-weight: 900; fill: var(--dg-ink); }
+.dg .dg-orbit-car {
+  fill: var(--dg-ink);
+  stroke: var(--dg-hi);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgba(98, 255, 120, .9));
+}
+.dg-orbit .dg-tick { opacity: .4; }
+.dg-orbit .dg-tick.is-major { opacity: .75; }
+.dg-orbit .dg-tick.is-lit { stroke: var(--dg-hi); opacity: 1; }
+.dg-orbit .dg-tick.is-major.is-lit { stroke: var(--dg-ink); }
+.dg-orbit .dg-tick.is-red { stroke: var(--dg-alt); }
+@media (prefers-reduced-motion: reduce) {
+  .dg .dg-orbit-north { transition: none; }
+}
