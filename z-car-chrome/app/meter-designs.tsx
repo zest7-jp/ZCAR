@@ -7,7 +7,7 @@
 // 計器全体に filter がかかっているので、8色のどれを選んでもその色になる。
 // 下の二隅(平均巡行速度・平均燃費)の文字が重ならないよう、絵は二隅を空けてある。
 
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import type { MeterDesign } from "./settings-store";
 
 /** 形の絵に渡す値。取れていない値は null。 */
@@ -415,10 +415,25 @@ function SportDesign({ v }: { v: GaugeValues }) {
   const id = useSvgId();
   const START = -120;
   const END = 120;
-  const speed = ratio(v.speed, SPEED_MAX);
+  // 出てきたときに、本物の車のように目盛りをいちばん上まで振り切ってから戻す。
+  // 0: 始め(0) → 1: 振り切り(いちばん上) → 2: 本当の値。
+  const [sweep, setSweep] = useState<0 | 1 | 2>(0);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setSweep(1));
+    const timer = window.setTimeout(() => setSweep(2), 800);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, []);
+  const realSpeed = ratio(v.speed, SPEED_MAX);
+  const realRpm = ratio(v.rpm, RPM_MAX);
+  const speed = sweep === 0 ? 0 : sweep === 1 ? 1 : realSpeed;
+  const rpm = sweep === 0 ? 0 : sweep === 1 ? 1 : realRpm;
   const angle = START + (END - START) * speed;
   const track = arcPath(200, 200, 176, START, END);
-  const [dotX, dotY] = at(200, 200, 176, angle);
+  const rpmTrack = arcPath(200, 200, 108, START, END);
+  const redFrom = START + (END - START) * (140 / SPEED_MAX);
   const lamps = [
     {
       key: "temp",
@@ -452,15 +467,27 @@ function SportDesign({ v }: { v: GaugeValues }) {
           <stop offset="1" className="dg-stop-none" />
         </radialGradient>
       </defs>
-      <circle cx="200" cy="200" r="196" style={{ fill: `url(#${id}g)` }} />
+      {/* 背景の光は、速いほど強くする。 */}
+      <circle
+        cx="200"
+        cy="200"
+        r="196"
+        className="dg-sport-glow"
+        style={{ fill: `url(#${id}g)`, opacity: n2(0.55 + 0.45 * speed) }}
+      />
+      {/* 外枠: 細い輪と、上の方だけ光る縁 */}
+      <circle cx="200" cy="200" r="198" className="dg-bezel" />
+      <path d={arcPath(200, 200, 198, -48, 48)} className="dg-bezel-light" />
       <path d={arcPath(200, 200, 190, START, END)} className="dg-ring-dashed" />
-      <path d={arcPath(200, 200, 190, START + (END - START) * (140 / SPEED_MAX), END)} className="dg-redline" />
+      <path d={arcPath(200, 200, 190, redFrom, END)} className="dg-redline" />
       <path d={track} className="dg-track" strokeWidth={9} />
       <GlowArc d={track} percent={speed * 100} width={9} stroke={`url(#${id}v)`} />
+      {/* 目盛りは、今の速度までが光る。140 から上は差し色。 */}
       {Array.from({ length: 33 }, (_, index) => {
         const deg = START + ((END - START) * index) / 32;
         const major = index % 4 === 0;
         const middle = index % 2 === 0;
+        const lit = speed > 0 && deg <= angle + 0.01;
         return (
           <Tick
             key={index}
@@ -469,20 +496,53 @@ function SportDesign({ v }: { v: GaugeValues }) {
             r1={major ? 150 : middle ? 156 : 160}
             r2={165}
             deg={deg}
-            className={major ? "dg-tick is-major" : "dg-tick"}
+            className={`dg-tick${major ? " is-major" : ""}${lit ? " is-lit" : ""}${deg >= redFrom - 0.01 ? " is-red" : ""}`}
           />
         );
       })}
       {Array.from({ length: 9 }, (_, index) => {
         const [x, y] = at(200, 200, 131, START + ((END - START) * index) / 8);
+        const value = index * 20;
+        const lit = value <= speed * SPEED_MAX + 0.01;
         return (
-          <text key={index} x={n2(x)} y={n2(y + 6)} className="dg-scale" textAnchor="middle">
-            {index * 20}
+          <text
+            key={index}
+            x={n2(x)}
+            y={n2(y + 6)}
+            className={`dg-scale${value >= 140 ? " is-red" : ""}${lit ? "" : " is-dim"}`}
+            textAnchor="middle"
+          >
+            {value}
           </text>
         );
       })}
-      <circle cx={n2(dotX)} cy={n2(dotY)} r="16" className="dg-tip-halo" />
-      <circle cx={n2(dotX)} cy={n2(dotY)} r="7.5" className="dg-tip" />
+      {/* 内側の細い弧は回転数(6500回転から上は差し色)。 */}
+      <path d={rpmTrack} className="dg-rpm-track" />
+      <path d={arcPath(200, 200, 108, START + (END - START) * (RPM_RED / RPM_MAX), END)} className="dg-rpm-red" />
+      {Array.from({ length: 9 }, (_, index) => (
+        <Tick
+          key={index}
+          cx={200}
+          cy={200}
+          r1={113}
+          r2={118}
+          deg={START + ((END - START) * index) / 8}
+          className="dg-rpm-tick"
+        />
+      ))}
+      <path
+        d={rpmTrack}
+        pathLength={100}
+        strokeDasharray={`${n2(rpm * 100)} 100`}
+        className={`dg-rpm-value${rpm < 0.004 ? " is-empty" : ""}${realRpm >= RPM_RED / RPM_MAX && sweep === 2 ? " is-high" : ""}`}
+      />
+      {/* 弧の上を動く指針(円の中心で回すので、弧と同じ速さで動く)。 */}
+      <g className="dg-sport-pointer" style={{ transform: `rotate(${n2(angle)}deg)` }}>
+        <line x1="200" y1="10" x2="200" y2="52" className="dg-needle-glow" />
+        <line x1="200" y1="12" x2="200" y2="50" className="dg-needle-line" />
+        <circle cx="200" cy="24" r="16" className="dg-tip-halo" />
+        <circle cx="200" cy="24" r="7.5" className="dg-tip" />
+      </g>
       <BigSpeed x={200} y={226} size={86} value={v.speed} />
       <text x="200" y="254" className="dg-unit" textAnchor="middle">km/h</text>
       {lamps.map((lamp, index) => (

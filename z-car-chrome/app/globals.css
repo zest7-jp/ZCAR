@@ -8356,3 +8356,39 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-design { padding: 6px 4px 7px; }
   .zr-design .dg-thumb { width: min(100%, 54px); }
 }
+
+/* SPORT DIAL の作り込み: 外枠の光、速度で光る目盛り、弧の上を動く指針、内側の回転数の弧 */
+.dg .dg-bezel { fill: none; stroke: var(--dg-mid); stroke-width: 1; opacity: .3; }
+.dg .dg-bezel-light { fill: none; stroke: var(--dg-ink); stroke-width: 1.6; stroke-linecap: round; opacity: .5; }
+.dg .dg-sport-glow { transition: opacity .45s ease-out; }
+.dg .dg-sport-pointer {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+  transition: transform .45s ease-out;
+}
+.dg-sport .dg-tick { opacity: .35; }
+.dg-sport .dg-tick.is-major { opacity: .6; }
+.dg-sport .dg-tick.is-lit { stroke: var(--dg-hi); opacity: 1; }
+.dg-sport .dg-tick.is-major.is-lit { stroke: var(--dg-ink); }
+.dg-sport .dg-tick.is-red { stroke: var(--dg-alt); }
+.dg .dg-scale.is-dim { opacity: .5; }
+.dg .dg-rpm-track { fill: none; stroke: var(--dg-dim); stroke-width: 3; stroke-linecap: round; opacity: .9; }
+.dg .dg-rpm-red { fill: none; stroke: var(--dg-alt); stroke-width: 3; opacity: .35; }
+.dg .dg-rpm-tick { stroke: var(--dg-label); stroke-width: 1.2; opacity: .55; }
+.dg .dg-rpm-value {
+  fill: none;
+  stroke: var(--dg-hi);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px rgba(98, 255, 120, .8));
+  transition: stroke-dasharray .45s ease-out;
+}
+.dg .dg-rpm-value.is-high { stroke: var(--dg-alt); }
+.dg .dg-rpm-value.is-empty { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .dg .dg-glow-arc path,
+  .dg .dg-sport-pointer,
+  .dg .dg-sport-glow,
+  .dg .dg-rpm-value,
+  .dg .dg-needle { transition: none; }
+}
