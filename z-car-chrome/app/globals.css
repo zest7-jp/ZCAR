@@ -8334,14 +8334,40 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
     var(--zr-panel);
   box-shadow: inset 3px 0 var(--zr-accent);
 }
+/* 地図のまわりの照準の枠(四隅のかぎ)。地図の外側のすき間に描く。
+   光らせる filter は枠だけに付ける(地図にかかると動きが重くなるため)。 */
+.zr-park-scope {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 220px;
+  margin: 2px -5px 10px;
+  padding: 5px;
+}
+.zr-park-scope::before {
+  --zr-bracket: rgba(var(--zr-accent-rgb), .95);
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left top / 22px 2px,
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left top / 2px 22px,
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right top / 22px 2px,
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right top / 2px 22px,
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left bottom / 22px 2px,
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left bottom / 2px 22px,
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right bottom / 22px 2px,
+    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right bottom / 2px 22px;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 5px rgba(var(--zr-accent-rgb), .45));
+  pointer-events: none;
+}
 .zr-park-map {
   position: relative;
   flex: 1 1 auto;
-  min-height: 220px;
-  margin: 2px 0 10px;
   overflow: hidden;
-  border: 1px solid rgba(var(--zr-accent-rgb), .22);
-  border-radius: 14px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .28);
+  border-radius: 12px;
   background:
     radial-gradient(circle at 50% 50%, rgba(var(--zr-accent-rgb), .1), transparent 62%),
     linear-gradient(rgba(var(--zr-accent-rgb), .06) 1px, transparent 1px) 0 0 / 22px 22px,
@@ -8350,6 +8376,38 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   isolation: isolate;
 }
 .zr-park-canvas { position: absolute; inset: 0; }
+/* ふちを少し暗くして、地図をカードになじませる。 */
+.zr-park-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(var(--zr-accent-rgb), .08);
+  pointer-events: none;
+}
+/* 左上の座標(北緯・東経)。 */
+.zr-park-coords {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--zr-accent);
+  border-radius: 0 8px 8px 0;
+  background: rgba(3, 8, 7, .74);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--zr-accent-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  pointer-events: none;
+}
 .zr-park-standby {
   position: absolute;
   inset: 0;
@@ -8427,23 +8485,23 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 地図の上の車の印(地図の部品の中に置かれる)。 */
 .zr-park-pin {
   position: absolute;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-.zr-park-pin svg {
-  position: relative;
+.zr-park-pin-core {
+  position: absolute;
+  inset: 0;
   z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 7px;
+  display: grid;
+  place-items: center;
   border: 2px solid var(--zr-accent-strong);
   border-radius: 50%;
   background: #03100c;
-  box-shadow: 0 0 0 3px rgba(var(--zr-accent-rgb), .3), 0 0 18px rgba(var(--zr-accent-rgb), .9);
+  box-shadow: 0 0 0 3px rgba(var(--zr-accent-rgb), .28), 0 0 18px rgba(var(--zr-accent-rgb), .85);
 }
+.zr-park-pin-core svg { display: block; width: 22px; height: 22px; }
 .zr-park-pin-body { fill: var(--zr-accent-strong); }
 .zr-park-pin-cut { fill: #03100c; }
 .zr-park-pin-ring {
@@ -8452,6 +8510,17 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   border: 2px solid var(--zr-accent);
   border-radius: 50%;
   animation: zr-park-pulse 2.4s ease-out infinite;
+}
+/* 照準のように、ゆっくり回る点線の輪。 */
+.zr-park-pin-lock {
+  position: absolute;
+  inset: -15px;
+  border: 1.5px dashed rgba(var(--zr-accent-rgb), .8);
+  border-radius: 50%;
+  animation: zr-park-spin 16s linear infinite;
+}
+@keyframes zr-park-spin {
+  to { transform: rotate(360deg); }
 }
 @keyframes zr-park-pulse {
   from { opacity: .85; transform: scale(1); }
@@ -8489,16 +8558,59 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   50% { opacity: .25; }
 }
 
-.zr-park-facts { margin-top: auto; }
-.zr-park-facts dd span { white-space: nowrap; }
+.zr-park-facts {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 9px;
+  border-top: 1px solid var(--zr-edge);
+}
+.zr-park-elapsed { display: grid; gap: 4px; min-width: 0; margin: 0; }
+.zr-park-elapsed small { color: var(--zr-muted); font-size: 11px; font-weight: 700; }
+.zr-park-elapsed strong {
+  display: flex;
+  align-items: baseline;
+  color: #fffaf4;
+  font-size: clamp(36px, 5.2dvh, 50px);
+  font-weight: 900;
+  line-height: .95;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  transform: skewX(-6deg);
+  transform-origin: left bottom;
+  text-shadow: 0 0 20px rgba(var(--zr-accent-rgb), .4);
+}
+.zr-park-elapsed em {
+  margin: 0 7px 0 3px;
+  color: var(--zr-accent);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.zr-park-elapsed span:last-child em { margin-right: 0; }
+.zr-park-facts dl { display: grid; gap: 7px; min-width: 0; margin: 0; }
+.zr-park-facts dl div { display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; }
+.zr-park-facts dt { color: var(--zr-muted); font-size: 10px; font-weight: 700; }
+.zr-park-facts dd {
+  margin: 0;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(14px, 1.9dvh, 17px);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.zr-park-facts dd em,
 .zr-park-facts dd small {
-  display: block;
-  margin-top: 2px;
+  margin-left: 3px;
   color: var(--zr-muted);
   font-family: inherit;
   font-size: 10px;
+  font-style: normal;
   font-weight: 700;
 }
+.zr-park-facts dd small { margin-left: 6px; font-family: system-ui, sans-serif; }
 
 /* 地図アプリで道案内(歩き)。 */
 .zr-park-go {
@@ -8511,14 +8623,17 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 0 10px;
   text-align: center;
   text-decoration: none;
   white-space: nowrap;
 }
+.zr-park-go svg { flex: 0 0 auto; width: 18px; height: 18px; fill: currentColor; }
 .zr.is-tinted .zr-park-go a.zr-primary { color: var(--zt-on-accent); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
+  .zr-park-pin-lock,
   .zr-park-state.is-driving i { animation: none; }
   .zr-park-pin-ring { opacity: 0; }
 }
@@ -8541,7 +8656,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-design { padding: 6px 4px 7px; }
   .zr-design .dg-thumb { width: min(100%, 76px); }
   .zr-park-card { padding: 11px 12px 9px; }
-  .zr-park-map { min-height: 180px; margin-bottom: 8px; }
+  .zr-park-scope { min-height: 184px; margin-bottom: 8px; }
   .zr-park-go a { min-height: 46px; }
 }
 
