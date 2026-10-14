@@ -7045,7 +7045,17 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .zr-brand { display: grid; gap: 4px; }
-/* 見出しの右: 読み込み直すボタン(印だけ)。ホーム画面のアプリには更新ボタンが無いため。 */
+/* 見出しの右: 今の版の時刻と、読み込み直すボタン(印だけ)。
+   ホーム画面のアプリには更新ボタンが無いため。 */
+.zr-reload-box { display: flex; align-items: center; gap: 10px; }
+.zr-reload-box small {
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
 .zr-reload {
   display: grid;
   place-items: center;

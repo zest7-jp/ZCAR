@@ -44,7 +44,7 @@ const SYNC_POLL_MS = 30000;
  */
 const RELOAD_AFTER_HIDDEN_MS = 10 * 60_000;
 
-/** いま動いている版の時刻(10/14 13:30)。更新ボタンの読み上げ名に入れる。 */
+/** いま動いている版の時刻(10/14 13:30)。更新ボタンの左に小さく出す。 */
 const BUILD_STAMP = (() => {
   const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
   if (!iso) return null;
@@ -514,18 +514,23 @@ export default function PhoneSettingsPage() {
           <b>Z CAR</b>
           <small>TANTO · REMOTE</small>
         </div>
-        {/* ホーム画面のアプリにはブラウザの更新ボタンが無いので、ここに置く(印だけ)。 */}
-        <button
-          type="button"
-          className="zr-reload"
-          onClick={() => window.location.reload()}
-          aria-label={`更新(読み込み直す。新しい版があれば入れ替わる)${BUILD_STAMP ? `・今の版 ${BUILD_STAMP}` : ""}`}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
-            <path d="M19.5 3.6v4.6h-4.6" />
-          </svg>
-        </button>
+        {/* ホーム画面のアプリにはブラウザの更新ボタンが無いので、ここに置く(印だけ)。
+            左に小さく今の版の時刻を出す(公開した版に入れ替わったかが分かる)。
+            見出しの高さを変えないよう、時刻はボタンの横に並べる。 */}
+        <div className="zr-reload-box">
+          {BUILD_STAMP ? <small aria-hidden="true">{BUILD_STAMP}</small> : null}
+          <button
+            type="button"
+            className="zr-reload"
+            onClick={() => window.location.reload()}
+            aria-label={`更新(読み込み直す。新しい版があれば入れ替わる)${BUILD_STAMP ? `・今の版 ${BUILD_STAMP}` : ""}`}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+              <path d="M19.5 3.6v4.6h-4.6" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {syncTrouble ? (
