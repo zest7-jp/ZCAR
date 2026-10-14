@@ -7355,6 +7355,54 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   line-height: 1.6;
 }
 .zr-note b { color: var(--zr-accent-strong); }
+/* 説明の文の中のボタン(Google マップから直接送る)。 */
+.zr-inline-link {
+  display: inline;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--zr-accent-strong);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--zr-accent-rgb), .5);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ショートカットの作り方(下から出るシートの中)。 */
+.zr-share-lead { margin: 14px 2px 12px; }
+.zr-share-copy { margin: 0 0 14px; }
+.zr-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0 2px 14px;
+  padding: 0;
+  list-style: none;
+}
+.zr-steps li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+  color: var(--zr-ink);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.zr-steps em {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .45);
+  border-radius: 50%;
+  color: var(--zr-accent);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
 
 /* --- 入力欄 --- */
 .zr-form {
@@ -7656,8 +7704,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-add i::after { transform: translate(-50%, -50%) rotate(90deg); }
 .zr-add i,
 .zr-add svg { grid-row: 1 / span 2; }
-.zr-add b { font-size: 12px; font-weight: 900; letter-spacing: .14em; white-space: nowrap; }
-.zr-add small { color: var(--zr-muted); font-size: 10px; white-space: nowrap; }
+.zr-add b { font-size: 12px; font-weight: 900; letter-spacing: .14em; line-height: 1.2; white-space: nowrap; }
+.zr-add small { color: var(--zr-muted); font-size: 10px; line-height: 1.2; white-space: nowrap; }
 .zr-add.is-paste svg {
   width: 22px;
   height: 22px;

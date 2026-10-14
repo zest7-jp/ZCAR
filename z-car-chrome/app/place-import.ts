@@ -5,6 +5,10 @@
 import { MAX_DESTINATION_LABEL, MAX_DESTINATION_TEXT } from "./settings-store";
 
 export const PLACE_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/place.php`;
+export const SHARE_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/share.php`;
+
+/** 名前も住所も無い場所(地図に落としたピン)の名前。サーバーの place-lib.php と同じ。 */
+const PIN_LABEL = "地図の場所";
 
 /** 目的地の欄に入れる内容。 */
 export type PlaceDraft = { label: string; destination: string };
@@ -26,7 +30,7 @@ const toDraft = ({ name, address, lat, lng }: ReadPlace): PlaceDraft | null => {
   const destination = name && address ? `${name} ${address}` : address || coords || name;
   if (!destination) return null;
   return {
-    label: clip(name || address, MAX_DESTINATION_LABEL),
+    label: clip(name || address || PIN_LABEL, MAX_DESTINATION_LABEL),
     destination: clip(destination, MAX_DESTINATION_TEXT),
   };
 };
@@ -89,3 +93,28 @@ export const readCopiedPlace = async (key: string, copied: string): Promise<Plac
     }),
   );
 };
+
+/**
+ * iPhone の「ショートカット」から目的地を送るための、専用の鍵を作る(目的地を足すことしかできない)。
+ * 作り直すと、前の鍵(前に作ったショートカット)は使えなくなる。作れなければ null。
+ */
+export const issueShareToken = async (key: string): Promise<string | null> => {
+  try {
+    const response = await fetch(SHARE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, issue: true }),
+      cache: "no-store",
+    });
+    const result = (await response.json()) as { ok?: boolean; token?: unknown };
+    return result.ok === true && typeof result.token === "string" && /^[0-9a-f]{32}$/.test(result.token)
+      ? result.token
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+/** ショートカットに貼る送り先(鍵入り)。画面には出さず、コピーだけする。 */
+export const shareUrlFor = (token: string) =>
+  `${window.location.origin}${SHARE_ENDPOINT}?k=${token}`;
