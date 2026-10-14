@@ -6,14 +6,18 @@
  * 場所(最後に届いた場所)を地図に出します。持っているのは最後の1件だけです。
  * 同期と同じ合言葉を知っている人だけが読み書きできます。
  *
- * 使い方 (どちらも POST・JSON):
+ * 使い方 (どれも POST・JSON):
  *   読む : {"key":"合言葉"}
  *          -> {"ok":true,"park":{...}|null,"now":1234567890000}
  *   書く : {"key":"合言葉","park":{"lat":34.6,"lng":135.5,"accuracy":12,"moving":false}}
  *          -> {"ok":true,"since":1234567890000,"at":1234567890000}
+ *   知らせ: {"key":"合言葉","alive":true}
+ *          -> {"ok":true,"heard":1234567890000|null}
  *
- * park の since はその場所に来た時刻、at は最後に位置が届いた時刻
- * (どちらもこのサーバーの時計のミリ秒)。前と同じ場所なら since を引き継ぐ。
+ * park の since はその場所に来た時刻、at は最後に位置が届いた時刻、heard は最後に
+ * 車から知らせが届いた時刻(どれもこのサーバーの時計のミリ秒)。前と同じ場所なら since を引き継ぐ。
+ * GPS が使えない間(屋根の下など)は、車は電源が入っていることだけを知らせてくる(alive)。
+ * そのときは場所は変えずに heard だけ進める。
  * 走行中は、車が送る走行の長さ(drivingMs)から、走り出した時刻(tripSince)も残す。
  *
  * 位置は合言葉から作った鍵で暗号化して保存します。合言葉はどこにも保存しないので、
@@ -89,8 +93,39 @@ function readPark(string $file, string $secret): ?array
         'moving' => ($park['moving'] ?? false) === true,
         'since' => (int) $park['since'],
         'at' => (int) $park['at'],
+        // 前の版で保存した場所には無い。そのときは位置が届いた時刻。
+        'heard' => isset($park['heard']) && is_numeric($park['heard'])
+            ? max((int) $park['heard'], (int) $park['at'])
+            : (int) $park['at'],
         'tripSince' => isset($park['tripSince']) && is_numeric($park['tripSince']) ? (int) $park['tripSince'] : null,
     ];
+}
+
+/** 場所を暗号化して保存する。書きかけのファイルを読まれないよう、別のファイルに書いてから置き換える。 */
+function writePark(string $file, string $secret, array $park): void
+{
+    $iv = random_bytes(12);
+    $tag = '';
+    $data = openssl_encrypt((string) json_encode($park), CIPHER, $secret, OPENSSL_RAW_DATA, $iv, $tag);
+    if ($data === false) {
+        fail(500, 'could not save');
+    }
+    $payload = json_encode([
+        'v' => 1,
+        'iv' => base64_encode($iv),
+        'tag' => base64_encode($tag),
+        'data' => base64_encode($data),
+    ]);
+    $temporary = $file . '.' . bin2hex(random_bytes(4)) . '.tmp';
+    if ($payload === false || @file_put_contents($temporary, $payload) === false) {
+        @unlink($temporary);
+        fail(500, 'could not save');
+    }
+    @chmod($temporary, 0600);
+    if (!@rename($temporary, $file)) {
+        @unlink($temporary);
+        fail(500, 'could not save');
+    }
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -134,6 +169,20 @@ $file = $dir . '/' . hash('sha256', $key) . '.park.json';
 // 位置を暗号化する鍵。ファイル名(合言葉のハッシュ)とは別の作り方にする。
 $secret = hash_hkdf('sha256', $key, 32, 'zcar-park-v1');
 $now = (int) round(microtime(true) * 1000);
+
+// --- 知らせ: 電源が入っていることだけ(GPS が使えないときなど)。場所は変えない ---
+if (($body['alive'] ?? false) === true && !array_key_exists('park', $body)) {
+    $previous = readPark($file, $secret);
+    if ($previous === null) {
+        // まだ場所が無ければ、残すものは無い。
+        echo json_encode(['ok' => true, 'heard' => null]);
+        exit;
+    }
+    $previous['heard'] = max($now, $previous['heard']);
+    writePark($file, $secret, $previous);
+    echo json_encode(['ok' => true, 'heard' => $previous['heard']]);
+    exit;
+}
 
 // --- 読み取り: park が無いリクエストは読むだけ ---
 if (!array_key_exists('park', $body)) {
@@ -183,31 +232,9 @@ $park = [
     'moving' => ($incoming['moving'] ?? false) === true,
     'since' => $since,
     'at' => $now,
+    'heard' => $now,
     'tripSince' => $tripSince,
 ];
-
-$iv = random_bytes(12);
-$tag = '';
-$data = openssl_encrypt((string) json_encode($park), CIPHER, $secret, OPENSSL_RAW_DATA, $iv, $tag);
-if ($data === false) {
-    fail(500, 'could not save');
-}
-$payload = json_encode([
-    'v' => 1,
-    'iv' => base64_encode($iv),
-    'tag' => base64_encode($tag),
-    'data' => base64_encode($data),
-]);
-// 書きかけのファイルを読まれないよう、別のファイルに書いてから置き換える。
-$temporary = $file . '.' . bin2hex(random_bytes(4)) . '.tmp';
-if ($payload === false || @file_put_contents($temporary, $payload) === false) {
-    @unlink($temporary);
-    fail(500, 'could not save');
-}
-@chmod($temporary, 0600);
-if (!@rename($temporary, $file)) {
-    @unlink($temporary);
-    fail(500, 'could not save');
-}
+writePark($file, $secret, $park);
 
 echo json_encode(['ok' => true, 'since' => $since, 'at' => $now]);

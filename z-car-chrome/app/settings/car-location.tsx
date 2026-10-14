@@ -8,8 +8,8 @@ import type { PlaceDraft } from "../place-import";
 /** 車両位置を読み直す間隔(画面に戻ってきたときは、すぐ読み直す)。 */
 const PARK_POLL_MS = 30_000;
 /**
- * 最後に届いてからこの時間までは、車の電源が入っているとみなす
- * (車は止まっていても2分おきに送ってくる)。過ぎたら「駐車中」。
+ * 車から最後に知らせが届いてからこの時間までは、車の電源が入っているとみなす
+ * (車は止まっていても、GPS が使えなくても、1分おきに知らせてくる)。過ぎたら「駐車中」。
  */
 const LIVE_MS = 3 * 60_000;
 /** 地図の寄り具合(駐車場の中で車を探せるくらい)。 */
@@ -349,7 +349,7 @@ export function CarLocationPanel({
   }, [loaded, offset]);
 
   const park = loaded?.park ?? null;
-  const live = park !== null && clock > 0 && clock - park.at <= LIVE_MS;
+  const live = park !== null && clock > 0 && clock - park.heard <= LIVE_MS;
   const status = !park ? null : live ? (park.moving ? "driving" : "stopped") : "parked";
 
   // 車の電源が入っている間は、iPhone の GPS で車の位置を毎秒追う。
@@ -381,12 +381,14 @@ export function CarLocationPanel({
   }, [live]);
 
   // iPhone が車の近くにあれば(車の中にいる)、iPhone の GPS を車の位置にする。
+  // 車の GPS がしばらく使えず位置が古いときも、広げるのは3分ぶんまで(遠くの iPhone を車とみなさない)。
   const phoneInCar =
     live &&
     phoneFix !== null &&
     park !== null &&
     distanceMeters(phoneFix, park) <=
-      IN_CAR_BASE_METERS + IN_CAR_METERS_PER_SECOND * Math.max(0, (clock - park.at) / 1000);
+      IN_CAR_BASE_METERS +
+        (IN_CAR_METERS_PER_SECOND * Math.min(LIVE_MS, Math.max(0, clock - park.at))) / 1000;
   const shown = phoneInCar ? phoneFix : park;
   const shownLat = shown?.lat;
   const shownLng = shown?.lng;
