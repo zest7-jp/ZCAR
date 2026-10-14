@@ -31,6 +31,7 @@ import {
 } from "./settings-store";
 import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
 import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
+import { readCoords } from "./place-import";
 import { StarMark } from "./star-mark";
 
 type RouteEta = {
@@ -1234,6 +1235,7 @@ export default function Home() {
     destinationLabel: RouteEta["destination"],
   ) => {
     const apiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
+    const destinationPoint = readCoords(destination);
     if (apiKey && location) {
       setRouteEtaStatus("loading");
       const controller = new AbortController();
@@ -1258,7 +1260,14 @@ export default function Home() {
                   },
                 },
               },
-              destination: { address: destination },
+              // 「現在地を登録」した地点などの緯度・経度は、住所としてではなく場所として渡す。
+              destination: destinationPoint
+                ? {
+                    location: {
+                      latLng: { latitude: destinationPoint.lat, longitude: destinationPoint.lng },
+                    },
+                  }
+                : { address: destination },
               travelMode: "DRIVE",
               routingPreference: "TRAFFIC_AWARE",
               languageCode: "ja",

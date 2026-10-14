@@ -2,6 +2,7 @@
 // コピーされるのは短いリンク(maps.app.goo.gl/…)で、その行き先はブラウザからは読めないので、
 // サーバー(public/api/place.php)に読んでもらう。
 
+import { distanceMeters } from "./parking";
 import { MAX_DESTINATION_LABEL, MAX_DESTINATION_TEXT } from "./settings-store";
 
 export const PLACE_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/place.php`;
@@ -33,6 +34,23 @@ const toDraft = ({ name, address, lat, lng }: ReadPlace): PlaceDraft | null => {
     label: clip(name || address || PIN_LABEL, MAX_DESTINATION_LABEL),
     destination: clip(destination, MAX_DESTINATION_TEXT),
   };
+};
+
+/** 行き先が「緯度,経度」だけなら、その場所。 */
+export const readCoords = (destination: string) => {
+  const match = /^(-?\d{1,2}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)$/.exec(destination.trim());
+  return match ? { lat: Number(match[1]), lng: Number(match[2]) } : null;
+};
+
+/** 緯度・経度の行き先どうしが、この距離(m)より近ければ同じ場所とみなす。 */
+const SAME_PLACE_METERS = 30;
+
+/** 2つの行き先が同じ場所か(同じ文字か、近くの緯度・経度)。同じ場所を二重に登録しないために使う。 */
+export const isSamePlace = (a: string, b: string) => {
+  if (a.trim() === b.trim()) return true;
+  const from = readCoords(a);
+  const to = readCoords(b);
+  return from !== null && to !== null && distanceMeters(from, to) <= SAME_PLACE_METERS;
 };
 
 /** 読んだ結果。読めなければ、その理由。 */

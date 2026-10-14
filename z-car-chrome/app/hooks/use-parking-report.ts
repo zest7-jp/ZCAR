@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import {
   distanceMeters,
+  pingParking,
   pushParking,
   sendParkingBeacon,
   type ParkingReport,
@@ -16,8 +17,12 @@ const MOVED_METERS = 20;
 const MOVING_INTERVAL_MS = 60_000;
 /** 止まったら、前に送ってからこれだけたっていれば、すぐ送る。 */
 const STOPPED_INTERVAL_MS = 10_000;
-/** 同じ場所にいても、この間隔で送る(電源が入っていることをスマホに知らせる)。 */
-const HEARTBEAT_MS = 2 * 60_000;
+/**
+ * 同じ場所にいても、この間隔で送る(電源が入っていることをスマホに知らせる)。
+ * スマホは3分届かなければ駐車中にするので、1回届かなくても間に合うようにしておく。
+ * GPS が使えない間(ドライブスルーの屋根の下など)も、この間隔で電源が入っていることだけ知らせる。
+ */
+const HEARTBEAT_MS = 60_000;
 /** 送るかどうかを調べる間隔。 */
 const CHECK_MS = 5_000;
 /** 誤差がこれ(m)より大きい位置は送らない(地下の駐車場などで外れた場所を残さない)。 */
@@ -41,9 +46,9 @@ type Options = {
  * 車両位置をサーバーへ送る(スマホの「車両位置」に出る)。
  *
  * 車載機の電源が切れる瞬間は、ブラウザからはつかめないことがある。そこで
- * 止まったとき・走っている間(1分おき)・同じ場所にいる間(2分おき)に送っておき、
+ * 止まったとき・走っている間(1分おき)・同じ場所にいる間(1分おき)に送っておき、
  * 最後に届いた場所を「停めた場所」とする。画面が消えるとき(電源を切ったときなど)にも、
- * そのときの場所を送る。
+ * そのときの場所を送る。GPS が使えない間も、電源が入っていることは1分おきに知らせる。
  * 走っている間は、走り出してからの長さも送る(スマホに走行時間と出発時刻を出す)。
  */
 export function useParkingReport({ enabled, syncKey, location, speed }: Options) {
@@ -59,6 +64,8 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
     let busy = false;
     // 最後に送れた場所と時刻。
     let sent: { lat: number; lng: number; at: number } | null = null;
+    // 最後にサーバーへ届いた時刻(場所でも、電源が入っていることだけの知らせでも)。
+    let contactAt = 0;
     // 前に調べたときの場所。速さが分からないときは、ここからの動きで速さを出す。
     let seen: { lat: number; lng: number; at: number } | null = null;
     // 走り出した時刻と、止まった時刻(5分以上止まったら、次に走り出したときが新しい走行)。
@@ -103,7 +110,21 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
     const check = () => {
       if (document.visibilityState !== "visible") return;
       const fix = report();
-      if (!fix) return;
+      if (!fix) {
+        // GPS が使えない(屋根の下・まだ測れていない)ときも、電源が入っていることは知らせる。
+        // そうしないと、ドライブスルーなどで止まっている間に、スマホが駐車中と思ってしまう。
+        if (busy || Date.now() - contactAt < HEARTBEAT_MS) return;
+        busy = true;
+        void pingParking(syncKey)
+          .then((result) => {
+            if (active && result.ok) contactAt = Date.now();
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            busy = false;
+          });
+        return;
+      }
       const now = Date.now();
       seen = { lat: fix.lat, lng: fix.lng, at: now };
       // 送っている途中でも、走り出し・止まりは数えておく。
@@ -122,7 +143,9 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
       busy = true;
       void pushParking(syncKey, park)
         .then((result) => {
-          if (active && result.ok) sent = { lat: park.lat, lng: park.lng, at: Date.now() };
+          if (!active || !result.ok) return;
+          sent = { lat: park.lat, lng: park.lng, at: Date.now() };
+          contactAt = sent.at;
         })
         // 圏外などは、次に調べたときに送り直す。
         .catch(() => undefined)

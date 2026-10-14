@@ -30,9 +30,11 @@ import {
 import { DEFAULT_GMAPS_KEY } from "../google-maps";
 import { MeterDesignGauge, SAMPLE_GAUGE_VALUES } from "../meter-designs";
 import {
+  isSamePlace,
   issueShareToken,
   readCopiedPlace,
   shareUrlFor,
+  type PlaceDraft,
   type PlaceImportError,
 } from "../place-import";
 import { StarMark } from "../star-mark";
@@ -505,6 +507,24 @@ export default function PhoneSettingsPage() {
     setToast(`${clear ? "消しました" : adding ? "追加しました" : "保存しました"}${sendNote}`);
   };
 
+  /**
+   * 車両位置の「現在地を登録」。いまの場所を目的地の一覧(地点リスト)に足す。車の DEST にも届く。
+   * 同じ場所がもうあれば足さない。
+   */
+  const registerPlace = (place: PlaceDraft) => {
+    const same = draft.places.find((item) => isSamePlace(item.destination, place.destination));
+    if (same) {
+      setToast(`「${same.label || place.label}」は、もう地点リストにあります`);
+      return;
+    }
+    if (draft.places.length >= MAX_PLACES) {
+      setToast(`地点リストは${MAX_PLACES}件までです。目的地のタブで要らない場所を消してください`);
+      return;
+    }
+    setDraft((current) => saveNavChoice(current, null, place));
+    setToast(`「${place.label}」を登録しました${sendNote}`);
+  };
+
   /** ★を付け替える。★の場所が、車の START の行き先になる。 */
   const starChoice = (choice: NavChoice) => {
     if (!choice.destination || startChoice?.key === choice.key) return;
@@ -874,6 +894,11 @@ export default function PhoneSettingsPage() {
             key={draft.syncKey.trim()}
             syncKey={draft.syncKey.trim()}
             mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
+            onRegister={registerPlace}
+            onOpenList={() => {
+              setTab("navi");
+              setEditKey(null);
+            }}
           />
         ) : (
           <section className="zr-panel" aria-label="車両位置">

@@ -8735,7 +8735,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   gap: 10px;
   margin-bottom: 10px;
 }
-.zr-park-go a {
+.zr-park-go a,
+.zr-park-go button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8746,6 +8747,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   white-space: nowrap;
 }
 .zr-park-go svg { flex: 0 0 auto; width: 18px; height: 18px; fill: currentColor; }
+/* 線で描いた印(現在地を登録・地点リスト)。 */
+.zr-park-go svg.is-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.zr-park-go svg .is-dot { stroke-width: 3; }
 .zr.is-tinted .zr-park-go a.zr-primary { color: var(--zt-on-accent); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
@@ -8776,7 +8786,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-design .dg-thumb { width: min(100%, 76px); }
   .zr-park-card { padding: 11px 12px 9px; }
   .zr-park-scope { min-height: 184px; margin-bottom: 8px; }
-  .zr-park-go a { min-height: 46px; }
+  .zr-park-go a,
+  .zr-park-go button { min-height: 46px; }
 }
 
 /* ORBIT NAVI: 大きな丸い地図(HTML)の上に、回転計の輪(SVG)を重ねる */

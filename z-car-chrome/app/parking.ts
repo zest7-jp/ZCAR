@@ -22,11 +22,22 @@ export type ParkedCar = ParkingReport & {
   since: number;
   /** 最後に位置が届いた時刻(サーバーの時計のミリ秒)。 */
   at: number;
+  /**
+   * 最後に車から知らせが届いた時刻(サーバーの時計のミリ秒)。位置が届いた時刻と同じか、それより後。
+   * GPS が使えない間(屋根の下など)も、車は電源が入っていることだけを知らせてくる。
+   */
+  heard: number;
   /** 走り出した時刻(サーバーの時計のミリ秒)。走行中でない・古い車の版なら null。 */
   tripSince: number | null;
 };
 
 export const PARK_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/park.php`;
+
+/**
+ * サーバーの返事を待つ長さ(ミリ秒)。電波が弱いと返事が来ないまま待ち続けることがあり、
+ * その間は次の知らせも送れなくなるので、これで見切って送り直す。
+ */
+const PARK_TIMEOUT_MS = 15_000;
 
 type Point = { lat: number; lng: number };
 
@@ -42,18 +53,31 @@ export const distanceMeters = (from: Point, to: Point) => {
 };
 
 const postPark = async (payload: Record<string, unknown>) => {
-  const response = await fetch(PARK_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`park failed: ${response.status}`);
-  return (await response.json()) as { ok?: boolean; park?: unknown; now?: unknown };
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), PARK_TIMEOUT_MS);
+  try {
+    const response = await fetch(PARK_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`park failed: ${response.status}`);
+    return (await response.json()) as { ok?: boolean; park?: unknown; now?: unknown };
+  } finally {
+    window.clearTimeout(timer);
+  }
 };
 
 /** いまの場所を送る。 */
 export const pushParking = (key: string, park: ParkingReport) => postPark({ key, park });
+
+/**
+ * 電源が入っていることだけを知らせる(GPS が使えないときなど)。場所は変えない。
+ * これが届いている間、スマホは駐車中にしない。
+ */
+export const pingParking = (key: string) => postPark({ key, alive: true });
 
 /**
  * 画面が消えるとき(電源を切ったときなど)に、最後の場所を送る。
@@ -88,6 +112,8 @@ const sanitizeParkedCar = (value: unknown): ParkedCar | null => {
     moving: park.moving === true,
     since,
     at,
+    // 前のサーバーの版には無い。そのときは位置が届いた時刻。
+    heard: isNumber(park.heard) ? Math.max(park.heard, at) : at,
     tripSince: isNumber(park.tripSince) ? park.tripSince : null,
   };
 };
