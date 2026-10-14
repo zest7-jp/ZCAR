@@ -14,6 +14,7 @@
  *
  * park の since はその場所に来た時刻、at は最後に位置が届いた時刻
  * (どちらもこのサーバーの時計のミリ秒)。前と同じ場所なら since を引き継ぐ。
+ * 走行中は、車が送る走行の長さ(drivingMs)から、走り出した時刻(tripSince)も残す。
  *
  * 位置は合言葉から作った鍵で暗号化して保存します。合言葉はどこにも保存しないので、
  * 保存したファイルだけを見ても場所は分かりません。
@@ -32,6 +33,8 @@ const MAX_KEY_LENGTH = 128;
 const SAME_PLACE_METERS = 30;
 /** 誤差がこれ(m)より大きい位置は、場所が分からないのと同じなので受け取らない。 */
 const MAX_ACCURACY_METERS = 5000;
+/** 走行の長さとして受け取る上限(ミリ秒)。これより長いのはおかしな値なので捨てる。 */
+const MAX_TRIP_MS = 24 * 60 * 60 * 1000;
 const CIPHER = 'aes-256-gcm';
 
 function fail(int $status, string $message): void
@@ -86,6 +89,7 @@ function readPark(string $file, string $secret): ?array
         'moving' => ($park['moving'] ?? false) === true,
         'since' => (int) $park['since'],
         'at' => (int) $park['at'],
+        'tripSince' => isset($park['tripSince']) && is_numeric($park['tripSince']) ? (int) $park['tripSince'] : null,
     ];
 }
 
@@ -166,6 +170,12 @@ if (
     $since = min($now, $previous['since']);
 }
 
+// 走り出してからの長さ(ミリ秒)を、サーバーの時計で「走り出した時刻」にする。
+$drivingMs = $incoming['drivingMs'] ?? null;
+$tripSince = $isNumber($drivingMs) && $drivingMs >= 0 && $drivingMs <= MAX_TRIP_MS
+    ? $now - (int) round((float) $drivingMs)
+    : null;
+
 $park = [
     'lat' => round($lat, 6),
     'lng' => round($lng, 6),
@@ -173,6 +183,7 @@ $park = [
     'moving' => ($incoming['moving'] ?? false) === true,
     'since' => $since,
     'at' => $now,
+    'tripSince' => $tripSince,
 ];
 
 $iv = random_bytes(12);
