@@ -29,6 +29,7 @@ import {
 } from "../settings-store";
 import { DEFAULT_GMAPS_KEY } from "../google-maps";
 import { MeterDesignGauge, SAMPLE_GAUGE_VALUES } from "../meter-designs";
+import { readCopiedPlace, type PlaceImportError } from "../place-import";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
 
@@ -106,6 +107,15 @@ const ScanCorners = () => (
   <path className="zr-corners" d="M6 30V6h24M90 6h24v24M114 90v24H90M30 114H6V90" />
 );
 
+/** Google マップのコピーを読めなかったときの案内。 */
+const PASTE_NOTES: Record<PlaceImportError | "clipboard", string> = {
+  clipboard: "貼り付けできませんでした。もう一度押して「ペースト」を選んでください",
+  empty: "コピーされていません。Google マップで「共有」→「コピー」を押してください",
+  unlinked: "車とつなぐと、Google マップのリンクから読み取れます",
+  unreadable: "場所を読み取れませんでした。名前と住所を入れてください",
+  network: "読み取れませんでした。電波のよい所でもう一度押してください",
+};
+
 /** 給油履歴に出す日付(10.10 の形)。 */
 const shortDate = (date: string) => date.slice(5).replace("-", ".");
 
@@ -135,6 +145,8 @@ export default function PhoneSettingsPage() {
   // 目的地を直しているところ。
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState({ label: "", destination: "" });
+  // Google マップのコピーを読み取っているところ。
+  const [pasting, setPasting] = useState(false);
 
   /** 車のQRを読み取ったときの処理(カメラ・URLのどちらからでも同じ)。 */
   const applyCarKey = useCallback((key: string) => {
@@ -393,6 +405,36 @@ export default function PhoneSettingsPage() {
       label: choice && !choice.fixed ? choice.label : "",
       destination: choice ? choice.destination : "",
     });
+  };
+
+  /**
+   * Google マップで「共有」→「コピー」した場所を読み取り、新しい目的地の欄に入れる。
+   * 中身を確かめて「追加する」を押すと、目的地に入って車にも届く。
+   */
+  const pastePlace = async () => {
+    if (pasting) return;
+    let copied = "";
+    try {
+      copied = await navigator.clipboard.readText();
+    } catch {
+      setToast(PASTE_NOTES.clipboard);
+      return;
+    }
+    setPasting(true);
+    const result = await readCopiedPlace(linked ? draft.syncKey.trim() : "", copied);
+    setPasting(false);
+    if (!result.ok) {
+      setToast(PASTE_NOTES[result.error]);
+      // 読めなかったときも、手で入れられるように新しい目的地の欄を開く。
+      if (result.error === "unreadable") {
+        setEditKey(NEW_PLACE_KEY);
+        setEditDraft({ label: "", destination: "" });
+      }
+      return;
+    }
+    setEditKey(NEW_PLACE_KEY);
+    setEditDraft(result.draft);
+    setToast("読み取りました。確かめて「追加する」を押してください");
   };
 
   /** 直した(足した)場所を保存する。clear のときは、その場所を消す。 */
@@ -858,11 +900,27 @@ export default function PhoneSettingsPage() {
             ) : null}
           </ul>
           {draft.places.length < MAX_PLACES && editKey !== NEW_PLACE_KEY ? (
-            <button type="button" className="zr-add" onClick={() => openEditor(null)}>
-              <i aria-hidden="true" />
-              <b>ADD PLACE</b>
-              <small>目的地を追加</small>
-            </button>
+            <div className="zr-add-row">
+              <button type="button" className="zr-add" onClick={() => openEditor(null)}>
+                <i aria-hidden="true" />
+                <b>ADD PLACE</b>
+                <small>目的地を追加</small>
+              </button>
+              {/* Google マップで「共有」→「コピー」した場所を貼り付ける。 */}
+              <button
+                type="button"
+                className="zr-add is-paste"
+                aria-busy={pasting}
+                onClick={() => void pastePlace()}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
+                  <circle cx="12" cy="10" r="2.4" />
+                </svg>
+                <b>FROM MAPS</b>
+                <small>{pasting ? "読み取り中…" : "コピーを貼り付け"}</small>
+              </button>
+            </div>
           ) : null}
           <p className="zr-note">
             <StarMark filled />
