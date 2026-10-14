@@ -48,12 +48,13 @@ const emptyFuelDraft = () => ({
   amountYen: "",
 });
 
-type Tab = "fuel" | "park" | "navi" | "theme";
+type Tab = "park" | "navi" | "fuel" | "theme";
 
+/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。 */
 const TABS: { id: Tab; ja: string; en: string }[] = [
-  { id: "fuel", ja: "給油", en: "FUEL" },
   { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
+  { id: "fuel", ja: "給油", en: "FUEL" },
   { id: "theme", ja: "メーター", en: "THEME" },
 ];
 
@@ -94,7 +95,7 @@ const shortDate = (date: string) => date.slice(5).replace("-", ".");
 export default function PhoneSettingsPage() {
   const [draft, setDraft] = useState<Settings>(defaults);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<Tab>("fuel");
+  const [tab, setTab] = useState<Tab>("park");
   const [fuelDraft, setFuelDraft] = useState(emptyFuelDraft);
   // 今月の燃費のカードを押すと開く、給油の記録(履歴)。
   const [logOpen, setLogOpen] = useState(false);
