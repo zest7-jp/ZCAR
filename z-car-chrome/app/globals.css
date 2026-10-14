@@ -6375,6 +6375,50 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 目的地ダイアログの下: 左にスマホとの同期の状態、右に閉じる。 */
 .dest-card .dest-actions { justify-content: space-between; align-items: center; }
 .dest-card .dest-actions .fuel-sync-button { height: 34px; padding: 0 14px; font-size: 9px; }
+/* 目的地の画面の左下: スマホとつなぐQRを出すボタン(下段は同期の状態)。 */
+.dest-card .dest-actions .dest-pair-button {
+  height: auto;
+  min-height: 50px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  color: #e6fbf7;
+  font-family: inherit;
+  letter-spacing: 0;
+}
+.dest-pair-button svg {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: #5ce6c6;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgba(92, 230, 198, .55));
+}
+.dest-pair-button svg .is-fill { fill: #5ce6c6; stroke: none; }
+.dest-pair-button span { display: grid; gap: 3px; min-width: 0; text-align: left; }
+.dest-pair-button b {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  line-height: 1;
+  transform: skewX(-6deg);
+  text-shadow: 0 0 12px rgba(92, 230, 198, .45);
+}
+.dest-pair-button small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #7fb3a2;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+.dest-pair-button.is-error small { color: #d99a8f; }
 
 .dest-choices {
   display: grid;
@@ -7001,6 +7045,39 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .zr-brand { display: grid; gap: 4px; }
+/* 見出しの右: 読み込み直すボタン(ホーム画面のアプリには更新ボタンが無いため)。 */
+.zr-reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px 0 10px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .3);
+  border-radius: 12px;
+  background: rgba(var(--zr-accent-rgb), .06);
+  color: var(--zr-ink);
+  font-family: inherit;
+  cursor: pointer;
+}
+.zr-reload:active { transform: translateY(1px); background: rgba(var(--zr-accent-rgb), .14); }
+.zr-reload svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--zr-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.zr-reload span { display: grid; gap: 2px; text-align: left; }
+.zr-reload b { font-size: 13px; font-weight: 800; line-height: 1; }
+.zr-reload small {
+  color: var(--zr-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
 .zr-brand b {
   font-size: clamp(28px, 3.7dvh, 36px);
   font-weight: 900;

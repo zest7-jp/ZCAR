@@ -37,6 +37,29 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 /** 車とのやりとりを取りに行く間隔(画面に戻ってきたときは、すぐ読み直す)。 */
 const SYNC_POLL_MS = 30000;
 
+/**
+ * これより長く閉じていたら、開いたときに読み込み直す。
+ * ホーム画面のアプリは、開き直しても前の画面の続きから動くことがあり、
+ * そのままだと新しく公開した版に入れ替わらないため。
+ */
+const RELOAD_AFTER_HIDDEN_MS = 10 * 60_000;
+
+/** いま動いている版の時刻(10/14 13:30)。更新ボタンに小さく出す。 */
+const BUILD_STAMP = (() => {
+  const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+})();
+
 /** 日本時間での今日 (YYYY-MM-DD)。 */
 const todayKey = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date());
@@ -71,8 +94,8 @@ const SCAN_NOTES = {
 /** つなぎ方の3ステップ。 */
 const LINK_STEPS: Note[] = [
   {
-    en: "TAP PHONE SYNC",
-    ja: "車の右の列の DEST を押した画面の左下。押して「QRを表示する」",
+    en: "SHOW THE QR ON THE CAR",
+    ja: "車の右の列の DEST を押し、左下の「PHONE LINK」を押します",
   },
   { en: "SCAN THE QR", ja: "このスマホのカメラで読み取ります（QRは10秒で閉じます）" },
   { en: "SYNCED", ja: "給油・目的地・メーターの色がそろいます" },
@@ -170,6 +193,29 @@ export default function PhoneSettingsPage() {
     const timer = window.setTimeout(() => setToast(null), 2600);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  // しばらく閉じていたら、開いたときに読み込み直して新しい版にする。
+  // 給油や目的地を入力している途中・QRを読み取っている間は、消えてしまうので読み込み直さない。
+  const busyRef = useRef(false);
+  useEffect(() => {
+    busyRef.current = Boolean(
+      fuelDraft.liters || fuelDraft.distanceKm || fuelDraft.amountYen || editKey || scanOpen,
+    );
+  });
+  useEffect(() => {
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      const away = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = 0;
+      if (away >= RELOAD_AFTER_HIDDEN_MS && !busyRef.current) window.location.reload();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   // 車のQRを読み取ったときだけ「つながっている」。
   const linked =
@@ -468,6 +514,22 @@ export default function PhoneSettingsPage() {
           <b>Z CAR</b>
           <small>TANTO · REMOTE</small>
         </div>
+        {/* ホーム画面のアプリにはブラウザの更新ボタンが無いので、ここに置く。下段は今の版の時刻。 */}
+        <button
+          type="button"
+          className="zr-reload"
+          onClick={() => window.location.reload()}
+          aria-label="読み込み直す(新しい版があれば入れ替わる)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+            <path d="M19.5 3.6v4.6h-4.6" />
+          </svg>
+          <span>
+            <b>更新</b>
+            {BUILD_STAMP ? <small>{BUILD_STAMP}</small> : null}
+          </span>
+        </button>
       </header>
 
       {syncTrouble ? (
