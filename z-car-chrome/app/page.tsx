@@ -2231,15 +2231,24 @@ export default function Home() {
             {/* 目的地はスマホからも直せる。同期の状態と、つなぐためのQR。 */}
             <button
               type="button"
-              className={`fuel-sync-button is-${phoneSyncState}`}
+              className={`fuel-sync-button dest-pair-button is-${phoneSyncState}`}
               onClick={() => {
                 closeDestDialog();
                 openPairing();
               }}
               aria-label="スマホとつなぐQRを出す"
             >
-              <i aria-hidden="true" />
-              {phoneSyncLabel}
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" />
+                <path className="is-fill" d="M14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5zM14 17.5h2.5V20H14zM17.5 14H20v2.5h-2.5z" />
+              </svg>
+              <span>
+                <b>QRでスマホとつなぐ</b>
+                <small>
+                  <i aria-hidden="true" />
+                  {phoneSyncLabel}
+                </small>
+              </span>
             </button>
             <button onClick={closeDestDialog}>閉じる</button>
           </div>
