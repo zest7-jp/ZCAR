@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../google-maps";
 import { distanceMeters, fetchParking, type ParkedCar } from "../parking";
+import type { PlaceDraft } from "../place-import";
 
 /** 車両位置を読み直す間隔(画面に戻ってきたときは、すぐ読み直す)。 */
 const PARK_POLL_MS = 30_000;
@@ -25,6 +26,13 @@ const PHONE_FIX_STALE_MS = 15_000;
  */
 const IN_CAR_BASE_METERS = 300;
 const IN_CAR_METERS_PER_SECOND = 40;
+/**
+ * 「現在地を登録」で住所を使うのは、住所の場所がこれ(m)より近いときだけ。
+ * 遠ければ(山道・河原など)緯度・経度のまま入れて、ナビでその場所へ正確に戻れるようにする。
+ */
+const ADDRESS_NEAR_METERS = 100;
+/** 住所を調べるのを待つ長さ。間に合わなければ緯度・経度で登録する。 */
+const ADDRESS_TIMEOUT_MS = 4000;
 
 const STATUS = {
   parked: { ja: "駐車中", en: "PARKED" },
@@ -113,11 +121,20 @@ type GOverlay = {
     fromLatLngToDivPixel: (point: unknown) => { x: number; y: number } | null;
   } | null;
 };
+type GeocodeResult = {
+  formatted_address?: string;
+  types?: string[];
+  geometry?: { location?: { lat: () => number; lng: () => number } };
+};
 type MapsApi = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GMap;
   LatLng: new (lat: number, lng: number) => unknown;
   OverlayView: new () => GOverlay;
   Circle: new (options: Record<string, unknown>) => GCircle;
+  /** 住所を調べる部品(Google の Geocoding API が使えるときだけ答えが返る)。 */
+  Geocoder?: new () => {
+    geocode: (request: Record<string, unknown>) => Promise<{ results?: GeocodeResult[] }>;
+  };
   event: {
     addListenerOnce: (instance: unknown, eventName: string, handler: () => void) => void;
   };
@@ -205,6 +222,43 @@ const elapsedParts = (ms: number): [string, string][] => {
   return hours % 24 ? [[`${days}`, "日"], [`${hours % 24}`, "時間"]] : [[`${days}`, "日"]];
 };
 
+/**
+ * Google の住所(日本、〒573-0065 大阪府枚方市出口３丁目１−１)を、目的地の欄の形
+ * (〒573-0065 大阪府枚方市出口3丁目1-1)にする。
+ */
+const tidyAddress = (text: string) =>
+  text
+    .normalize("NFKC")
+    .replace(/^日本[、,]\s*/, "")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/(\d)ー(?=\d)/g, "$1-")
+    .trim();
+
+/**
+ * その場所の住所。調べられない(Geocoding API が使えない・電波が悪い)ときや、
+ * 近くに住所が無いときは null。
+ */
+const addressAt = async (maps: MapsApi, point: LatLng): Promise<string | null> => {
+  if (!maps.Geocoder) return null;
+  const lookup = new maps.Geocoder()
+    .geocode({ location: point, language: "ja", region: "jp" })
+    .catch(() => null);
+  const timeout = new Promise<null>((resolve) => {
+    window.setTimeout(() => resolve(null), ADDRESS_TIMEOUT_MS);
+  });
+  const response = await Promise.race([lookup, timeout]);
+  // 「MH4C+QX」のような Plus Code は住所ではないので使わない。
+  const result = response?.results?.find(
+    (entry) => entry.formatted_address && !entry.types?.includes("plus_code"),
+  );
+  const location = result?.geometry?.location;
+  if (!result?.formatted_address || !location) return null;
+  if (distanceMeters({ lat: location.lat(), lng: location.lng() }, point) > ADDRESS_NEAR_METERS) {
+    return null;
+  }
+  return tidyAddress(result.formatted_address) || null;
+};
+
 /** 案内の文。英語を大きく、日本語は小さく添える。 */
 type Note = { en: string; ja: string };
 
@@ -215,9 +269,22 @@ type PhoneFix = LatLng & { accuracy: number; heading: number | null; kmh: number
  * スマホの「車両位置」。車載機が最後に送ってきた場所(停めた場所)を地図に出す。
  * 車の電源が入っている間(走行中・停車中)に iPhone が車の近くにあれば、iPhone の GPS で
  * 車の印を毎秒動かす(そのとき iPhone は車の中にあるため。車からの通信は増やさない)。
+ * 車の電源が入っている間は、いまの場所を目的地の一覧(地点リスト)に登録できる。
  * 合言葉が変わったら作り直すので、呼ぶ側で key={合言葉} を付ける。
  */
-export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKey: string }) {
+export function CarLocationPanel({
+  syncKey,
+  mapsKey,
+  onRegister,
+  onOpenList,
+}: {
+  syncKey: string;
+  mapsKey: string;
+  /** 「現在地を登録」で作った場所を、目的地の一覧に足す。 */
+  onRegister: (place: PlaceDraft) => void;
+  /** 「地点リスト」: 目的地の一覧を開く。 */
+  onOpenList: () => void;
+}) {
   // まだ読んでいなければ null。offset は「サーバーの時計 - スマホの時計」。
   const [loaded, setLoaded] = useState<{ park: ParkedCar | null; offset: number } | null>(null);
   const [failed, setFailed] = useState(false);
@@ -237,6 +304,13 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
   const followRef = useRef(true);
   // いま地図に描いている印の位置(なめらかに動かすときの出発点)。
   const shownRef = useRef<LatLng | null>(null);
+  // 「現在地を登録」で住所を調べているところ。
+  const [registering, setRegistering] = useState(false);
+  // 住所を調べ終わったときに、そのときの一覧へ足すため(調べている間に一覧が変わることがある)。
+  const registerRef = useRef(onRegister);
+  useEffect(() => {
+    registerRef.current = onRegister;
+  });
 
   // 開いたとき・30秒おき・画面に戻ってきたときに読む。
   useEffect(() => {
@@ -420,6 +494,28 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
     current.map.panTo(point);
     current.map.setZoom(PARK_MAP_ZOOM);
   };
+
+  /**
+   * 「現在地を登録」: いまの車の位置を、目的地の一覧(地点リスト)に足す。車の DEST にも届く。
+   * 名前は登録した時刻(地点19:46)。行き先は近くの住所、無ければ緯度・経度。
+   */
+  const registerHere = async () => {
+    if (registering || !shown) return;
+    const point = { lat: shown.lat, lng: shown.lng };
+    const label = `地点${clockText(Date.now() + offset)}`;
+    setRegistering(true);
+    let address: string | null = null;
+    try {
+      address = await addressAt((await loadGoogleMaps(mapsKey)) as MapsApi, point);
+    } catch {
+      // 地図を読み込めないときも、緯度・経度で登録する。
+    }
+    setRegistering(false);
+    registerRef.current({
+      label,
+      destination: address ?? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`,
+    });
+  };
   // 走っている間は走り出した時刻からの走行時間、止まっていれば停めた時刻から数える。
   // (走り出した時刻を送らない前の車の版では、最後に届いた時刻から数える)
   const tripSince = status === "driving" ? (park?.tripSince ?? null) : null;
@@ -562,7 +658,31 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
           </div>
         ) : null}
       </section>
-      {park ? (
+      {live ? (
+        // 車の電源が入っている間は、いまの場所を地点リスト(目的地の一覧)に登録できる。
+        <div className="zr-park-go">
+          <button
+            type="button"
+            className="zr-primary"
+            aria-busy={registering}
+            disabled={registering}
+            onClick={() => void registerHere()}
+          >
+            <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
+              <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
+              <path d="M12 7v6M9 10h6" />
+            </svg>
+            {registering ? "登録中…" : "現在地を登録"}
+          </button>
+          <button type="button" className="zr-ghost" onClick={onOpenList}>
+            <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
+              <path d="M9.5 6.5h10M9.5 12h10M9.5 17.5h10" />
+              <path className="is-dot" d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" />
+            </svg>
+            地点リスト
+          </button>
+        </div>
+      ) : park ? (
         <div className="zr-park-go">
           <a
             className="zr-primary"
@@ -587,8 +707,9 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
       ) : null}
       <p className="zr-note">
         {phoneInCar
-          ? "車の電源が入っている間は、この iPhone の GPS で車の位置を動かしています。"
+          ? "この iPhone の GPS で車の位置を動かしています。"
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
+        {live ? "登録した場所は、目的地として車の DEST から選べます。" : null}
       </p>
     </div>
   );
