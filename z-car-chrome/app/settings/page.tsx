@@ -95,7 +95,7 @@ const SCAN_NOTES = {
 const LINK_STEPS: Note[] = [
   {
     en: "SHOW THE QR ON THE CAR",
-    ja: "車の右の列の DEST を押し、左下の「QRでスマホとつなぐ」を押します",
+    ja: "車の右の列の DEST を押し、左下の「PHONE LINK」を押します",
   },
   { en: "SCAN THE QR", ja: "このスマホのカメラで読み取ります（QRは10秒で閉じます）" },
   { en: "SYNCED", ja: "給油・目的地・メーターの色がそろいます" },

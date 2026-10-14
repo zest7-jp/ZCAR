@@ -6395,10 +6395,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   stroke: #5ce6c6;
   stroke-width: 1.8;
   stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgba(92, 230, 198, .55));
 }
 .dest-pair-button svg .is-fill { fill: #5ce6c6; stroke: none; }
 .dest-pair-button span { display: grid; gap: 3px; min-width: 0; text-align: left; }
-.dest-pair-button b { font-size: 13px; font-weight: 800; }
+.dest-pair-button b {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  line-height: 1;
+  transform: skewX(-6deg);
+  text-shadow: 0 0 12px rgba(92, 230, 198, .45);
+}
 .dest-pair-button small {
   display: inline-flex;
   align-items: center;

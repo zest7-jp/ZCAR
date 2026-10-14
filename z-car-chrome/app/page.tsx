@@ -1183,6 +1183,9 @@ export default function Home() {
               hour12: false,
             })}`
           : "SYNCING";
+  // 目的地の画面の PHONE LINK ボタンの下段に出す、同期の状態。
+  const phoneLinkStatus =
+    phoneSyncState === "off" ? "NOT LINKED" : phoneSyncLabel.replace(/^PHONE /, "");
 
   // 「場所を直す」で開いている行き先。null は新しい目的地を足すとき。
   const destEditChoice =
@@ -2243,10 +2246,10 @@ export default function Home() {
                 <path className="is-fill" d="M14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5zM14 17.5h2.5V20H14zM17.5 14H20v2.5h-2.5z" />
               </svg>
               <span>
-                <b>QRでスマホとつなぐ</b>
+                <b>PHONE LINK</b>
                 <small>
                   <i aria-hidden="true" />
-                  {phoneSyncLabel}
+                  {phoneLinkStatus}
                 </small>
               </span>
             </button>
