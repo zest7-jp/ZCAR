@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
+import { useParkingReport } from "./hooks/use-parking-report";
 import { useSharedSync } from "./hooks/use-shared-sync";
 import {
   buildSyncHandoffUrl,
@@ -29,6 +30,7 @@ import {
   type Settings,
 } from "./settings-store";
 import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
+import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
 import { StarMark } from "./star-mark";
 
 type RouteEta = {
@@ -70,92 +72,6 @@ const FUEL_RESERVE_L = 4;
 const GREEN_METER_MAP_ZOOM = 12;
 // 地図タイルが来るまでの下地。フィルタ後もほぼ黒に沈む暗色。
 const GREEN_METER_MAP_BACKGROUND = "#03150b";
-// Referrer-restricted (https://zest7.jp/*) browser key, Maps JavaScript API
-// only — safe to ship in client code. The settings key overrides it.
-const DEFAULT_GMAPS_KEY = "AIzaSyDndPX8sQmYXOCwVyJtmNUXv-GWXLT6Qh8";
-
-// Google's night-mode map styling, shared by the home and meter maps.
-const NIGHT_MAP_STYLES = [
-  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-  {
-    featureType: "administrative.locality",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#d59563" }],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#d59563" }],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "geometry",
-    stylers: [{ color: "#263c3f" }],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#6b9a76" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#38414e" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#212a37" }],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9ca5b3" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [{ color: "#746855" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#1f2835" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#f3d19c" }],
-  },
-  {
-    featureType: "transit",
-    elementType: "geometry",
-    stylers: [{ color: "#2f3948" }],
-  },
-  {
-    featureType: "transit.station",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#d59563" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#17263c" }],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#515c6d" }],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.stroke",
-    stylers: [{ color: "#17263c" }],
-  },
-];
-
 // ターコイズメーターの円形窓用: 夜間配色に加えて、スポット等の
 // アイコン類を非表示にしたレーダー向けスタイル。ラスター地図でのみ
 // 有効(ベクター+Map IDの地図はクラウド側スタイルが優先される)。
@@ -165,29 +81,6 @@ const GREEN_METER_MAP_STYLES = [
   { featureType: "poi", elementType: "labels.text", stylers: [{ visibility: "off" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
 ];
-
-// Loads the Google Maps JavaScript API once and caches the promise.
-const loadGoogleMaps = (key: string) => {
-  const w = window as unknown as {
-    google?: { maps?: unknown };
-    __gmapsPromise?: Promise<unknown>;
-  };
-  if (w.google?.maps) return Promise.resolve(w.google.maps);
-  if (!w.__gmapsPromise) {
-    w.__gmapsPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&v=weekly`;
-      script.async = true;
-      script.onload = () => resolve(w.google?.maps);
-      script.onerror = () => {
-        delete w.__gmapsPromise;
-        reject(new Error("Google Maps failed to load"));
-      };
-      document.head.appendChild(script);
-    });
-  }
-  return w.__gmapsPromise;
-};
 
 const FUEL_LOG_STORAGE_KEY = "zcar-fuel-log-v1";
 // スマホで変えた内容(給油記録・目的地・色)を取りに行く間隔。
@@ -387,6 +280,8 @@ export default function Home() {
   const [chinaClock, setChinaClock] = useState("--:--");
   const [isOnline, setIsOnline] = useState(true);
   const [ready, setReady] = useState(false);
+  // この端末が車載機か。車両位置を送るのは車載機だけ(スマホで車の画面を開いても送らない)。
+  const [carDevice, setCarDevice] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   // このブラウザで全画面にできるか(できない端末ではボタンを出さない)。
   const [canFullscreen, setCanFullscreen] = useState(false);
@@ -427,6 +322,8 @@ export default function Home() {
     lng: number;
     accuracy: number;
     heading: number | null;
+    /** GPS の速さ(km/h)。分からなければ null。 */
+    speed: number | null;
   } | null>(null);
   const [locationStatus, setLocationStatus] = useState<
     "locating" | "ready" | "unavailable"
@@ -566,6 +463,14 @@ export default function Home() {
         // 保存できない設定でも動作に支障はない。
       }
     }
+    try {
+      setCarDevice(
+        localStorage.getItem(CAR_DEVICE_KEY) === "car" &&
+          !/iPhone|iPad|iPod/.test(navigator.userAgent),
+      );
+    } catch {
+      // 印を読めない端末は車として扱わない(場所を送らない)。
+    }
     const timer = window.setInterval(updateClocks, 1000);
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
     window.addEventListener("online", updateOnlineStatus);
@@ -622,6 +527,16 @@ export default function Home() {
     onInSync: () => {
       if (!readSharedSyncReady()) markSharedSyncReady();
     },
+  });
+
+  // --- 車両位置 ---
+  // 止まったときなどに場所を送り、スマホの「車両位置」に停めた場所を出す。
+  const parkingKey = settings.syncKey.trim();
+  useParkingReport({
+    enabled: ready && carDevice && parkingKey.length >= MIN_SYNC_KEY_LENGTH,
+    syncKey: parkingKey,
+    location,
+    speed: obdData.speed ?? location?.speed ?? null,
   });
 
   // 給油記録は設定と一緒に保存されるが、旧キーにも書いておく(古い版に戻しても読める)。
@@ -791,11 +706,14 @@ export default function Home() {
               heading += shortestTurn;
             }
           }
+          const gpsSpeed = position.coords.speed;
           return {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
             accuracy: position.coords.accuracy,
             heading,
+            speed:
+              gpsSpeed !== null && Number.isFinite(gpsSpeed) ? gpsSpeed * 3.6 : null,
           };
         });
         setLocationStatus("ready");

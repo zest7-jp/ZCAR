@@ -27,8 +27,10 @@ import {
   type NavChoice,
   type Settings,
 } from "../settings-store";
+import { DEFAULT_GMAPS_KEY } from "../google-maps";
 import { MeterDesignGauge, SAMPLE_GAUGE_VALUES } from "../meter-designs";
 import { StarMark } from "../star-mark";
+import { CarLocationPanel } from "./car-location";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -46,11 +48,13 @@ const emptyFuelDraft = () => ({
   amountYen: "",
 });
 
-type Tab = "fuel" | "navi" | "theme";
+type Tab = "park" | "navi" | "fuel" | "theme";
 
+/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。 */
 const TABS: { id: Tab; ja: string; en: string }[] = [
-  { id: "fuel", ja: "給油", en: "FUEL" },
+  { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
+  { id: "fuel", ja: "給油", en: "FUEL" },
   { id: "theme", ja: "メーター", en: "THEME" },
 ];
 
@@ -86,11 +90,12 @@ const shortDate = (date: string) => date.slice(5).replace("-", ".");
  * スマホ用のページ(/settings/)。
  * 車と共有している「給油記録・目的地・メーターの色」だけを、ここからも変えられる。
  * 変えたものは共通の仕組み(use-shared-sync)で車に届く。
+ * 「車両位置」では、車載機が最後に送ってきた場所(停めた場所)を地図で見られる。
  */
 export default function PhoneSettingsPage() {
   const [draft, setDraft] = useState<Settings>(defaults);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<Tab>("fuel");
+  const [tab, setTab] = useState<Tab>("park");
   const [fuelDraft, setFuelDraft] = useState(emptyFuelDraft);
   // 今月の燃費のカードを押すと開く、給油の記録(履歴)。
   const [logOpen, setLogOpen] = useState(false);
@@ -703,6 +708,29 @@ export default function PhoneSettingsPage() {
             </div>
           </section>
         </div>
+      ) : null}
+
+      {tab === "park" ? (
+        linked ? (
+          // 合言葉が変わったら、読み直して地図も作り直す。
+          <CarLocationPanel
+            key={draft.syncKey.trim()}
+            syncKey={draft.syncKey.trim()}
+            mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
+          />
+        ) : (
+          <section className="zr-panel" aria-label="車両位置">
+            <header className="zr-panel-head">
+              <span>
+                <small>CAR LOCATION</small>
+                <b>車両位置</b>
+              </span>
+            </header>
+            <p className="zr-note">
+              車とつなぐと、車を停めた場所がここに出ます。上の「SCAN QR CODE」から車とつないでください。
+            </p>
+          </section>
+        )
       ) : null}
 
       {tab === "navi" ? (
