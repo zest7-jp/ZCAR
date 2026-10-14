@@ -8482,6 +8482,26 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   letter-spacing: .08em;
   pointer-events: none;
 }
+/* どこから来た位置か(LIVE · iPhone GPS / CAR · 16:31)。 */
+.zr-park-coords small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--zr-muted);
+  font-size: 8px;
+  letter-spacing: .14em;
+}
+.zr-park-coords small.is-live { color: var(--zr-accent); }
+.zr-park-coords small.is-live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--zr-accent);
+  box-shadow: 0 0 6px var(--zr-accent);
+  animation: zr-park-blink 1.1s ease-in-out infinite;
+}
 .zr-park-standby {
   position: absolute;
   inset: 0;
@@ -8530,6 +8550,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
 }
 .zr-park-tools button[aria-pressed="true"] { border-color: var(--zr-accent); color: var(--zr-accent-strong); }
+/* 地図を指で動かして、車を追いかけていないとき(押すとまた追いかける)。 */
+.zr-park-tools button.is-off { border-color: var(--zr-accent); color: var(--zr-accent-strong); box-shadow: 0 0 10px rgba(var(--zr-accent-rgb), .45); }
 .zr-park-tools svg {
   width: 20px;
   height: 20px;
@@ -8584,6 +8606,26 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   border: 2px solid var(--zr-accent);
   border-radius: 50%;
   animation: zr-park-pulse 2.4s ease-out infinite;
+}
+/* 進む向きの印(iPhone の GPS で追っている間だけ。輪の外側の三角)。 */
+.zr-park-pin-dir {
+  position: absolute;
+  inset: -22px;
+  display: none;
+  transform: rotate(var(--zr-heading, 0deg));
+  transition: transform .9s linear;
+}
+.zr-park-pin.has-heading .zr-park-pin-dir { display: block; }
+.zr-park-pin-dir::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  border-right: 7px solid transparent;
+  border-bottom: 11px solid var(--zr-accent-strong);
+  border-left: 7px solid transparent;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 4px rgba(var(--zr-accent-rgb), .9));
 }
 /* 照準のように、ゆっくり回る点線の輪。 */
 .zr-park-pin-lock {
@@ -8708,7 +8750,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
   .zr-park-pin-lock,
-  .zr-park-state.is-driving i { animation: none; }
+  .zr-park-state.is-driving i,
+  .zr-park-coords small.is-live::before { animation: none; }
+  .zr-park-pin-dir { transition: none; }
   .zr-park-pin-ring { opacity: 0; }
 }
 
