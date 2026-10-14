@@ -4,7 +4,7 @@
 // only — safe to ship in client code. The settings key overrides it.
 export const DEFAULT_GMAPS_KEY = "AIzaSyDndPX8sQmYXOCwVyJtmNUXv-GWXLT6Qh8";
 
-// Google's night-mode map styling, shared by the meter maps and the phone's car-location map.
+// Google's night-mode map styling, shared by the meter maps.
 export const NIGHT_MAP_STYLES = [
   { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
