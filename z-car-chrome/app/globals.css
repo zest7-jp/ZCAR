@@ -7041,13 +7041,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #e7b55a;
 }
 
-/* --- 切り替え(給油 / 目的地 / メーター) --- */
+/* --- 切り替え(給油 / 車の場所 / 目的地 / メーター) --- */
 .zr-tabs {
   position: sticky;
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin: 0 -16px 12px;
   padding: 0 16px;
   border-bottom: 1px solid var(--zr-edge);
@@ -8241,6 +8241,211 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   from { opacity: 0; }
 }
 
+/* --- 車の場所(車載機が最後に送ってきた場所を地図に出す) --- */
+/* 画面の残りの高さいっぱいに広げ、余った高さは地図が受け持つ。 */
+.zr-park { display: flex; flex: 1 0 auto; flex-direction: column; }
+.zr-park-card {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  margin-bottom: 12px;
+  padding: 13px 14px 11px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 18px;
+  background:
+    linear-gradient(120deg, rgba(var(--zr-accent-rgb), .14), transparent 55%),
+    var(--zr-panel);
+  box-shadow: inset 3px 0 var(--zr-accent);
+}
+.zr-park-map {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 220px;
+  margin: 2px 0 10px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--zr-accent-rgb), .22);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(var(--zr-accent-rgb), .1), transparent 62%),
+    linear-gradient(rgba(var(--zr-accent-rgb), .06) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, rgba(var(--zr-accent-rgb), .06) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--zr-field);
+  isolation: isolate;
+}
+.zr-park-canvas { position: absolute; inset: 0; }
+.zr-park-standby {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 18px 22px;
+  text-align: center;
+}
+.zr-park-standby b {
+  color: var(--zr-accent-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .26em;
+}
+.zr-park-standby small { color: var(--zr-muted); font-size: 12px; font-weight: 700; line-height: 1.6; }
+
+/* 地図の右上: 航空写真の切り替えと、車の場所へ戻すボタン。 */
+.zr-park-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+.zr-park-tools button {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .35);
+  border-radius: 12px;
+  background: rgba(4, 8, 7, .8);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--zr-ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.zr-park-tools button[aria-pressed="true"] { border-color: var(--zr-accent); color: var(--zr-accent-strong); }
+.zr-park-tools svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.zr-park-tools svg .is-fill { fill: currentColor; stroke: none; }
+/* 読み直せなかったとき(前に読めた場所を出したまま)。 */
+.zr-park-offline {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(231, 181, 90, .16);
+  color: #e7b55a;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .2em;
+}
+
+/* 地図の上の車の印(地図の部品の中に置かれる)。 */
+.zr-park-pin {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.zr-park-pin svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 7px;
+  border: 2px solid var(--zr-accent-strong);
+  border-radius: 50%;
+  background: #03100c;
+  box-shadow: 0 0 0 3px rgba(var(--zr-accent-rgb), .3), 0 0 18px rgba(var(--zr-accent-rgb), .9);
+}
+.zr-park-pin-body { fill: var(--zr-accent-strong); }
+.zr-park-pin-cut { fill: #03100c; }
+.zr-park-pin-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--zr-accent);
+  border-radius: 50%;
+  animation: zr-park-pulse 2.4s ease-out infinite;
+}
+@keyframes zr-park-pulse {
+  from { opacity: .85; transform: scale(1); }
+  to { opacity: 0; transform: scale(2.8); }
+}
+
+/* 駐車中・停車中・走行中。 */
+.zr-panel-head > .zr-park-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .45);
+  border-radius: 999px;
+  background: rgba(var(--zr-accent-rgb), .1);
+  color: var(--zr-accent-strong);
+  letter-spacing: .18em;
+}
+.zr-park-state small {
+  color: var(--zr-ink);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.zr-park-state i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--zr-accent);
+  box-shadow: 0 0 8px var(--zr-accent);
+}
+.zr-park-state.is-driving i { animation: zr-park-blink 1.1s ease-in-out infinite; }
+@keyframes zr-park-blink {
+  50% { opacity: .25; }
+}
+
+.zr-park-facts { margin-top: auto; }
+.zr-park-facts dd span { white-space: nowrap; }
+.zr-park-facts dd small {
+  display: block;
+  margin-top: 2px;
+  color: var(--zr-muted);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* 地図アプリで道案内(歩き)。 */
+.zr-park-go {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.zr-park-go a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.zr.is-tinted .zr-park-go a.zr-primary { color: var(--zt-on-accent); }
+@media (prefers-reduced-motion: reduce) {
+  .zr-park-pin-ring,
+  .zr-park-state.is-driving i { animation: none; }
+  .zr-park-pin-ring { opacity: 0; }
+}
+
 /* スマホ: 背の低い画面(iPhone SE など)では、もう一段詰めて1画面に収める。 */
 @media (max-height: 700px) {
   .zr-head { padding-bottom: 8px; }
@@ -8258,6 +8463,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-theme i { width: 38px; height: 38px; margin-bottom: 3px; }
   .zr-design { padding: 6px 4px 7px; }
   .zr-design .dg-thumb { width: min(100%, 76px); }
+  .zr-park-card { padding: 11px 12px 9px; }
+  .zr-park-map { min-height: 180px; margin-bottom: 8px; }
+  .zr-park-go a { min-height: 46px; }
 }
 
 /* ORBIT NAVI: 大きな丸い地図(HTML)の上に、回転計の輪(SVG)を重ねる */
