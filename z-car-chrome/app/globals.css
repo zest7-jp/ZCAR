@@ -7045,29 +7045,44 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .zr-brand { display: grid; gap: 4px; }
-/* 見出しの右: 読み込み直すボタン(印だけ)。ホーム画面のアプリには更新ボタンが無いため。 */
+/* 見出しの右: 今の版の時刻と、読み込み直すボタン(印だけ)。
+   ホーム画面のアプリには更新ボタンが無いため。 */
+.zr-reload-box { display: flex; align-items: center; gap: 10px; }
+.zr-reload-box small {
+  color: var(--zr-muted);
+  opacity: .75;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+/* 目立たせない: 色は控えめにして光らせない。押している間だけ配色の色になる。 */
 .zr-reload {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid rgba(var(--zr-accent-rgb), .3);
+  border: 1px solid rgba(255, 255, 255, .07);
   border-radius: 50%;
-  background: rgba(var(--zr-accent-rgb), .06);
-  color: var(--zr-accent);
+  background: transparent;
+  color: var(--zr-muted);
   cursor: pointer;
 }
-.zr-reload:active { transform: rotate(-30deg); background: rgba(var(--zr-accent-rgb), .14); }
+.zr-reload:active {
+  transform: rotate(-30deg);
+  border-color: rgba(var(--zr-accent-rgb), .3);
+  color: var(--zr-accent);
+}
 .zr-reload svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 4px rgba(var(--zr-accent-rgb), .5));
 }
 .zr-brand b {
   font-size: clamp(28px, 3.7dvh, 36px);
@@ -7340,6 +7355,54 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   line-height: 1.6;
 }
 .zr-note b { color: var(--zr-accent-strong); }
+/* 説明の文の中のボタン(Google マップから直接送る)。 */
+.zr-inline-link {
+  display: inline;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--zr-accent-strong);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--zr-accent-rgb), .5);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ショートカットの作り方(下から出るシートの中)。 */
+.zr-share-lead { margin: 14px 2px 12px; }
+.zr-share-copy { margin: 0 0 14px; }
+.zr-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0 2px 14px;
+  padding: 0;
+  list-style: none;
+}
+.zr-steps li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+  color: var(--zr-ink);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.zr-steps em {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .45);
+  border-radius: 50%;
+  color: var(--zr-accent);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
 
 /* --- 入力欄 --- */
 .zr-form {
@@ -7593,15 +7656,24 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-note .star-mark { display: inline-block; margin-right: 2px; vertical-align: -2px; }
 
 /* 一番下: 目的地を足す。 */
+/* 目的地を足すボタン2つ(手で入れる・Google マップのコピーを貼る)を横に並べる。 */
+.zr-add-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 10px;
+}
 .zr-add {
   display: grid;
-  grid-template-columns: 22px auto 1fr;
+  grid-template-columns: 22px 1fr;
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
+  row-gap: 1px;
   width: 100%;
   min-height: 46px;
-  margin: 0 0 10px;
-  padding: 0 14px;
+  margin: 0;
+  padding: 5px 12px;
   border: 1px dashed rgba(var(--zr-accent-rgb), .45);
   border-radius: 14px;
   background: rgba(var(--zr-accent-rgb), .04);
@@ -7630,8 +7702,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   transform: translate(-50%, -50%);
 }
 .zr-add i::after { transform: translate(-50%, -50%) rotate(90deg); }
-.zr-add b { font-size: 13px; font-weight: 900; letter-spacing: .16em; }
-.zr-add small { color: var(--zr-muted); font-size: 11px; }
+.zr-add i,
+.zr-add svg { grid-row: 1 / span 2; }
+.zr-add b { font-size: 12px; font-weight: 900; letter-spacing: .14em; line-height: 1.2; white-space: nowrap; }
+.zr-add small { color: var(--zr-muted); font-size: 10px; line-height: 1.2; white-space: nowrap; }
+.zr-add.is-paste svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--zr-accent);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+.zr-add.is-paste[aria-busy="true"] { opacity: .6; }
 .zr-new-head { display: flex; align-items: baseline; gap: 10px; margin: 14px 0 10px; }
 .zr-new-head b {
   color: var(--zr-accent-strong);
@@ -8637,7 +8720,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-panel { padding: 11px 14px 12px; }
   .zr-place { padding: 6px 2px; }
   .zr-places { margin-bottom: 8px; }
-  .zr-add { min-height: 40px; margin-bottom: 8px; }
+  .zr-add { min-height: 40px; }
+  .zr-add-row { margin-bottom: 8px; }
   .zr-note { font-size: 11px; line-height: 1.5; }
   .zr-themes { gap: 8px; }
   .zr-swatches,

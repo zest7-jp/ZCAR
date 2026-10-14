@@ -335,6 +335,11 @@ export type Settings = {
   syncKey: string;
   /** 車とつないだ時刻(0なら未接続)。端末ごとの値なので同期しない。 */
   pairedAt: number;
+  /**
+   * iPhone の「ショートカット」から目的地を送るための鍵(目的地を足すことしかできない)。
+   * この端末だけに保存し、同期しない。車とつなぎ直したら作り直す。
+   */
+  shareToken: string;
   /** 最後に同期できた内容の時刻(ミリ秒)。これより新しいものが来たら取り込む。 */
   syncedAt: number;
   /** ナビの目的地(出発・帰宅のほか)。車とスマホのどちらからでも足せる。 */
@@ -359,6 +364,7 @@ export const defaults: Settings = {
   meterDesign: "navi",
   syncKey: "",
   pairedAt: 0,
+  shareToken: "",
   syncedAt: 0,
   places: placesFromSlots(defaultMapDestinations),
   startTarget: START_TARGET_WORK,
@@ -687,6 +693,7 @@ export const readSettings = (): Settings => {
         : defaults.meterDesign,
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
+      shareToken: typeof stored.shareToken === "string" ? stored.shareToken : "",
       syncedAt: Number.isFinite(stored.syncedAt) ? Number(stored.syncedAt) : 0,
       places,
       startTarget:

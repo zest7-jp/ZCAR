@@ -29,6 +29,12 @@ import {
 } from "../settings-store";
 import { DEFAULT_GMAPS_KEY } from "../google-maps";
 import { MeterDesignGauge, SAMPLE_GAUGE_VALUES } from "../meter-designs";
+import {
+  issueShareToken,
+  readCopiedPlace,
+  shareUrlFor,
+  type PlaceImportError,
+} from "../place-import";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
 
@@ -44,7 +50,7 @@ const SYNC_POLL_MS = 30000;
  */
 const RELOAD_AFTER_HIDDEN_MS = 10 * 60_000;
 
-/** いま動いている版の時刻(10/14 13:30)。更新ボタンの読み上げ名に入れる。 */
+/** いま動いている版の時刻(10/14 13:30)。更新ボタンの左に小さく出す。 */
 const BUILD_STAMP = (() => {
   const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
   if (!iso) return null;
@@ -106,6 +112,27 @@ const ScanCorners = () => (
   <path className="zr-corners" d="M6 30V6h24M90 6h24v24M114 90v24H90M30 114H6V90" />
 );
 
+/** Google マップのコピーを読めなかったときの案内。 */
+const PASTE_NOTES: Record<PlaceImportError | "clipboard", string> = {
+  clipboard: "貼り付けできませんでした。もう一度押して「ペースト」を選んでください",
+  empty: "コピーされていません。Google マップで「共有」→「コピー」を押してください",
+  unlinked: "車とつなぐと、Google マップのリンクから読み取れます",
+  unreadable: "場所を読み取れませんでした。名前と住所を入れてください",
+  network: "読み取れませんでした。電波のよい所でもう一度押してください",
+};
+
+/** iPhone の「ショートカット」で「Z CAR に送る」を作る手順。 */
+const SHORTCUT_STEPS = [
+  "上の「送り先をコピー」を押す",
+  "「ショートカット」アプリを開き、右上の「＋」を押す",
+  "「アクションを検索」に URL と入れ、「URLの内容を取得」を選ぶ",
+  "青い「URL」の文字を押して、コピーした送り先を貼り付ける",
+  "「＞」を押して開き、「方法」を「POST」にする",
+  "「新規フィールドを追加」→「テキスト」を選び、キーに text、値に「ショートカットの入力」を入れる",
+  "「アクションを検索」で「通知を表示」を足し、文の所を「URLの内容」にする",
+  "上の名前を「Z CAR に送る」にし、下の i のボタン(詳細)で「共有シートに表示」をオンにする",
+];
+
 /** 給油履歴に出す日付(10.10 の形)。 */
 const shortDate = (date: string) => date.slice(5).replace("-", ".");
 
@@ -135,13 +162,18 @@ export default function PhoneSettingsPage() {
   // 目的地を直しているところ。
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState({ label: "", destination: "" });
+  // Google マップのコピーを読み取っているところ。
+  const [pasting, setPasting] = useState(false);
+  // 「Google マップから直接送る」(ショートカットの作り方)を開いているところ。
+  const [shortcutOpen, setShortcutOpen] = useState(false);
+  const [shortcutFailed, setShortcutFailed] = useState(false);
 
   /** 車のQRを読み取ったときの処理(カメラ・URLのどちらからでも同じ)。 */
   const applyCarKey = useCallback((key: string) => {
     setDraft((current) =>
       current.syncKey.trim() === key && current.pairedAt > 0
         ? current
-        : { ...current, syncKey: key, syncedAt: 0, pairedAt: Date.now() },
+        : { ...current, syncKey: key, syncedAt: 0, pairedAt: Date.now(), shareToken: "" },
     );
     setPairedNotice(true);
   }, []);
@@ -151,7 +183,7 @@ export default function PhoneSettingsPage() {
     let stored = readSettings();
     const handedOff = readSyncKeyFromHash(window.location.hash);
     if (handedOff) {
-      stored = { ...stored, syncKey: handedOff, syncedAt: 0, pairedAt: Date.now() };
+      stored = { ...stored, syncKey: handedOff, syncedAt: 0, pairedAt: Date.now(), shareToken: "" };
       setPairedNotice(true);
       // 合言葉を履歴やアドレスバーに残さない。
       window.history.replaceState(null, "", window.location.pathname);
@@ -395,6 +427,68 @@ export default function PhoneSettingsPage() {
     });
   };
 
+  /**
+   * Google マップで「共有」→「コピー」した場所を読み取り、新しい目的地の欄に入れる。
+   * 中身を確かめて「追加する」を押すと、目的地に入って車にも届く。
+   */
+  const pastePlace = async () => {
+    if (pasting) return;
+    let copied = "";
+    try {
+      copied = await navigator.clipboard.readText();
+    } catch {
+      setToast(PASTE_NOTES.clipboard);
+      return;
+    }
+    setPasting(true);
+    const result = await readCopiedPlace(linked ? draft.syncKey.trim() : "", copied);
+    setPasting(false);
+    if (!result.ok) {
+      setToast(PASTE_NOTES[result.error]);
+      // 読めなかったときも、手で入れられるように新しい目的地の欄を開く。
+      if (result.error === "unreadable") {
+        setEditKey(NEW_PLACE_KEY);
+        setEditDraft({ label: "", destination: "" });
+      }
+      return;
+    }
+    // 同じ行き先がもうあれば足さない(ショートカットから送ったときと同じ)。
+    const same = draft.places.find((place) => place.destination === result.draft.destination);
+    if (same) {
+      setToast(`「${same.label || result.draft.label}」は、もう目的地にあります`);
+      return;
+    }
+    setEditKey(NEW_PLACE_KEY);
+    setEditDraft(result.draft);
+    setToast("読み取りました。確かめて「追加する」を押してください");
+  };
+
+  // ショートカットの作り方を開いたら、送り先の鍵を用意しておく。
+  // (iPhone では、押した瞬間にしかコピーできないため。押してから作ると間に合わない)
+  const shareKey = linked ? draft.syncKey.trim() : "";
+  const shareToken = draft.shareToken;
+  useEffect(() => {
+    if (!shortcutOpen || !shareKey || shareToken) return;
+    let active = true;
+    void issueShareToken(shareKey).then((token) => {
+      if (!active) return;
+      if (token) setDraft((current) => ({ ...current, shareToken: token }));
+      else setShortcutFailed(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [shortcutOpen, shareKey, shareToken]);
+
+  /** ショートカットに貼る送り先(鍵入り)をコピーする。送り先は画面に出さない。 */
+  const copyShareUrl = () => {
+    if (!shareToken) return;
+    navigator.clipboard
+      .writeText(shareUrlFor(shareToken))
+      .then(() => setToast("送り先をコピーしました。ショートカットに貼り付けてください"))
+      .catch(() => setToast("コピーできませんでした。もう一度押してください"));
+  };
+
   /** 直した(足した)場所を保存する。clear のときは、その場所を消す。 */
   const saveEditor = (clear = false) => {
     const key = editKey;
@@ -514,18 +608,23 @@ export default function PhoneSettingsPage() {
           <b>Z CAR</b>
           <small>TANTO · REMOTE</small>
         </div>
-        {/* ホーム画面のアプリにはブラウザの更新ボタンが無いので、ここに置く(印だけ)。 */}
-        <button
-          type="button"
-          className="zr-reload"
-          onClick={() => window.location.reload()}
-          aria-label={`更新(読み込み直す。新しい版があれば入れ替わる)${BUILD_STAMP ? `・今の版 ${BUILD_STAMP}` : ""}`}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
-            <path d="M19.5 3.6v4.6h-4.6" />
-          </svg>
-        </button>
+        {/* ホーム画面のアプリにはブラウザの更新ボタンが無いので、ここに置く(印だけ)。
+            左に小さく今の版の時刻を出す(公開した版に入れ替わったかが分かる)。
+            見出しの高さを変えないよう、時刻はボタンの横に並べる。 */}
+        <div className="zr-reload-box">
+          {BUILD_STAMP ? <small aria-hidden="true">{BUILD_STAMP}</small> : null}
+          <button
+            type="button"
+            className="zr-reload"
+            onClick={() => window.location.reload()}
+            aria-label={`更新(読み込み直す。新しい版があれば入れ替わる)${BUILD_STAMP ? `・今の版 ${BUILD_STAMP}` : ""}`}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+              <path d="M19.5 3.6v4.6h-4.6" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {syncTrouble ? (
@@ -853,15 +952,41 @@ export default function PhoneSettingsPage() {
             ) : null}
           </ul>
           {draft.places.length < MAX_PLACES && editKey !== NEW_PLACE_KEY ? (
-            <button type="button" className="zr-add" onClick={() => openEditor(null)}>
-              <i aria-hidden="true" />
-              <b>ADD PLACE</b>
-              <small>目的地を追加</small>
-            </button>
+            <div className="zr-add-row">
+              <button type="button" className="zr-add" onClick={() => openEditor(null)}>
+                <i aria-hidden="true" />
+                <b>ADD PLACE</b>
+                <small>目的地を追加</small>
+              </button>
+              {/* Google マップで「共有」→「コピー」した場所を貼り付ける。 */}
+              <button
+                type="button"
+                className="zr-add is-paste"
+                aria-busy={pasting}
+                onClick={() => void pastePlace()}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
+                  <circle cx="12" cy="10" r="2.4" />
+                </svg>
+                <b>FROM MAPS</b>
+                <small>{pasting ? "読み取り中…" : "コピーを貼り付け"}</small>
+              </button>
+            </div>
           ) : null}
           <p className="zr-note">
             <StarMark filled />
-            を付けた場所に、車の START で案内します。住所でも店名でも構いません。
+            を付けた場所に、車の START で案内します。
+            <button
+              type="button"
+              className="zr-inline-link"
+              onClick={() => {
+                setShortcutFailed(false);
+                setShortcutOpen(true);
+              }}
+            >
+              Google マップから直接送る ›
+            </button>
           </p>
         </section>
       ) : null}
@@ -974,6 +1099,63 @@ export default function PhoneSettingsPage() {
                 ))
               ) : (
                 <p className="zr-note">まだ記録がありません。給油したら下の欄から記録してください。</p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {/* Google マップの「共有」から目的地を直接送る、ショートカットの作り方。 */}
+      {shortcutOpen ? (
+        <div className="zr-sheet" role="presentation" onClick={() => setShortcutOpen(false)}>
+          <section
+            className="zr-sheet-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Google マップから直接送る"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="zr-sheet-head">
+              <span>
+                <small>SHORTCUT</small>
+                <b>Google マップから直接送る</b>
+              </span>
+              <button type="button" onClick={() => setShortcutOpen(false)}>
+                CLOSE
+              </button>
+            </header>
+            <div className="zr-sheet-body">
+              {linked ? (
+                <>
+                  <p className="zr-note zr-share-lead">
+                    Google マップの「共有」から、目的地に直接送れるようにします(車にも届きます)。
+                    最初に1回だけ、iPhone の「ショートカット」アプリで準備します。
+                  </p>
+                  <button
+                    type="button"
+                    className="zr-primary zr-share-copy"
+                    disabled={!shareToken}
+                    onClick={copyShareUrl}
+                  >
+                    {shareToken ? "送り先をコピー" : shortcutFailed ? "準備できませんでした" : "準備しています…"}
+                  </button>
+                  <ol className="zr-steps">
+                    {SHORTCUT_STEPS.map((step, index) => (
+                      <li key={step}>
+                        <em>{index + 1}</em>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="zr-note">
+                    <b>使い方</b> Google マップで「共有」→「Z CAR に送る」。追加すると通知が出ます。
+                  </p>
+                  <p className="zr-note">
+                    送り先には専用の鍵が入っています。他の人には教えないでください(この鍵でできるのは、目的地を足すことだけです)。
+                  </p>
+                </>
+              ) : (
+                <p className="zr-note zr-share-lead">車とつないでから設定してください。</p>
               )}
             </div>
           </section>
