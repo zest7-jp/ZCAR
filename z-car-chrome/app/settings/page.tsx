@@ -52,7 +52,7 @@ type Tab = "fuel" | "park" | "navi" | "theme";
 
 const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "fuel", ja: "給油", en: "FUEL" },
-  { id: "park", ja: "車の場所", en: "PARK" },
+  { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
   { id: "theme", ja: "メーター", en: "THEME" },
 ];
@@ -89,7 +89,7 @@ const shortDate = (date: string) => date.slice(5).replace("-", ".");
  * スマホ用のページ(/settings/)。
  * 車と共有している「給油記録・目的地・メーターの色」だけを、ここからも変えられる。
  * 変えたものは共通の仕組み(use-shared-sync)で車に届く。
- * 「車の場所」では、車載機が最後に送ってきた場所(停めた場所)を地図で見られる。
+ * 「車両位置」では、車載機が最後に送ってきた場所(停めた場所)を地図で見られる。
  */
 export default function PhoneSettingsPage() {
   const [draft, setDraft] = useState<Settings>(defaults);
@@ -718,11 +718,11 @@ export default function PhoneSettingsPage() {
             mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
           />
         ) : (
-          <section className="zr-panel" aria-label="車の場所">
+          <section className="zr-panel" aria-label="車両位置">
             <header className="zr-panel-head">
               <span>
                 <small>CAR LOCATION</small>
-                <b>車の場所</b>
+                <b>車両位置</b>
               </span>
             </header>
             <p className="zr-note">

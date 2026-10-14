@@ -7041,7 +7041,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #e7b55a;
 }
 
-/* --- 切り替え(給油 / 車の場所 / 目的地 / メーター) --- */
+/* --- 切り替え(給油 / 車両位置 / 目的地 / メーター) --- */
 .zr-tabs {
   position: sticky;
   top: 0;
@@ -8241,7 +8241,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   from { opacity: 0; }
 }
 
-/* --- 車の場所(車載機が最後に送ってきた場所を地図に出す) --- */
+/* --- 車両位置(車載機が最後に送ってきた場所を地図に出す) --- */
 /* 画面の残りの高さいっぱいに広げ、余った高さは地図が受け持つ。 */
 .zr-park { display: flex; flex: 1 0 auto; flex-direction: column; }
 .zr-park-card {
@@ -8294,7 +8294,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .zr-park-standby small { color: var(--zr-muted); font-size: 12px; font-weight: 700; line-height: 1.6; }
 
-/* 地図の右上: 航空写真の切り替えと、車の場所へ戻すボタン。 */
+/* 地図の右上: 航空写真の切り替えと、車両位置へ戻すボタン。 */
 .zr-park-tools {
   position: absolute;
   top: 10px;

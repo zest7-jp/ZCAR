@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, NIGHT_MAP_STYLES } from "../google-maps";
 import { distanceMeters, fetchParking, type ParkedCar } from "../parking";
 
-/** 車の場所を読み直す間隔(画面に戻ってきたときは、すぐ読み直す)。 */
+/** 車両位置を読み直す間隔(画面に戻ってきたときは、すぐ読み直す)。 */
 const PARK_POLL_MS = 30_000;
 /**
  * 最後に届いてからこの時間までは、車の電源が入っているとみなす
@@ -13,7 +13,7 @@ const PARK_POLL_MS = 30_000;
 const LIVE_MS = 3 * 60_000;
 /** 地図の寄り具合(駐車場の中で車を探せるくらい)。 */
 const PARK_MAP_ZOOM = 17;
-/** 車がこれ(m)以上動いたら、地図を車の場所へ寄せ直す(GPS の小さなぶれでは動かさない)。 */
+/** 車がこれ(m)以上動いたら、地図を車両位置へ寄せ直す(GPS の小さなぶれでは動かさない)。 */
 const RECENTER_METERS = 30;
 
 const STATUS = {
@@ -50,7 +50,7 @@ type MapsApi = {
 };
 type CarPin = GOverlay & { moveTo: (point: LatLng) => void };
 
-/** 地図の上の車の印(HTML)。地図を動かしても、車の場所に付いて動く。 */
+/** 地図の上の車の印(HTML)。地図を動かしても、車両位置に付いて動く。 */
 const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
   const element = document.createElement("div");
   element.className = "zr-park-pin";
@@ -122,7 +122,7 @@ const elapsedParts = (ms: number): [string, string][] => {
 type Note = { en: string; ja: string };
 
 /**
- * スマホの「車の場所」。車載機が最後に送ってきた場所(停めた場所)を地図に出す。
+ * スマホの「車両位置」。車載機が最後に送ってきた場所(停めた場所)を地図に出す。
  * 合言葉が変わったら作り直すので、呼ぶ側で key={合言葉} を付ける。
  */
 export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKey: string }) {
@@ -260,11 +260,11 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
   const standby: Note | null = !loaded
     ? failed
       ? { en: "NO SIGNAL", ja: "読み込めませんでした。電波のよい所で開き直してください。" }
-      : { en: "READING", ja: "車の場所を読み込んでいます" }
+      : { en: "READING", ja: "車両位置を読み込んでいます" }
     : !park
       ? {
           en: "NO DATA YET",
-          ja: "まだ車の場所が届いていません。車で Z CAR を開いて走ると、止まった場所がここに出ます。",
+          ja: "まだ車両位置が届いていません。車で Z CAR を開いて走ると、止まった場所がここに出ます。",
         }
       : mapState === "error"
         ? { en: "MAP UNAVAILABLE", ja: "地図を読み込めませんでした。下のボタンで地図アプリを開けます。" }
@@ -274,11 +274,11 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
 
   return (
     <div className="zr-park">
-      <section className="zr-park-card" aria-label="車の場所">
+      <section className="zr-park-card" aria-label="車両位置">
         <header className="zr-panel-head">
           <span>
             <small>CAR LOCATION</small>
-            <b>車の場所</b>
+            <b>車両位置</b>
           </span>
           {status ? (
             <em className={`zr-park-state is-${status}`}>
@@ -304,7 +304,7 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
               >
                 {satellite ? "地図" : "航空写真"}
               </button>
-              <button type="button" aria-label="車の場所を真ん中に" onClick={recenter}>
+              <button type="button" aria-label="車両位置を真ん中に" onClick={recenter}>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="6.5" />
                   <circle cx="12" cy="12" r="2" className="is-fill" />

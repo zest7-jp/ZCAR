@@ -280,7 +280,7 @@ export default function Home() {
   const [chinaClock, setChinaClock] = useState("--:--");
   const [isOnline, setIsOnline] = useState(true);
   const [ready, setReady] = useState(false);
-  // この端末が車載機か。車の場所を送るのは車載機だけ(スマホで車の画面を開いても送らない)。
+  // この端末が車載機か。車両位置を送るのは車載機だけ(スマホで車の画面を開いても送らない)。
   const [carDevice, setCarDevice] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   // このブラウザで全画面にできるか(できない端末ではボタンを出さない)。
@@ -529,8 +529,8 @@ export default function Home() {
     },
   });
 
-  // --- 車の場所 ---
-  // 止まったときなどに場所を送り、スマホの「車の場所」に停めた場所を出す。
+  // --- 車両位置 ---
+  // 止まったときなどに場所を送り、スマホの「車両位置」に停めた場所を出す。
   const parkingKey = settings.syncKey.trim();
   useParkingReport({
     enabled: ready && carDevice && parkingKey.length >= MIN_SYNC_KEY_LENGTH,

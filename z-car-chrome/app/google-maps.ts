@@ -1,4 +1,4 @@
-// Google の地図(Maps JavaScript API)を読み込む部品。車の画面とスマホの「車の場所」で使う。
+// Google の地図(Maps JavaScript API)を読み込む部品。車の画面とスマホの「車両位置」で使う。
 
 // Referrer-restricted (https://zest7.jp/*) browser key, Maps JavaScript API
 // only — safe to ship in client code. The settings key overrides it.
