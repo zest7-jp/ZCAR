@@ -9,6 +9,11 @@ export type ParkingReport = {
   accuracy: number;
   /** 走っているところか。 */
   moving: boolean;
+  /**
+   * いまの走行の長さ(ミリ秒)。走行中でなければ null。
+   * 時刻ではなく長さで送り、サーバーの時計で「走り出した時刻」にする(車の時計のずれに左右されない)。
+   */
+  drivingMs?: number | null;
 };
 
 /** サーバーにある、車の最後の場所。 */
@@ -17,6 +22,8 @@ export type ParkedCar = ParkingReport & {
   since: number;
   /** 最後に位置が届いた時刻(サーバーの時計のミリ秒)。 */
   at: number;
+  /** 走り出した時刻(サーバーの時計のミリ秒)。走行中でない・古い車の版なら null。 */
+  tripSince: number | null;
 };
 
 export const PARK_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/park.php`;
@@ -74,7 +81,15 @@ const sanitizeParkedCar = (value: unknown): ParkedCar | null => {
     return null;
   }
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  return { lat, lng, accuracy: Math.max(0, accuracy), moving: park.moving === true, since, at };
+  return {
+    lat,
+    lng,
+    accuracy: Math.max(0, accuracy),
+    moving: park.moving === true,
+    since,
+    at,
+    tripSince: isNumber(park.tripSince) ? park.tripSince : null,
+  };
 };
 
 /**

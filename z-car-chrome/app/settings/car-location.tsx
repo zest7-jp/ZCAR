@@ -329,8 +329,14 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
 
   const live = park !== null && clock > 0 && clock - park.at <= LIVE_MS;
   const status = !park ? null : live ? (park.moving ? "driving" : "stopped") : "parked";
-  // 走っている間は「届いた時刻」、止まっていれば「停めた時刻」から数える。
-  const shownAt = park ? (status === "driving" ? park.at : park.since) : 0;
+  // 走っている間は走り出した時刻からの走行時間、止まっていれば停めた時刻から数える。
+  // (走り出した時刻を送らない前の車の版では、最後に届いた時刻から数える)
+  const tripSince = status === "driving" ? (park?.tripSince ?? null) : null;
+  const shownAt = park ? (status === "driving" ? (tripSince ?? park.at) : park.since) : 0;
+  const shownLabel =
+    status === "driving" ? (tripSince !== null ? "出発時刻" : "届いた時刻") : "停めた時刻";
+  const elapsedLabel =
+    status === "driving" ? (tripSince !== null ? "走行時間" : "何分前") : "停めてから";
   const sameDay = park !== null && clock > 0 && dateText(shownAt) === dateText(clock);
   const destination = park ? `${park.lat.toFixed(6)},${park.lng.toFixed(6)}` : "";
   // 地図の左上に小さく出す座標(北緯・東経)。
@@ -415,7 +421,7 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
           <div className="zr-park-facts">
             {/* 停めてからの時間は、給油の燃費と同じ大きな数字で出す。 */}
             <p className="zr-park-elapsed">
-              <small>{status === "driving" ? "何分前" : "停めてから"}</small>
+              <small>{elapsedLabel}</small>
               <strong>
                 {clock > 0
                   ? elapsedParts(clock - shownAt).map(([value, unit]) => (
@@ -429,7 +435,7 @@ export function CarLocationPanel({ syncKey, mapsKey }: { syncKey: string; mapsKe
             </p>
             <dl>
               <div>
-                <dt>{status === "driving" ? "届いた時刻" : "停めた時刻"}</dt>
+                <dt>{shownLabel}</dt>
                 <dd>
                   {clockText(shownAt)}
                   <small>{sameDay ? "今日" : dateText(shownAt)}</small>
