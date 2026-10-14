@@ -7045,38 +7045,29 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 .zr-brand { display: grid; gap: 4px; }
-/* 見出しの右: 読み込み直すボタン(ホーム画面のアプリには更新ボタンが無いため)。 */
+/* 見出しの右: 読み込み直すボタン(印だけ)。ホーム画面のアプリには更新ボタンが無いため。 */
 .zr-reload {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 42px;
-  padding: 0 12px 0 10px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 1px solid rgba(var(--zr-accent-rgb), .3);
-  border-radius: 12px;
+  border-radius: 50%;
   background: rgba(var(--zr-accent-rgb), .06);
-  color: var(--zr-ink);
-  font-family: inherit;
+  color: var(--zr-accent);
   cursor: pointer;
 }
-.zr-reload:active { transform: translateY(1px); background: rgba(var(--zr-accent-rgb), .14); }
+.zr-reload:active { transform: rotate(-30deg); background: rgba(var(--zr-accent-rgb), .14); }
 .zr-reload svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   fill: none;
-  stroke: var(--zr-accent);
+  stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-.zr-reload span { display: grid; gap: 2px; text-align: left; }
-.zr-reload b { font-size: 13px; font-weight: 800; line-height: 1; }
-.zr-reload small {
-  color: var(--zr-muted);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .04em;
+  filter: drop-shadow(0 0 4px rgba(var(--zr-accent-rgb), .5));
 }
 .zr-brand b {
   font-size: clamp(28px, 3.7dvh, 36px);
