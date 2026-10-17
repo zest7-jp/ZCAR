@@ -7,6 +7,8 @@ import type { PlaceDraft } from "../place-import";
 
 /** 車両位置を読み直す間隔(画面に戻ってきたときは、すぐ読み直す)。 */
 const PARK_POLL_MS = 30_000;
+/** 読めなかったときは、これだけ待って1回だけ読み直す(開いた直後などは、すぐつながらないことがある)。 */
+const PARK_RETRY_MS = 5_000;
 /**
  * 車から最後に知らせが届いてからこの時間までは、車の電源が入っているとみなす
  * (車は止まっていても、GPS が使えなくても、1分おきに知らせてくる)。過ぎたら「駐車中」。
@@ -426,16 +428,23 @@ export function CarLocationPanel({
   // 開いたとき・30秒おき・画面に戻ってきたときに読む。
   useEffect(() => {
     let active = true;
+    let failures = 0;
+    let retry = 0;
     const load = async () => {
       try {
         const result = await fetchParking(syncKey);
         if (!active) return;
         setLoaded({ park: result.park, offset: result.now - Date.now() });
         setClock(result.now);
+        failures = 0;
         setFailed(false);
       } catch {
         // 圏外などは次の周期に任せる(前に読めた場所はそのまま出しておく)。
-        if (active) setFailed(true);
+        // 1回目の失敗は少しして読み直し、続けて読めなかったときだけ NO SIGNAL を出す。
+        if (!active) return;
+        failures += 1;
+        if (failures === 1) retry = window.setTimeout(() => void load(), PARK_RETRY_MS);
+        else setFailed(true);
       }
     };
     void load();
@@ -447,6 +456,7 @@ export function CarLocationPanel({
     return () => {
       active = false;
       window.clearInterval(timer);
+      window.clearTimeout(retry);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [syncKey]);

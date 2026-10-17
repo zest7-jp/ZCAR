@@ -265,8 +265,8 @@ export default function PhoneSettingsPage() {
     keepLocalOnFirstSync: () => false,
   });
 
-  // つながっている間は何も出さず、送れないときだけ知らせる。
-  const syncTrouble = linked && sync.state === "error";
+  // 送れなかった変更があるときだけ知らせる(読むのに失敗しただけなら出さない。車の電源とは関係ない)。
+  const syncTrouble = linked && sync.unsent;
 
   // --- QRの読み取り ---
   const stopScan = useCallback(() => {
@@ -650,7 +650,7 @@ export default function PhoneSettingsPage() {
       {syncTrouble ? (
         <p className="zr-alert" role="status">
           <b>NO SIGNAL</b>
-          <span>車に届いていません。電波が戻ると自動で送ります。</span>
+          <span>まだ送れていない変更があります。電波が戻ると自動で送ります。</span>
         </p>
       ) : null}
 

@@ -26,6 +26,14 @@ import {
 /** off は合言葉が無い(まだつないでいない)状態。 */
 export type SharedSyncState = "off" | "syncing" | "ok" | "error";
 
+/**
+ * 読めなかったときは、これだけ待って1回だけ読み直す(開いた直後などは、すぐつながらないことがある)。
+ * それでも読めなければ、いつもの間隔に任せる。
+ */
+const PULL_RETRY_MS = 5_000;
+/** 送れなかったときは、これだけ待って送り直す。 */
+const PUSH_RETRY_MS = 10_000;
+
 type Options = {
   settings: Settings;
   setSettings: Dispatch<SetStateAction<Settings>>;
@@ -78,6 +86,9 @@ export function useSharedSync({
   const baseRef = useRef<{ key: string; values: Record<string, string> } | null>(null);
   const [tick, setTick] = useState(0);
   const [pullCount, setPullCount] = useState(0);
+  // 送れなかった変更があるか(目的地・色など / 給油記録)。送れたら消す。
+  const [unsentShared, setUnsentShared] = useState(false);
+  const [unsentFuel, setUnsentFuel] = useState(false);
 
   // 非同期の処理から最新の値を読めるようにしておく。
   const settingsRef = useRef(settings);
@@ -100,6 +111,8 @@ export function useSharedSync({
   useEffect(() => {
     if (!enabled) return;
     let active = true;
+    let failures = 0;
+    let retry = 0;
     const pull = async () => {
       try {
         const result = await fetchSharedSettings(syncKey);
@@ -168,11 +181,15 @@ export function useSharedSync({
             syncedAt: nextSyncedAt,
           };
         });
+        failures = 0;
         setTick((count) => count + 1);
         setStatus({ state: "ok", at: Date.now() });
       } catch {
-        // 圏外などは次の周期に任せる。
-        if (active) setStatus((now) => ({ state: "error", at: now.at }));
+        if (!active) return;
+        setStatus((now) => ({ state: "error", at: now.at }));
+        // 1回目の失敗だけ、少しして読み直す。続けて読めなければ、いつもの間隔に任せる(圏外など)。
+        failures += 1;
+        if (failures === 1) retry = window.setTimeout(() => void pull(), PULL_RETRY_MS);
       }
     };
     void pull();
@@ -180,6 +197,7 @@ export function useSharedSync({
     return () => {
       active = false;
       window.clearInterval(timer);
+      window.clearTimeout(retry);
     };
   }, [enabled, syncKey, pollMs, pullCount, setSettings]);
 
@@ -205,7 +223,9 @@ export function useSharedSync({
     ) as Partial<SyncedSettings>;
     if (Object.keys(changed).length === 0) {
       callbacksRef.current.onInSync?.();
-      return;
+      // 送るものが無くなった(ほかの端末と同じになった)ら、送れていない印も消す。
+      const clear = window.setTimeout(() => setUnsentShared(false), 0);
+      return () => window.clearTimeout(clear);
     }
     const timer = window.setTimeout(async () => {
       setStatus((now) => ({ ...now, state: "syncing" }));
@@ -244,10 +264,16 @@ export function useSharedSync({
           setSettings((now) =>
             updatedAt > now.syncedAt ? { ...now, syncedAt: updatedAt } : now,
           );
+          setUnsentShared(false);
           setStatus({ state: "ok", at: Date.now() });
           setTick((count) => count + 1);
         })
-        .catch(() => setStatus((now) => ({ state: "error", at: now.at })));
+        .catch(() => {
+          setUnsentShared(true);
+          setStatus((now) => ({ state: "error", at: now.at }));
+          // 少しして送り直す(届くまで続ける)。
+          window.setTimeout(() => setTick((count) => count + 1), PUSH_RETRY_MS);
+        });
     }, 800);
     return () => window.clearTimeout(timer);
   }, [enabled, sharedJson, syncKey, tick, setSettings]);
@@ -256,7 +282,10 @@ export function useSharedSync({
   useEffect(() => {
     if (!enabled || !serverFuel || serverFuel.key !== syncKey) return;
     const known = serverFuel.ids;
-    if (fuelEntries.every((entry) => known.has(entry.id))) return;
+    if (fuelEntries.every((entry) => known.has(entry.id))) {
+      const clear = window.setTimeout(() => setUnsentFuel(false), 0);
+      return () => window.clearTimeout(clear);
+    }
     const timer = window.setTimeout(() => {
       setStatus((now) => ({ ...now, state: "syncing" }));
       void pushFuelEntries(syncKey, fuelEntries)
@@ -266,16 +295,23 @@ export function useSharedSync({
             key: syncKey,
             ids: new Set([...known, ...fuelEntries.map((entry) => entry.id)]),
           });
+          setUnsentFuel(false);
           setStatus({ state: "ok", at: Date.now() });
         })
-        .catch(() => setStatus((now) => ({ state: "error", at: now.at })));
+        .catch(() => {
+          setUnsentFuel(true);
+          setStatus((now) => ({ state: "error", at: now.at }));
+          window.setTimeout(() => setTick((count) => count + 1), PUSH_RETRY_MS);
+        });
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [enabled, fuelEntries, serverFuel, syncKey]);
+  }, [enabled, fuelEntries, serverFuel, syncKey, tick]);
 
   return {
     state: (enabled ? status.state : "off") as SharedSyncState,
     at: enabled ? status.at : null,
+    /** 送れなかった変更があるか(電波が戻ると、自動で送り直す)。 */
+    unsent: enabled && (unsentShared || unsentFuel),
     refresh,
   };
 }
