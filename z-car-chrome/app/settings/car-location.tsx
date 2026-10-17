@@ -27,6 +27,12 @@ const PHONE_FIX_STALE_MS = 15_000;
 const IN_CAR_BASE_METERS = 300;
 const IN_CAR_METERS_PER_SECOND = 40;
 /**
+ * iPhone の GPS の速さで、走っているか止まっているかを決める境目(km/h)。
+ * 走り出しはこれ以上、止まりはこれ以下。その間(のろのろ)は前のままにして、表示がちらつかないようにする。
+ */
+const PHONE_MOVING_KMH = 8;
+const PHONE_STOPPED_KMH = 3;
+/**
  * 「現在地を登録」で住所を使うのは、住所の場所がこれ(m)より近いときだけ。
  * 遠ければ(山道・河原など)緯度・経度のまま入れて、ナビでその場所へ正確に戻れるようにする。
  */
@@ -301,8 +307,17 @@ const addressAt = async (maps: MapsApi, point: LatLng): Promise<string | null> =
 /** 案内の文。英語を大きく、日本語は小さく添える。 */
 type Note = { en: string; ja: string };
 
+/** iPhone の速さで決めた、走っているか止まっているかと、そうなった時刻(スマホの時計)。 */
+type PhoneMotion = { moving: boolean; since: number };
+
 /** iPhone の GPS の1回分。 */
-type PhoneFix = LatLng & { accuracy: number; heading: number | null; kmh: number | null };
+type PhoneFix = LatLng & {
+  accuracy: number;
+  heading: number | null;
+  kmh: number | null;
+  /** 速さが分からなければ null(そのときは車から届いた状態を使う)。 */
+  motion: PhoneMotion | null;
+};
 
 /**
  * スマホの「車両位置」。車載機が最後に送ってきた場所(停めた場所)を地図に出す。
@@ -389,23 +404,29 @@ export function CarLocationPanel({
 
   const park = loaded?.park ?? null;
   const live = park !== null && clock > 0 && clock - park.heard <= LIVE_MS;
-  const status = !park ? null : live ? (park.moving ? "driving" : "stopped") : "parked";
 
   // 車の電源が入っている間は、iPhone の GPS で車の位置を毎秒追う。
   // しばらく届かなければ(電波・許可が無いなど)使わず、車から届いた位置に戻す。
   useEffect(() => {
     if (!live || !navigator.geolocation) return;
     let stale = 0;
+    let motion: PhoneMotion | null = null;
     const watch = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy, heading, speed } = position.coords;
-        const moving = speed !== null && Number.isFinite(speed) && speed > 0.5;
+        const kmh = speed !== null && Number.isFinite(speed) ? Math.max(0, speed * 3.6) : null;
+        if (kmh !== null) {
+          const moving = motion?.moving ? kmh > PHONE_STOPPED_KMH : kmh >= PHONE_MOVING_KMH;
+          if (!motion || motion.moving !== moving) motion = { moving, since: Date.now() };
+        }
+        const headingKnown = kmh !== null && kmh > 1.8 && heading !== null && Number.isFinite(heading);
         setPhoneFix({
           lat: latitude,
           lng: longitude,
           accuracy,
-          heading: moving && heading !== null && Number.isFinite(heading) ? heading : null,
-          kmh: speed !== null && Number.isFinite(speed) ? Math.max(0, speed * 3.6) : null,
+          heading: headingKnown ? heading : null,
+          kmh,
+          motion,
         });
         window.clearTimeout(stale);
         stale = window.setTimeout(() => setPhoneFix(null), PHONE_FIX_STALE_MS);
@@ -428,6 +449,11 @@ export function CarLocationPanel({
     distanceMeters(phoneFix, park) <=
       IN_CAR_BASE_METERS +
         (IN_CAR_METERS_PER_SECOND * Math.min(LIVE_MS, Math.max(0, clock - park.at))) / 1000;
+  // 走っているか止まっているかも、iPhone が車の中にあれば iPhone の GPS の速さで決める
+  // (車からは走っている間1分おきにしか届かないので、信号で止まった・走り出したがすぐには分からない)。
+  const phoneMotion = phoneInCar ? phoneFix.motion : null;
+  const moving = phoneMotion ? phoneMotion.moving : park?.moving === true;
+  const status = !park ? null : live ? (moving ? "driving" : "stopped") : "parked";
   const shown = phoneInCar ? phoneFix : park;
   const shownLat = shown?.lat;
   const shownLng = shown?.lng;
@@ -563,9 +589,19 @@ export function CarLocationPanel({
     });
   };
   // 走っている間は走り出した時刻からの走行時間、止まっていれば停めた時刻から数える。
+  // 走り出した時刻は車から届いたもの。まだ届いていなければ(走り出してすぐ)、iPhone が走り出しを見た時刻。
+  // 車がまだ走っていると思っている間に止まったときも、iPhone が止まりを見た時刻から数える。
   // (走り出した時刻を送らない前の車の版では、最後に届いた時刻から数える)
-  const tripSince = status === "driving" ? (park?.tripSince ?? null) : null;
-  const shownAt = park ? (status === "driving" ? (tripSince ?? park.at) : park.since) : 0;
+  const phoneSince = phoneMotion ? phoneMotion.since + offset : null;
+  const tripSince =
+    status === "driving" ? (park?.tripSince ?? (phoneMotion?.moving ? phoneSince : null)) : null;
+  const stoppedSince =
+    status === "stopped" && phoneMotion && !phoneMotion.moving && park?.moving ? phoneSince : null;
+  const shownAt = park
+    ? status === "driving"
+      ? (tripSince ?? park.at)
+      : (stoppedSince ?? park.since)
+    : 0;
   const shownLabel =
     status === "driving" ? (tripSince !== null ? "出発時刻" : "届いた時刻") : "停めた時刻";
   const elapsedLabel =

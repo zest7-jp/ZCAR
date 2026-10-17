@@ -15,7 +15,7 @@ const MOVING_KMH = 8;
 const MOVED_METERS = 20;
 /** 走っている間は、これより短い間隔では送らない。 */
 const MOVING_INTERVAL_MS = 60_000;
-/** 止まったら、前に送ってからこれだけたっていれば、すぐ送る。 */
+/** 止まったとき・走り出したときは、前に送ってからこれだけたっていれば、すぐ送る。 */
 const STOPPED_INTERVAL_MS = 10_000;
 /**
  * 同じ場所にいても、この間隔で送る(電源が入っていることをスマホに知らせる)。
@@ -62,8 +62,8 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
     if (!enabled) return;
     let active = true;
     let busy = false;
-    // 最後に送れた場所と時刻。
-    let sent: { lat: number; lng: number; at: number } | null = null;
+    // 最後に送れた場所と時刻と、走っていたか。
+    let sent: { lat: number; lng: number; at: number; moving: boolean } | null = null;
     // 最後にサーバーへ届いた時刻(場所でも、電源が入っていることだけの知らせでも)。
     let contactAt = 0;
     // 前に調べたときの場所。速さが分からないときは、ここからの動きで速さを出す。
@@ -132,19 +132,23 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
       if (busy) return;
       const park = { ...fix, drivingMs: drivingMs(now) };
       if (sent) {
+        // 走り出した・止まった(前に送ったときと変わった)ときは、すぐ知らせる。
+        const changed = sent.moving !== park.moving;
         const moved = distanceMeters(sent, park) >= MOVED_METERS;
-        const wait = moved
-          ? park.moving
-            ? MOVING_INTERVAL_MS
-            : STOPPED_INTERVAL_MS
-          : HEARTBEAT_MS;
+        const wait = changed
+          ? STOPPED_INTERVAL_MS
+          : moved
+            ? park.moving
+              ? MOVING_INTERVAL_MS
+              : STOPPED_INTERVAL_MS
+            : HEARTBEAT_MS;
         if (now - sent.at < wait) return;
       }
       busy = true;
       void pushParking(syncKey, park)
         .then((result) => {
           if (!active || !result.ok) return;
-          sent = { lat: park.lat, lng: park.lng, at: Date.now() };
+          sent = { lat: park.lat, lng: park.lng, at: Date.now(), moving: park.moving };
           contactAt = sent.at;
         })
         // 圏外などは、次に調べたときに送り直す。
@@ -165,7 +169,7 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
       if (!fix) return;
       const now = Date.now();
       sendParkingBeacon(syncKey, { ...fix, drivingMs: drivingMs(now) });
-      sent = { lat: fix.lat, lng: fix.lng, at: now };
+      sent = { lat: fix.lat, lng: fix.lng, at: now, moving: fix.moving };
     };
 
     check();
