@@ -14,6 +14,8 @@ export type ParkingReport = {
    * 時刻ではなく長さで送り、サーバーの時計で「走り出した時刻」にする(車の時計のずれに左右されない)。
    */
   drivingMs?: number | null;
+  /** 車の画面が消えるとき(エンジンを切ったなど)の最後の知らせ。 */
+  hidden?: boolean;
 };
 
 /** サーバーにある、車の最後の場所。 */
@@ -29,6 +31,8 @@ export type ParkedCar = ParkingReport & {
   heard: number;
   /** 走り出した時刻(サーバーの時計のミリ秒)。走行中でない・古い車の版なら null。 */
   tripSince: number | null;
+  /** 最後の知らせが、車の画面が消えるとき(エンジンを切ったなど)のものか。 */
+  hidden: boolean;
 };
 
 export const PARK_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/park.php`;
@@ -115,6 +119,7 @@ const sanitizeParkedCar = (value: unknown): ParkedCar | null => {
     // 前のサーバーの版には無い。そのときは位置が届いた時刻。
     heard: isNumber(park.heard) ? Math.max(park.heard, at) : at,
     tripSince: isNumber(park.tripSince) ? park.tripSince : null,
+    hidden: park.hidden === true,
   };
 };
 

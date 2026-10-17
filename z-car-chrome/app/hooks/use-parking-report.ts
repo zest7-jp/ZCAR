@@ -178,17 +178,19 @@ export function useParkingReport({ enabled, syncKey, location, obdSpeed }: Optio
         });
     };
 
-    // 画面が消える(電源を切る・ほかのアプリにする)ときは、その場所をすぐ送る。
-    // 戻ってきたときは、すぐ調べ直す。
+    // 画面が消える(電源を切る・ほかのアプリにする)ときは、その場所をすぐ送る(画面が消えた印を付ける)。
+    // 戻ってきたときは、その印を消すために、すぐ送り直す。
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
+        sent = null;
+        contactAt = 0;
         check();
         return;
       }
       const fix = report();
       if (!fix) return;
       const now = Date.now();
-      sendParkingBeacon(syncKey, { ...fix, drivingMs: drivingMs(now) });
+      sendParkingBeacon(syncKey, { ...fix, drivingMs: drivingMs(now), hidden: true });
       sent = { lat: fix.lat, lng: fix.lng, at: now, moving: fix.moving };
     };
 

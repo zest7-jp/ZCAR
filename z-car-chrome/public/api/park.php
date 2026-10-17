@@ -18,6 +18,8 @@
  * 車から知らせが届いた時刻(どれもこのサーバーの時計のミリ秒)。前と同じ場所なら since を引き継ぐ。
  * GPS が使えない間(屋根の下など)は、車は電源が入っていることだけを知らせてくる(alive)。
  * そのときは場所は変えずに heard だけ進める。
+ * 車の画面が消えるとき(エンジンを切ったなど)の最後の知らせには hidden が付く。
+ * 画面に戻って次の知らせ(場所・電源)が届けば消える。
  * 走行中は、車が送る走行の長さ(drivingMs)から、走り出した時刻(tripSince)も残す。
  *
  * 位置は合言葉から作った鍵で暗号化して保存します。合言葉はどこにも保存しないので、
@@ -98,6 +100,7 @@ function readPark(string $file, string $secret): ?array
             ? max((int) $park['heard'], (int) $park['at'])
             : (int) $park['at'],
         'tripSince' => isset($park['tripSince']) && is_numeric($park['tripSince']) ? (int) $park['tripSince'] : null,
+        'hidden' => ($park['hidden'] ?? false) === true,
     ];
 }
 
@@ -179,6 +182,8 @@ if (($body['alive'] ?? false) === true && !array_key_exists('park', $body)) {
         exit;
     }
     $previous['heard'] = max($now, $previous['heard']);
+    // 知らせは画面が出ているときだけ届くので、画面が消えた印は消す。
+    $previous['hidden'] = false;
     writePark($file, $secret, $previous);
     echo json_encode(['ok' => true, 'heard' => $previous['heard']]);
     exit;
@@ -234,6 +239,7 @@ $park = [
     'at' => $now,
     'heard' => $now,
     'tripSince' => $tripSince,
+    'hidden' => ($incoming['hidden'] ?? false) === true,
 ];
 writePark($file, $secret, $park);
 
