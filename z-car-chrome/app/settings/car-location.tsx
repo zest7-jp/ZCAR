@@ -347,6 +347,7 @@ type PhoneFix = LatLng & {
  * ・止まった所から歩いて離れたら(誤差を見込んでおよそ25m)、車を降りた(車の印は停めた所に残す)。
  * ・そうでなく車のすぐそばなら、車の中(停めた直後・信号待ちなど)。
  * ・車で走ってきて止まったなら、車の新しい知らせがまだ届いていなくても車の中。
+ * ・車の画面が消えた(エンジンを切った)と知らせてきたら、そばにいても車を降りたとみなす。
  */
 const isPhoneInCar = (phone: PhoneFix, park: ParkedCar, clock: number) => {
   const distance = distanceMeters(phone, park);
@@ -365,6 +366,9 @@ const isPhoneInCar = (phone: PhoneFix, park: ParkedCar, clock: number) => {
     const walked = PHONE_WALKED_METERS + Math.min(150, phone.accuracy + motion.accuracy);
     if (distanceMeters(phone, motion.at) > walked) return false;
   }
+  // 車の画面が消えた(エンジンを切ったなど)なら、そばで止まっている iPhone は車を降りた人。
+  // 車で走ってきて遠くで止まった iPhone(ナビを前に出して走っている途中など)だけが車の中。
+  if (park.hidden) return motion?.carried === true && distance > near && distance <= reach;
   if (distance <= near) return true;
   return (park.moving || motion?.carried === true) && distance <= reach;
 };
@@ -529,7 +533,12 @@ export function CarLocationPanel({
   // (車からは走っている間1分おきにしか届かないので、信号で止まった・走り出したがすぐには分からない)。
   const phoneMotion = phoneInCar ? phoneFix.motion : null;
   const moving = phoneMotion ? phoneMotion.moving : park?.moving === true;
-  const status = !park ? null : live ? (moving ? "driving" : "stopped") : "parked";
+  // 車の画面が消えた(エンジンを切ったなど)と知らせてきて、iPhone も車の中にいなければ、すぐ駐車中。
+  // (知らせが届かなかったときは、3分たって駐車中になる)
+  const closed = park?.hidden === true && !phoneInCar;
+  const status = !park ? null : live && !closed ? (moving ? "driving" : "stopped") : "parked";
+  // 車の電源が入っている(走行中・停車中)。
+  const carOn = status === "driving" || status === "stopped";
   const shown = phoneInCar ? phoneFix : park;
   const shownLat = shown?.lat;
   const shownLng = shown?.lng;
@@ -691,7 +700,7 @@ export function CarLocationPanel({
         `${shown.lng < 0 ? "W" : "E"} ${Math.abs(shown.lng).toFixed(5)}°`,
       ]
     : null;
-  const source = phoneInCar ? "LIVE · iPhone GPS" : live && park ? `CAR · ${clockText(park.at)}` : null;
+  const source = phoneInCar ? "LIVE · iPhone GPS" : carOn && park ? `CAR · ${clockText(park.at)}` : null;
   // 速さ(iPhone の GPS で追っている間だけ)。
   const kmh = phoneInCar ? phoneFix.kmh : null;
 
@@ -816,7 +825,7 @@ export function CarLocationPanel({
           </div>
         ) : null}
       </section>
-      {live ? (
+      {carOn ? (
         // 車の電源が入っている間は、いまの場所を地点リスト(目的地の一覧)に登録できる。
         <div className="zr-park-go">
           <button
@@ -867,7 +876,7 @@ export function CarLocationPanel({
         {phoneInCar
           ? "この iPhone の GPS で車の位置を動かしています。"
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
-        {live ? "登録した場所は、目的地として車の DEST から選べます。" : null}
+        {carOn ? "登録した場所は、目的地として車の DEST から選べます。" : null}
       </p>
     </div>
   );
