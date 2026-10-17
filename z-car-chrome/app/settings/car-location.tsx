@@ -36,6 +36,11 @@ const PHONE_STOPPED_KMH = 3;
 /** iPhone が車の「すぐそば」にあるとみなす距離(m)。これに誤差を足す。 */
 const PHONE_NEAR_METERS = 50;
 /**
+ * 止まった所からこれ(m)より離れたら、歩いて離れた(車を降りた)とみなす。これに誤差を足す
+ * (GPS がよく分かるときは、およそ25m。駐車場と家が近くても、車の印を停めた所に残せる)。
+ */
+const PHONE_WALKED_METERS = 15;
+/**
  * 「現在地を登録」で住所を使うのは、住所の場所がこれ(m)より近いときだけ。
  * 遠ければ(山道・河原など)緯度・経度のまま入れて、ナビでその場所へ正確に戻れるようにする。
  */
@@ -314,7 +319,14 @@ type Note = { en: string; ja: string };
  * iPhone の速さで決めた、走っているか止まっているかと、そうなった時刻(スマホの時計)と場所。
  * carried は、切り替わる直前に車の中にいたか(信号で止まる・走り出すを繰り返しても、車の中のままにする)。
  */
-type PhoneMotion = { moving: boolean; since: number; at: LatLng; carried: boolean };
+type PhoneMotion = {
+  moving: boolean;
+  since: number;
+  at: LatLng;
+  /** at の誤差(m)。 */
+  accuracy: number;
+  carried: boolean;
+};
 
 /** iPhone の GPS の1回分。 */
 type PhoneFix = LatLng & {
@@ -332,8 +344,8 @@ type PhoneFix = LatLng & {
  * ・車が止まっていると送ってきていれば、車の中から(またはそのすぐそばから)走り出したとき
  *   (停めた車の近くを通るバスや電車を、車と思わない)。
  * 止まっている・歩いている iPhone:
- * ・車のすぐそばなら、車の中(停めた直後・信号待ちなど)。
- * ・止まった所から歩いて離れたら、車を降りた(車の印は停めた所に残す)。
+ * ・止まった所から歩いて離れたら(誤差を見込んでおよそ25m)、車を降りた(車の印は停めた所に残す)。
+ * ・そうでなく車のすぐそばなら、車の中(停めた直後・信号待ちなど)。
  * ・車で走ってきて止まったなら、車の新しい知らせがまだ届いていなくても車の中。
  */
 const isPhoneInCar = (phone: PhoneFix, park: ParkedCar, clock: number) => {
@@ -349,8 +361,11 @@ const isPhoneInCar = (phone: PhoneFix, park: ParkedCar, clock: number) => {
       (park.moving || motion.carried || distanceMeters(motion.at, park) <= near)
     );
   }
+  if (motion) {
+    const walked = PHONE_WALKED_METERS + Math.min(150, phone.accuracy + motion.accuracy);
+    if (distanceMeters(phone, motion.at) > walked) return false;
+  }
   if (distance <= near) return true;
-  if (motion && distanceMeters(phone, motion.at) > near) return false;
   return (park.moving || motion?.carried === true) && distance <= reach;
 };
 
@@ -464,8 +479,25 @@ export function CarLocationPanel({
             const car = parkRef.current;
             const carried =
               last !== null && car !== null && isPhoneInCar(last, car, Date.now() + offsetRef.current);
-            motion = { moving, since: Date.now(), at: { lat: latitude, lng: longitude }, carried };
+            motion = {
+              moving,
+              since: Date.now(),
+              at: { lat: latitude, lng: longitude },
+              accuracy,
+              carried,
+            };
           }
+        }
+        // 止まった所の位置が大まか(誤差が大きい)だったときは、ずっと正しい位置が届いたら置き直す
+        // (はじめの大まかな位置から「歩いて離れた」と思わないように)。
+        const here = { lat: latitude, lng: longitude };
+        if (
+          motion &&
+          !motion.moving &&
+          accuracy < motion.accuracy / 2 &&
+          distanceMeters(motion.at, here) <= motion.accuracy + accuracy
+        ) {
+          motion = { ...motion, at: here, accuracy };
         }
         const headingKnown = kmh !== null && kmh > 1.8 && heading !== null && Number.isFinite(heading);
         last = {
