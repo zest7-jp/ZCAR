@@ -49,6 +49,37 @@ const PHONE_WALKED_METERS = 15;
 const ADDRESS_NEAR_METERS = 100;
 /** 住所を調べるのを待つ長さ。間に合わなければ緯度・経度で登録する。 */
 const ADDRESS_TIMEOUT_MS = 4000;
+/** 駐車メモをこの端末に置く場所と、書ける長さ。 */
+const PARK_MEMO_STORAGE_KEY = "zcar-park-memo";
+const PARK_MEMO_MAX = 20;
+/** 駐車メモにすぐ入れられる階。 */
+const PARK_MEMO_FLOORS = ["B2", "B1", "1F", "2F", "3F", "4F", "屋上"];
+
+/**
+ * 駐車メモ(階・番号・目印など)。at は書いた時刻(サーバーの時計)。
+ * 車がその場所に来たのが書いたより後なら(車を動かした)、そのメモはもう出さない。
+ */
+type ParkMemo = { text: string; at: number };
+
+const readParkMemo = (): ParkMemo | null => {
+  try {
+    const value = JSON.parse(localStorage.getItem(PARK_MEMO_STORAGE_KEY) ?? "null") as Partial<ParkMemo> | null;
+    return value && typeof value.text === "string" && typeof value.at === "number" && value.text
+      ? { text: value.text.slice(0, PARK_MEMO_MAX), at: value.at }
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeParkMemo = (memo: ParkMemo | null) => {
+  try {
+    if (memo) localStorage.setItem(PARK_MEMO_STORAGE_KEY, JSON.stringify(memo));
+    else localStorage.removeItem(PARK_MEMO_STORAGE_KEY);
+  } catch {
+    // 保存できない(プライベートブラウズなど)ときは、開いている間だけ出す。
+  }
+};
 
 /**
  * 状態ごとの名前と、八卦の印。lines は上の線から順に、1 が切れ目のない線(陽)、0 が真ん中の切れた線(陰)。
@@ -419,6 +450,12 @@ export function CarLocationPanel({
   const offsetRef = useRef(0);
   // 「現在地を登録」で住所を調べているところ。
   const [registering, setRegistering] = useState(false);
+  // 駐車メモ(この端末に置く)と、書いているところ。
+  // この画面は車とつないでから(端末の保存内容を読んだあと)しか出ないので、最初に読んでよい。
+  const [memo, setMemo] = useState<ParkMemo | null>(() =>
+    typeof window === "undefined" ? null : readParkMemo(),
+  );
+  const [memoDraft, setMemoDraft] = useState<string | null>(null);
   // 住所を調べ終わったときに、そのときの一覧へ足すため(調べている間に一覧が変わることがある)。
   const registerRef = useRef(onRegister);
   useEffect(() => {
@@ -683,6 +720,17 @@ export function CarLocationPanel({
       destination: address ?? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`,
     });
   };
+
+  // 駐車メモは、その駐車の間だけ出す(車がいまの場所に来たのが書いたより後なら、もう出さない)。
+  const memoText = memo && park && park.since <= memo.at ? memo.text : "";
+  /** 駐車メモを保存する。空なら消す。 */
+  const saveMemo = (text: string) => {
+    const value = text.trim().slice(0, PARK_MEMO_MAX);
+    const next = value ? { text: value, at: Date.now() + offset } : null;
+    writeParkMemo(next);
+    setMemo(next);
+    setMemoDraft(null);
+  };
   // 走っている間は走り出した時刻からの走行時間、止まっていれば停めた時刻から数える。
   // 走り出した時刻は車から届いたもの。まだ届いていなければ(走り出してすぐ)、iPhone が走り出しを見た時刻。
   // 車がまだ走っていると思っている間に止まったときも、iPhone が止まりを見た時刻から数える。
@@ -860,6 +908,7 @@ export function CarLocationPanel({
           </button>
         </div>
       ) : park ? (
+        // 駐車中は、車まで歩く道案内(Google マップ)と、駐車メモ。
         <div className="zr-park-go">
           <a
             className="zr-primary"
@@ -867,19 +916,36 @@ export function CarLocationPanel({
             target="_blank"
             rel="noopener noreferrer"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2.8 19.6 20.6 12 16.9 4.4 20.6Z" />
+            <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
+              <circle cx="14" cy="4.6" r="2" />
+              <path d="M13.2 8.6 10.8 14.4l2.9 2.6 1 4.6" />
+              <path d="M10.8 14.4 8.4 21.6" />
+              <path d="M12.4 10.4 9.2 12.3l-.8 2.9" />
+              <path d="M13.2 8.6l2.2 3 3.1.8" />
             </svg>
-            Google マップで行く
+            車まで歩く
           </a>
-          <a
-            className="zr-ghost"
-            href={`https://maps.apple.com/?daddr=${destination}&dirflg=w`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            className={`zr-ghost zr-park-memo${memoText ? " has-memo" : ""}`}
+            aria-label={memoText ? `駐車メモ: ${memoText}(押すと書き直せます)` : "駐車メモを書く"}
+            onClick={() => setMemoDraft(memoText)}
           >
-            Apple マップ
-          </a>
+            {memoText ? (
+              <>
+                <small>MEMO</small>
+                <b>{memoText}</b>
+              </>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
+                  <path d="M4.5 19.5h4l10-10-4-4-10 10z" />
+                  <path d="M13 7l4 4" />
+                </svg>
+                駐車メモ
+              </>
+            )}
+          </button>
         </div>
       ) : null}
       <p className="zr-note">
@@ -888,6 +954,73 @@ export function CarLocationPanel({
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
         {carOn ? "登録した場所は、目的地として車の DEST から選べます。" : null}
       </p>
+      {memoDraft !== null ? (
+        // 駐車メモを書くシート(下から出る)。
+        <div className="zr-sheet" role="presentation" onClick={() => setMemoDraft(null)}>
+          <section
+            className="zr-sheet-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="駐車メモ"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="zr-sheet-head">
+              <span>
+                <small>PARKING MEMO</small>
+                <b>駐車メモ</b>
+              </span>
+              <button type="button" onClick={() => setMemoDraft(null)}>
+                CLOSE
+              </button>
+            </header>
+            <form
+              className="zr-sheet-body zr-park-memo-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveMemo(memoDraft);
+              }}
+            >
+              <label className="zr-field zr-field-wide">
+                <span>階・番号・目印など({PARK_MEMO_MAX}文字まで)</span>
+                <div>
+                  <input
+                    type="text"
+                    value={memoDraft}
+                    maxLength={PARK_MEMO_MAX}
+                    placeholder="例: B2・15番"
+                    enterKeyHint="done"
+                    onChange={(event) => setMemoDraft(event.target.value)}
+                  />
+                </div>
+              </label>
+              <div className="zr-park-memo-floors" role="group" aria-label="階を入れる">
+                {PARK_MEMO_FLOORS.map((floor) => (
+                  <button
+                    key={floor}
+                    type="button"
+                    onClick={() =>
+                      setMemoDraft((current) =>
+                        (current ? `${current}・${floor}` : floor).slice(0, PARK_MEMO_MAX),
+                      )
+                    }
+                  >
+                    {floor}
+                  </button>
+                ))}
+              </div>
+              <div className="zr-editor-actions">
+                <button type="button" className="zr-ghost" onClick={() => saveMemo("")}>
+                  消す
+                </button>
+                <button type="submit" className="zr-primary">
+                  保存する
+                </button>
+              </div>
+              <p className="zr-note">この iPhone に残します。次に車を動かすと、自動で消えます。</p>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
