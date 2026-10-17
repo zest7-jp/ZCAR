@@ -15,7 +15,7 @@ const MOVING_KMH = 8;
 const MOVED_METERS = 20;
 /** 走っている間は、これより短い間隔では送らない。 */
 const MOVING_INTERVAL_MS = 60_000;
-/** 止まったら、前に送ってからこれだけたっていれば、すぐ送る。 */
+/** 止まったとき・走り出したときは、前に送ってからこれだけたっていれば、すぐ送る。 */
 const STOPPED_INTERVAL_MS = 10_000;
 /**
  * 同じ場所にいても、この間隔で送る(電源が入っていることをスマホに知らせる)。
@@ -29,8 +29,19 @@ const CHECK_MS = 5_000;
 const MAX_ACCURACY_METERS = 100;
 /** これより長く止まっていたら、1回の走行は終わり(信号待ちなどの短い停止では続ける)。 */
 const TRIP_BREAK_MS = 5 * 60_000;
+/**
+ * 位置の動きから速さを出すとき、これ(m)と誤差の大きいほうより動いていなければ、
+ * 止まっているとみなす(止まっていても GPS の位置は少し揺れるため)。
+ */
+const MIN_MOVED_METERS = 10;
 
-type Fix = { lat: number; lng: number; accuracy: number };
+type Fix = {
+  lat: number;
+  lng: number;
+  accuracy: number;
+  /** GPS の速さ(km/h)。分からなければ null。 */
+  speed?: number | null;
+};
 
 type Options = {
   /** 送ってよいか(車載機で、合言葉があるときだけ)。 */
@@ -38,8 +49,8 @@ type Options = {
   syncKey: string;
   /** いまの場所(GPS)。まだ分からなければ null。 */
   location: Fix | null;
-  /** 速さ(km/h)。OBD か GPS から。分からなければ null。 */
-  speed: number | null;
+  /** OBD の速さ(km/h)。いま届いていなければ null(そのときは GPS で決める)。 */
+  obdSpeed: number | null;
 };
 
 /**
@@ -51,19 +62,19 @@ type Options = {
  * そのときの場所を送る。GPS が使えない間も、電源が入っていることは1分おきに知らせる。
  * 走っている間は、走り出してからの長さも送る(スマホに走行時間と出発時刻を出す)。
  */
-export function useParkingReport({ enabled, syncKey, location, speed }: Options) {
+export function useParkingReport({ enabled, syncKey, location, obdSpeed }: Options) {
   // 一定の間隔で調べるので、最新の場所と速さは ref から読む。
-  const latestRef = useRef({ location, speed });
+  const latestRef = useRef({ location, obdSpeed });
   useEffect(() => {
-    latestRef.current = { location, speed };
+    latestRef.current = { location, obdSpeed };
   });
 
   useEffect(() => {
     if (!enabled) return;
     let active = true;
     let busy = false;
-    // 最後に送れた場所と時刻。
-    let sent: { lat: number; lng: number; at: number } | null = null;
+    // 最後に送れた場所と時刻と、走っていたか。
+    let sent: { lat: number; lng: number; at: number; moving: boolean } | null = null;
     // 最後にサーバーへ届いた時刻(場所でも、電源が入っていることだけの知らせでも)。
     let contactAt = 0;
     // 前に調べたときの場所。速さが分からないときは、ここからの動きで速さを出す。
@@ -92,12 +103,21 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
 
     /** いま送る内容。場所が分からない・外れているときは null。 */
     const report = (): ParkingReport | null => {
-      const { location: fix, speed: knownKmh } = latestRef.current;
+      const { location: fix, obdSpeed: knownKmh } = latestRef.current;
       if (!fix || !(fix.accuracy <= MAX_ACCURACY_METERS)) return null;
       const now = Date.now();
       let kmh = knownKmh;
-      if (kmh === null && seen && now - seen.at >= 1000) {
-        kmh = (distanceMeters(seen, fix) / (now - seen.at)) * 3600;
+      if (kmh === null) {
+        // OBD が無ければ GPS で決める。GPS の速さが 0 のままの車載機もあるので、
+        // 前に調べたときからの位置の動きでも速さを出し、速いほうを使う。
+        const gpsKmh = typeof fix.speed === "number" && Number.isFinite(fix.speed) ? fix.speed : null;
+        let movedKmh: number | null = null;
+        if (seen && now - seen.at >= 1000) {
+          const meters = distanceMeters(seen, fix);
+          movedKmh =
+            meters > Math.max(fix.accuracy, MIN_MOVED_METERS) ? (meters / (now - seen.at)) * 3600 : 0;
+        }
+        kmh = gpsKmh === null ? movedKmh : Math.max(gpsKmh, movedKmh ?? 0);
       }
       return {
         lat: fix.lat,
@@ -132,19 +152,23 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
       if (busy) return;
       const park = { ...fix, drivingMs: drivingMs(now) };
       if (sent) {
+        // 走り出した・止まった(前に送ったときと変わった)ときは、すぐ知らせる。
+        const changed = sent.moving !== park.moving;
         const moved = distanceMeters(sent, park) >= MOVED_METERS;
-        const wait = moved
-          ? park.moving
-            ? MOVING_INTERVAL_MS
-            : STOPPED_INTERVAL_MS
-          : HEARTBEAT_MS;
+        const wait = changed
+          ? STOPPED_INTERVAL_MS
+          : moved
+            ? park.moving
+              ? MOVING_INTERVAL_MS
+              : STOPPED_INTERVAL_MS
+            : HEARTBEAT_MS;
         if (now - sent.at < wait) return;
       }
       busy = true;
       void pushParking(syncKey, park)
         .then((result) => {
           if (!active || !result.ok) return;
-          sent = { lat: park.lat, lng: park.lng, at: Date.now() };
+          sent = { lat: park.lat, lng: park.lng, at: Date.now(), moving: park.moving };
           contactAt = sent.at;
         })
         // 圏外などは、次に調べたときに送り直す。
@@ -165,7 +189,7 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
       if (!fix) return;
       const now = Date.now();
       sendParkingBeacon(syncKey, { ...fix, drivingMs: drivingMs(now) });
-      sent = { lat: fix.lat, lng: fix.lng, at: now };
+      sent = { lat: fix.lat, lng: fix.lng, at: now, moving: fix.moving };
     };
 
     check();

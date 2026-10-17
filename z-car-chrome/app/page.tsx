@@ -537,7 +537,9 @@ export default function Home() {
     enabled: ready && carDevice && parkingKey.length >= MIN_SYNC_KEY_LENGTH,
     syncKey: parkingKey,
     location,
-    speed: obdData.speed ?? location?.speed ?? null,
+    // OBD の速さは、いま届いているときだけ使う(切れたまま残った古い値で、走っているのに
+    // 止まっているとしないため)。届いていなければ GPS で決める。
+    obdSpeed: obdStatus === "live" ? obdData.speed : null,
   });
 
   // 給油記録は設定と一緒に保存されるが、旧キーにも書いておく(古い版に戻しても読める)。
