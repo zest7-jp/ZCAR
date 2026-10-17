@@ -8578,7 +8578,21 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   letter-spacing: .2em;
 }
 
-/* 地図の上の車の印(地図の部品の中に置かれる)。 */
+/* 状態の色(配色によらない)。走行中はやわらかい白、停車中は黄、駐車中は灰色。
+   右上の状態の表示と、地図の上の車の印で同じ色にする。 */
+.zr-park-state,
+.zr-park-pin {
+  --zr-state: var(--zr-accent-strong);
+  --zr-state-rgb: var(--zr-accent-rgb);
+}
+.zr-park-state.is-driving,
+.zr-park-pin.is-driving { --zr-state: #e8e8e8; --zr-state-rgb: 232, 232, 232; }
+.zr-park-state.is-stopped,
+.zr-park-pin.is-stopped { --zr-state: #ffd60a; --zr-state-rgb: 255, 214, 10; }
+.zr-park-state.is-parked,
+.zr-park-pin.is-parked { --zr-state: #8a8a8a; --zr-state-rgb: 138, 138, 138; }
+
+/* 地図の上の車の印(地図の部品の中に置かれる)。真ん中に状態の八卦。 */
 .zr-park-pin {
   position: absolute;
   width: 38px;
@@ -8592,21 +8606,24 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   z-index: 1;
   display: grid;
   place-items: center;
-  border: 2px solid var(--zr-accent-strong);
+  border: 2px solid var(--zr-state);
   border-radius: 50%;
-  background: #03100c;
-  box-shadow: 0 0 0 3px rgba(var(--zr-accent-rgb), .28), 0 0 18px rgba(var(--zr-accent-rgb), .85);
+  background: #050605;
+  box-shadow: 0 0 0 3px rgba(var(--zr-state-rgb), .28), 0 0 18px rgba(var(--zr-state-rgb), .85);
 }
-.zr-park-pin-core svg { display: block; width: 22px; height: 22px; }
-.zr-park-pin-body { fill: var(--zr-accent-strong); }
-.zr-park-pin-cut { fill: #03100c; }
+.zr-park-pin-core .zr-park-trigram { display: block; width: 21px; height: 15px; }
+/* 駐車中(電源が切れている)は、光を弱くする。 */
+.zr-park-pin.is-parked .zr-park-pin-core {
+  box-shadow: 0 0 0 3px rgba(var(--zr-state-rgb), .2), 0 0 10px rgba(var(--zr-state-rgb), .4);
+}
 .zr-park-pin-ring {
   position: absolute;
   inset: 0;
-  border: 2px solid var(--zr-accent);
+  border: 2px solid var(--zr-state);
   border-radius: 50%;
   animation: zr-park-pulse 2.4s ease-out infinite;
 }
+.zr-park-pin.is-parked .zr-park-pin-ring { border-color: rgba(var(--zr-state-rgb), .55); }
 /* 進む向きの印(iPhone の GPS で追っている間だけ。輪の外側の三角)。 */
 .zr-park-pin-dir {
   position: absolute;
@@ -8622,16 +8639,16 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   top: 0;
   left: 50%;
   border-right: 7px solid transparent;
-  border-bottom: 11px solid var(--zr-accent-strong);
+  border-bottom: 11px solid var(--zr-state);
   border-left: 7px solid transparent;
   transform: translateX(-50%);
-  filter: drop-shadow(0 0 4px rgba(var(--zr-accent-rgb), .9));
+  filter: drop-shadow(0 0 4px rgba(var(--zr-state-rgb), .9));
 }
 /* 照準のように、ゆっくり回る点線の輪。 */
 .zr-park-pin-lock {
   position: absolute;
   inset: -15px;
-  border: 1.5px dashed rgba(var(--zr-accent-rgb), .8);
+  border: 1.5px dashed rgba(var(--zr-state-rgb), .8);
   border-radius: 50%;
   animation: zr-park-spin 16s linear infinite;
 }
@@ -8643,18 +8660,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   to { opacity: 0; transform: scale(2.8); }
 }
 
-/* 駐車中・停車中・走行中。 */
+/* 駐車中・停車中・走行中の表示。印(八卦)と文字を、状態の色で出す。 */
 .zr-panel-head > .zr-park-state {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 4px 10px 4px 8px;
-  border: 1px solid rgba(var(--zr-accent-rgb), .45);
+  border: 1px solid rgba(var(--zr-state-rgb), .45);
   border-radius: 999px;
-  background: rgba(var(--zr-accent-rgb), .1);
-  color: var(--zr-accent-strong);
+  background: rgba(var(--zr-state-rgb), .08);
+  color: var(--zr-state);
   letter-spacing: .18em;
 }
+.zr-panel-head > .zr-park-state.is-parked { background: transparent; }
 .zr-park-state small {
   color: var(--zr-ink);
   font-family: inherit;
@@ -8662,14 +8680,28 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 800;
   letter-spacing: .04em;
 }
-.zr-park-state i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--zr-accent);
-  box-shadow: 0 0 8px var(--zr-accent);
+.zr-park-trigram {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 13px;
+  overflow: visible;
 }
-.zr-park-state.is-driving i { animation: zr-park-blink 1.1s ease-in-out infinite; }
+.zr-park-trigram rect { fill: var(--zr-state); }
+.zr-park-state.is-driving .zr-park-trigram {
+  filter: drop-shadow(0 0 3px rgba(232, 232, 232, .6));
+  animation: zr-park-breathe 1.6s ease-in-out infinite;
+}
+.zr-park-state.is-stopped .zr-park-trigram { filter: drop-shadow(0 0 3px rgba(255, 214, 10, .45)); }
+/* 駐車中の八卦は、灰色の枠線だけ(中は抜く)。 */
+.zr-park-state.is-parked .zr-park-trigram rect,
+.zr-park-pin.is-parked .zr-park-trigram rect {
+  fill: none;
+  stroke: var(--zr-state);
+  stroke-width: .9;
+}
+@keyframes zr-park-breathe {
+  50% { opacity: .55; }
+}
 @keyframes zr-park-blink {
   50% { opacity: .25; }
 }
@@ -8760,7 +8792,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
   .zr-park-pin-lock,
-  .zr-park-state.is-driving i,
+  .zr-park-state.is-driving .zr-park-trigram,
   .zr-park-coords small.is-live::before { animation: none; }
   .zr-park-pin-dir { transition: none; }
   .zr-park-pin-ring { opacity: 0; }
