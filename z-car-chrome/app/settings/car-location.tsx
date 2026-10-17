@@ -45,22 +45,36 @@ const STATUS = {
   driving: { ja: "走行中", en: "DRIVING", lines: [1, 1, 1] },
 } as const;
 
+type ParkStatus = keyof typeof STATUS;
+
+/** 八卦の線(上から順に)。切れた線は、真ん中にすき間をあけた2本で描く。 */
+const trigramRects = (lines: readonly number[]) =>
+  lines.flatMap((solid, index) => {
+    const y = Math.round((0.5 + index * 4.7) * 10) / 10;
+    return solid
+      ? [{ x: 0.5, y, width: 17 }]
+      : [
+          { x: 0.5, y, width: 7.2 },
+          { x: 10.3, y, width: 7.2 },
+        ];
+  });
+
 /** 八卦の印(線3本)。文字(☰☶☷)は iPhone では細くかすれるので、図形で描く。 */
 const TrigramMark = ({ lines }: { lines: readonly number[] }) => (
   <svg className="zr-park-trigram" viewBox="0 0 18 13" aria-hidden="true">
-    {lines.map((solid, index) => {
-      const y = 0.5 + index * 4.7;
-      return solid ? (
-        <rect key={index} x="0.5" y={y} width="17" height="2.6" rx="0.7" />
-      ) : (
-        <g key={index}>
-          <rect x="0.5" y={y} width="7.2" height="2.6" rx="0.7" />
-          <rect x="10.3" y={y} width="7.2" height="2.6" rx="0.7" />
-        </g>
-      );
-    })}
+    {trigramRects(lines).map((bar, index) => (
+      <rect key={index} x={bar.x} y={bar.y} width={bar.width} height="2.6" rx="0.7" />
+    ))}
   </svg>
 );
+
+/** 地図の上の車の印に入れる、同じ八卦の印(地図の部品は HTML の文字で作るため)。 */
+const trigramSvg = (lines: readonly number[]) =>
+  '<svg class="zr-park-trigram" viewBox="0 0 18 13" aria-hidden="true">' +
+  trigramRects(lines)
+    .map((bar) => `<rect x="${bar.x}" y="${bar.y}" width="${bar.width}" height="2.6" rx="0.7"/>`)
+    .join("") +
+  "</svg>";
 
 type Rgb = [number, number, number];
 
@@ -165,9 +179,14 @@ type CarPin = GOverlay & {
   moveTo: (point: LatLng) => void;
   /** 進む向き(北が0、時計回りの度)。null なら向きの印を隠す。 */
   setHeading: (degrees: number | null) => void;
+  /** 真ん中の八卦と色を、いまの状態(走行中・停車中・駐車中)にする。 */
+  setStatus: (status: ParkStatus) => void;
 };
 
-/** 地図の上の車の印(HTML)。地図を動かしても、車両位置に付いて動く。 */
+/**
+ * 地図の上の車の印(HTML)。地図を動かしても、車両位置に付いて動く。
+ * 真ん中には、いまの状態の八卦(走行中 ☰・停車中 ☶・駐車中 ☷)を出す。
+ */
 const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
   const element = document.createElement("div");
   element.className = "zr-park-pin";
@@ -176,14 +195,8 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
     '<i class="zr-park-pin-ring"></i>' +
     '<i class="zr-park-pin-lock"></i>' +
     '<i class="zr-park-pin-dir"></i>' +
-    '<span class="zr-park-pin-core">' +
-    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-    '<path class="zr-park-pin-body" d="M4 12.6 6 7.3C6.3 6.5 7 6 7.8 6h8.4c.8 0 1.5.5 1.8 1.3l2 5.3V18a1 1 0 0 1-1 1h-1.2a1 1 0 0 1-1-1v-1H7.2v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>' +
-    '<path class="zr-park-pin-cut" d="M6.5 11.6h11l-1.3-3.7a.8.8 0 0 0-.8-.5H8.6a.8.8 0 0 0-.8.5z"/>' +
-    '<circle class="zr-park-pin-cut" cx="7.6" cy="14.4" r="1.2"/>' +
-    '<circle class="zr-park-pin-cut" cx="16.4" cy="14.4" r="1.2"/>' +
-    "</svg>" +
-    "</span>";
+    '<span class="zr-park-pin-core"></span>';
+  const core = element.querySelector(".zr-park-pin-core") as HTMLElement;
   const Base = maps.OverlayView as unknown as new () => GOverlay;
   class Pin extends Base {
     private point = position;
@@ -208,6 +221,10 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
     setHeading(degrees: number | null) {
       element.classList.toggle("has-heading", degrees !== null);
       if (degrees !== null) element.style.setProperty("--zr-heading", `${Math.round(degrees)}deg`);
+    }
+    setStatus(status: ParkStatus) {
+      for (const name of Object.keys(STATUS)) element.classList.toggle(`is-${name}`, name === status);
+      core.innerHTML = trigramSvg(STATUS[status].lines);
     }
   }
   return new Pin() as CarPin;
@@ -498,6 +515,11 @@ export function CarLocationPanel({
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
   }, [mapCreated, shownLat, shownLng, shownAccuracy, shownHeading]);
+
+  // 印の真ん中に、いまの状態(走行中・停車中・駐車中)の八卦を出す。
+  useEffect(() => {
+    if (mapCreated && status) mapRef.current?.pin.setStatus(status);
+  }, [mapCreated, status]);
 
   // 航空写真と地図を切り替える。
   useEffect(() => {
