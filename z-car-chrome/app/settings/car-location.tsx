@@ -28,10 +28,13 @@ const IN_CAR_BASE_METERS = 300;
 const IN_CAR_METERS_PER_SECOND = 40;
 /**
  * iPhone の GPS の速さで、走っているか止まっているかを決める境目(km/h)。
- * 走り出しはこれ以上、止まりはこれ以下。その間(のろのろ)は前のままにして、表示がちらつかないようにする。
+ * 走り出しはこれ以上、止まりはこれ以下。その間(のろのろ・歩き)は前のままにして、表示がちらつかないようにする。
+ * 走り出しを歩きや小走りより速くしておくのは、車を降りて歩いている iPhone を「走っている車」と思わないため。
  */
-const PHONE_MOVING_KMH = 8;
+const PHONE_MOVING_KMH = 12;
 const PHONE_STOPPED_KMH = 3;
+/** iPhone が車の「すぐそば」にあるとみなす距離(m)。これに誤差を足す。 */
+const PHONE_NEAR_METERS = 50;
 /**
  * 「現在地を登録」で住所を使うのは、住所の場所がこれ(m)より近いときだけ。
  * 遠ければ(山道・河原など)緯度・経度のまま入れて、ナビでその場所へ正確に戻れるようにする。
@@ -307,8 +310,11 @@ const addressAt = async (maps: MapsApi, point: LatLng): Promise<string | null> =
 /** 案内の文。英語を大きく、日本語は小さく添える。 */
 type Note = { en: string; ja: string };
 
-/** iPhone の速さで決めた、走っているか止まっているかと、そうなった時刻(スマホの時計)。 */
-type PhoneMotion = { moving: boolean; since: number };
+/**
+ * iPhone の速さで決めた、走っているか止まっているかと、そうなった時刻(スマホの時計)と場所。
+ * carried は、切り替わる直前に車の中にいたか(信号で止まる・走り出すを繰り返しても、車の中のままにする)。
+ */
+type PhoneMotion = { moving: boolean; since: number; at: LatLng; carried: boolean };
 
 /** iPhone の GPS の1回分。 */
 type PhoneFix = LatLng & {
@@ -317,6 +323,35 @@ type PhoneFix = LatLng & {
   kmh: number | null;
   /** 速さが分からなければ null(そのときは車から届いた状態を使う)。 */
   motion: PhoneMotion | null;
+};
+
+/**
+ * iPhone が車の中にあるか。車から届いた位置と、iPhone の速さ・止まった所・走り出した所で決める。
+ * 走っている iPhone:
+ * ・車が走っていると送ってきていれば、届いてからの時間で走れる距離(3分ぶんまで)の中にあるとき。
+ * ・車が止まっていると送ってきていれば、車の中から(またはそのすぐそばから)走り出したとき
+ *   (停めた車の近くを通るバスや電車を、車と思わない)。
+ * 止まっている・歩いている iPhone:
+ * ・車のすぐそばなら、車の中(停めた直後・信号待ちなど)。
+ * ・止まった所から歩いて離れたら、車を降りた(車の印は停めた所に残す)。
+ * ・車で走ってきて止まったなら、車の新しい知らせがまだ届いていなくても車の中。
+ */
+const isPhoneInCar = (phone: PhoneFix, park: ParkedCar, clock: number) => {
+  const distance = distanceMeters(phone, park);
+  const near = PHONE_NEAR_METERS + Math.min(100, phone.accuracy + park.accuracy);
+  const reach =
+    IN_CAR_BASE_METERS +
+    (IN_CAR_METERS_PER_SECOND * Math.min(LIVE_MS, Math.max(0, clock - park.at))) / 1000;
+  const motion = phone.motion;
+  if (motion?.moving) {
+    return (
+      distance <= reach &&
+      (park.moving || motion.carried || distanceMeters(motion.at, park) <= near)
+    );
+  }
+  if (distance <= near) return true;
+  if (motion && distanceMeters(phone, motion.at) > near) return false;
+  return (park.moving || motion?.carried === true) && distance <= reach;
 };
 
 /**
@@ -358,6 +393,9 @@ export function CarLocationPanel({
   const followRef = useRef(true);
   // いま地図に描いている印の位置(なめらかに動かすときの出発点)。
   const shownRef = useRef<LatLng | null>(null);
+  // iPhone の GPS の処理で、そのときの車の知らせとサーバーの時計の差を読むため。
+  const parkRef = useRef<ParkedCar | null>(null);
+  const offsetRef = useRef(0);
   // 「現在地を登録」で住所を調べているところ。
   const [registering, setRegistering] = useState(false);
   // 住所を調べ終わったときに、そのときの一覧へ足すため(調べている間に一覧が変わることがある)。
@@ -403,6 +441,10 @@ export function CarLocationPanel({
   }, [loaded, offset]);
 
   const park = loaded?.park ?? null;
+  useEffect(() => {
+    parkRef.current = park;
+    offsetRef.current = offset;
+  });
   const live = park !== null && clock > 0 && clock - park.heard <= LIVE_MS;
 
   // 車の電源が入っている間は、iPhone の GPS で車の位置を毎秒追う。
@@ -411,23 +453,32 @@ export function CarLocationPanel({
     if (!live || !navigator.geolocation) return;
     let stale = 0;
     let motion: PhoneMotion | null = null;
+    let last: PhoneFix | null = null;
     const watch = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy, heading, speed } = position.coords;
         const kmh = speed !== null && Number.isFinite(speed) ? Math.max(0, speed * 3.6) : null;
         if (kmh !== null) {
           const moving = motion?.moving ? kmh > PHONE_STOPPED_KMH : kmh >= PHONE_MOVING_KMH;
-          if (!motion || motion.moving !== moving) motion = { moving, since: Date.now() };
+          if (!motion || motion.moving !== moving) {
+            const car = parkRef.current;
+            const carried =
+              last !== null && car !== null && isPhoneInCar(last, car, Date.now() + offsetRef.current);
+            motion = { moving, since: Date.now(), at: { lat: latitude, lng: longitude }, carried };
+          }
         }
         const headingKnown = kmh !== null && kmh > 1.8 && heading !== null && Number.isFinite(heading);
-        setPhoneFix({
+        last = {
           lat: latitude,
           lng: longitude,
           accuracy,
           heading: headingKnown ? heading : null,
           kmh,
           motion,
-        });
+        };
+        setPhoneFix(last);
+        // 「車の中か」は時間で走れる距離を見るので、GPS が届くたびに時計も進める(15秒おきでは遅れる)。
+        setClock(Date.now() + offsetRef.current);
         window.clearTimeout(stale);
         stale = window.setTimeout(() => setPhoneFix(null), PHONE_FIX_STALE_MS);
       },
@@ -440,15 +491,8 @@ export function CarLocationPanel({
     };
   }, [live]);
 
-  // iPhone が車の近くにあれば(車の中にいる)、iPhone の GPS を車の位置にする。
-  // 車の GPS がしばらく使えず位置が古いときも、広げるのは3分ぶんまで(遠くの iPhone を車とみなさない)。
-  const phoneInCar =
-    live &&
-    phoneFix !== null &&
-    park !== null &&
-    distanceMeters(phoneFix, park) <=
-      IN_CAR_BASE_METERS +
-        (IN_CAR_METERS_PER_SECOND * Math.min(LIVE_MS, Math.max(0, clock - park.at))) / 1000;
+  // iPhone が車の中にあれば、iPhone の GPS を車の位置にする。
+  const phoneInCar = live && phoneFix !== null && park !== null && isPhoneInCar(phoneFix, park, clock);
   // 走っているか止まっているかも、iPhone が車の中にあれば iPhone の GPS の速さで決める
   // (車からは走っている間1分おきにしか届かないので、信号で止まった・走り出したがすぐには分からない)。
   const phoneMotion = phoneInCar ? phoneFix.motion : null;
