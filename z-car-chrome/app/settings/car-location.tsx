@@ -916,13 +916,6 @@ export function CarLocationPanel({
             target="_blank"
             rel="noopener noreferrer"
           >
-            <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
-              <circle cx="14" cy="4.6" r="2" />
-              <path d="M13.2 8.6 10.8 14.4l2.9 2.6 1 4.6" />
-              <path d="M10.8 14.4 8.4 21.6" />
-              <path d="M12.4 10.4 9.2 12.3l-.8 2.9" />
-              <path d="M13.2 8.6l2.2 3 3.1.8" />
-            </svg>
             車まで歩く
           </a>
           <button
@@ -937,13 +930,7 @@ export function CarLocationPanel({
                 <b>{memoText}</b>
               </>
             ) : (
-              <>
-                <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
-                  <path d="M4.5 19.5h4l10-10-4-4-10 10z" />
-                  <path d="M13 7l4 4" />
-                </svg>
-                駐車メモ
-              </>
+              "駐車メモ"
             )}
           </button>
         </div>
