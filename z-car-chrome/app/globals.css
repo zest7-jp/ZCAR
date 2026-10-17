@@ -8788,6 +8788,48 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   stroke-linejoin: round;
 }
 .zr-park-go svg .is-dot { stroke-width: 3; }
+/* 駐車メモ。書いたあとは、ボタンにメモの文字を出す。 */
+.zr-park-go .zr-park-memo { min-width: 0; }
+.zr-park-go .zr-park-memo.has-memo {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  padding: 0 12px;
+  border-color: rgba(var(--zr-accent-rgb), .4);
+  background: rgba(var(--zr-accent-rgb), .06);
+}
+.zr-park-memo small {
+  color: var(--zr-accent);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .26em;
+}
+.zr-park-memo b {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zr-park-memo-form { display: grid; gap: 12px; padding-top: 14px; }
+.zr-park-memo-form .zr-note { margin: 0 2px; }
+.zr-park-memo-floors { display: flex; flex-wrap: wrap; gap: 8px; }
+.zr-park-memo-floors button {
+  height: 36px;
+  min-width: 46px;
+  padding: 0 11px;
+  border: 1px solid rgba(var(--zr-accent-rgb), .3);
+  border-radius: 999px;
+  background: rgba(var(--zr-accent-rgb), .08);
+  color: var(--zr-ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.zr-park-memo-floors button:active { background: rgba(var(--zr-accent-rgb), .22); }
 .zr.is-tinted .zr-park-go a.zr-primary { color: var(--zt-on-accent); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
