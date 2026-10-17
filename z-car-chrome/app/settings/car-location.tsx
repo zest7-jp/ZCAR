@@ -34,11 +34,33 @@ const ADDRESS_NEAR_METERS = 100;
 /** 住所を調べるのを待つ長さ。間に合わなければ緯度・経度で登録する。 */
 const ADDRESS_TIMEOUT_MS = 4000;
 
+/**
+ * 状態ごとの名前と、八卦の印。lines は上の線から順に、1 が切れ目のない線(陽)、0 が真ん中の切れた線(陰)。
+ * 走行中は乾(☰ 天のように動き続ける)、停車中は艮(☶ 止まる)、駐車中は坤(☷ 地に休む)。
+ * 切れ目のない線が 3本 → 1本 → 0本 と減るので、八卦を知らなくても勢いの強さで読める。
+ */
 const STATUS = {
-  parked: { ja: "駐車中", en: "PARKED" },
-  stopped: { ja: "停車中", en: "STOPPED" },
-  driving: { ja: "走行中", en: "DRIVING" },
+  parked: { ja: "駐車中", en: "PARKED", lines: [0, 0, 0] },
+  stopped: { ja: "停車中", en: "STOPPED", lines: [1, 0, 0] },
+  driving: { ja: "走行中", en: "DRIVING", lines: [1, 1, 1] },
 } as const;
+
+/** 八卦の印(線3本)。文字(☰☶☷)は iPhone では細くかすれるので、図形で描く。 */
+const TrigramMark = ({ lines }: { lines: readonly number[] }) => (
+  <svg className="zr-park-trigram" viewBox="0 0 18 13" aria-hidden="true">
+    {lines.map((solid, index) => {
+      const y = 0.5 + index * 4.7;
+      return solid ? (
+        <rect key={index} x="0.5" y={y} width="17" height="2.6" rx="0.7" />
+      ) : (
+        <g key={index}>
+          <rect x="0.5" y={y} width="7.2" height="2.6" rx="0.7" />
+          <rect x="10.3" y={y} width="7.2" height="2.6" rx="0.7" />
+        </g>
+      );
+    })}
+  </svg>
+);
 
 type Rgb = [number, number, number];
 
@@ -565,7 +587,7 @@ export function CarLocationPanel({
           </span>
           {status ? (
             <em className={`zr-park-state is-${status}`}>
-              <i aria-hidden="true" />
+              <TrigramMark lines={STATUS[status].lines} />
               {STATUS[status].en}
               <small>{STATUS[status].ja}</small>
             </em>

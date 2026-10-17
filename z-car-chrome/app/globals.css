@@ -8644,16 +8644,27 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* 駐車中・停車中・走行中。 */
+/* 状態の印(八卦)と色。色は配色によらず状態で決める:
+   走行中はやわらかい白、停車中は黄、駐車中は灰色の枠線だけ(中は抜く)。 */
 .zr-panel-head > .zr-park-state {
+  --zr-state: var(--zr-accent-strong);
+  --zr-state-rgb: var(--zr-accent-rgb);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 4px 10px 4px 8px;
-  border: 1px solid rgba(var(--zr-accent-rgb), .45);
+  border: 1px solid rgba(var(--zr-state-rgb), .45);
   border-radius: 999px;
-  background: rgba(var(--zr-accent-rgb), .1);
-  color: var(--zr-accent-strong);
+  background: rgba(var(--zr-state-rgb), .08);
+  color: var(--zr-state);
   letter-spacing: .18em;
+}
+.zr-park-state.is-driving { --zr-state: #e8e8e8; --zr-state-rgb: 232, 232, 232; }
+.zr-park-state.is-stopped { --zr-state: #ffd60a; --zr-state-rgb: 255, 214, 10; }
+.zr-panel-head > .zr-park-state.is-parked {
+  --zr-state: #8a8a8a;
+  --zr-state-rgb: 138, 138, 138;
+  background: transparent;
 }
 .zr-park-state small {
   color: var(--zr-ink);
@@ -8662,14 +8673,26 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 800;
   letter-spacing: .04em;
 }
-.zr-park-state i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--zr-accent);
-  box-shadow: 0 0 8px var(--zr-accent);
+.zr-park-trigram {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 13px;
+  overflow: visible;
 }
-.zr-park-state.is-driving i { animation: zr-park-blink 1.1s ease-in-out infinite; }
+.zr-park-trigram rect { fill: var(--zr-state); }
+.zr-park-state.is-driving .zr-park-trigram {
+  filter: drop-shadow(0 0 3px rgba(232, 232, 232, .6));
+  animation: zr-park-breathe 1.6s ease-in-out infinite;
+}
+.zr-park-state.is-stopped .zr-park-trigram { filter: drop-shadow(0 0 3px rgba(255, 214, 10, .45)); }
+.zr-park-state.is-parked .zr-park-trigram rect {
+  fill: none;
+  stroke: var(--zr-state);
+  stroke-width: .9;
+}
+@keyframes zr-park-breathe {
+  50% { opacity: .55; }
+}
 @keyframes zr-park-blink {
   50% { opacity: .25; }
 }
@@ -8760,7 +8783,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
   .zr-park-pin-lock,
-  .zr-park-state.is-driving i,
+  .zr-park-state.is-driving .zr-park-trigram,
   .zr-park-coords small.is-live::before { animation: none; }
   .zr-park-pin-dir { transition: none; }
   .zr-park-pin-ring { opacity: 0; }
