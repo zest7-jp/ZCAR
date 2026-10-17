@@ -29,8 +29,19 @@ const CHECK_MS = 5_000;
 const MAX_ACCURACY_METERS = 100;
 /** これより長く止まっていたら、1回の走行は終わり(信号待ちなどの短い停止では続ける)。 */
 const TRIP_BREAK_MS = 5 * 60_000;
+/**
+ * 位置の動きから速さを出すとき、これ(m)と誤差の大きいほうより動いていなければ、
+ * 止まっているとみなす(止まっていても GPS の位置は少し揺れるため)。
+ */
+const MIN_MOVED_METERS = 10;
 
-type Fix = { lat: number; lng: number; accuracy: number };
+type Fix = {
+  lat: number;
+  lng: number;
+  accuracy: number;
+  /** GPS の速さ(km/h)。分からなければ null。 */
+  speed?: number | null;
+};
 
 type Options = {
   /** 送ってよいか(車載機で、合言葉があるときだけ)。 */
@@ -38,8 +49,8 @@ type Options = {
   syncKey: string;
   /** いまの場所(GPS)。まだ分からなければ null。 */
   location: Fix | null;
-  /** 速さ(km/h)。OBD か GPS から。分からなければ null。 */
-  speed: number | null;
+  /** OBD の速さ(km/h)。いま届いていなければ null(そのときは GPS で決める)。 */
+  obdSpeed: number | null;
 };
 
 /**
@@ -51,11 +62,11 @@ type Options = {
  * そのときの場所を送る。GPS が使えない間も、電源が入っていることは1分おきに知らせる。
  * 走っている間は、走り出してからの長さも送る(スマホに走行時間と出発時刻を出す)。
  */
-export function useParkingReport({ enabled, syncKey, location, speed }: Options) {
+export function useParkingReport({ enabled, syncKey, location, obdSpeed }: Options) {
   // 一定の間隔で調べるので、最新の場所と速さは ref から読む。
-  const latestRef = useRef({ location, speed });
+  const latestRef = useRef({ location, obdSpeed });
   useEffect(() => {
-    latestRef.current = { location, speed };
+    latestRef.current = { location, obdSpeed };
   });
 
   useEffect(() => {
@@ -92,12 +103,21 @@ export function useParkingReport({ enabled, syncKey, location, speed }: Options)
 
     /** いま送る内容。場所が分からない・外れているときは null。 */
     const report = (): ParkingReport | null => {
-      const { location: fix, speed: knownKmh } = latestRef.current;
+      const { location: fix, obdSpeed: knownKmh } = latestRef.current;
       if (!fix || !(fix.accuracy <= MAX_ACCURACY_METERS)) return null;
       const now = Date.now();
       let kmh = knownKmh;
-      if (kmh === null && seen && now - seen.at >= 1000) {
-        kmh = (distanceMeters(seen, fix) / (now - seen.at)) * 3600;
+      if (kmh === null) {
+        // OBD が無ければ GPS で決める。GPS の速さが 0 のままの車載機もあるので、
+        // 前に調べたときからの位置の動きでも速さを出し、速いほうを使う。
+        const gpsKmh = typeof fix.speed === "number" && Number.isFinite(fix.speed) ? fix.speed : null;
+        let movedKmh: number | null = null;
+        if (seen && now - seen.at >= 1000) {
+          const meters = distanceMeters(seen, fix);
+          movedKmh =
+            meters > Math.max(fix.accuracy, MIN_MOVED_METERS) ? (meters / (now - seen.at)) * 3600 : 0;
+        }
+        kmh = gpsKmh === null ? movedKmh : Math.max(gpsKmh, movedKmh ?? 0);
       }
       return {
         lat: fix.lat,
