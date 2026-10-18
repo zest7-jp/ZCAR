@@ -7047,8 +7047,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-brand { display: grid; gap: 4px; }
 /* 見出しの右: 今の版の時刻と、読み込み直すボタン(印だけ)。
    ホーム画面のアプリには更新ボタンが無いため。 */
-.zr-reload-box { display: flex; align-items: center; gap: 10px; }
-.zr-reload-box small {
+/* 今の版の時刻。長押しで読み込み直す。目立たせない(押している間だけ配色の色になり、下の線が伸びる)。 */
+.zr-reload-stamp {
+  position: relative;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
   color: var(--zr-muted);
   opacity: .75;
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -7056,34 +7061,25 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 700;
   letter-spacing: .04em;
   white-space: nowrap;
-}
-/* 目立たせない: 色は控えめにして光らせない。押している間だけ配色の色になる。 */
-.zr-reload {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, .07);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--zr-muted);
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
-.zr-reload:active {
-  transform: rotate(-30deg);
-  border-color: rgba(var(--zr-accent-rgb), .3);
-  color: var(--zr-accent);
+.zr-reload-stamp::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 12px;
+  left: 2px;
+  height: 1px;
+  background: var(--zr-accent);
+  transform: scaleX(0);
+  transform-origin: left;
 }
-.zr-reload svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
+.zr-reload-stamp.is-pressing { color: var(--zr-accent); opacity: 1; }
+.zr-reload-stamp.is-pressing::after { transform: scaleX(1); transition: transform .7s linear; }
 .zr-brand b {
   font-size: clamp(28px, 3.7dvh, 36px);
   font-weight: 900;
