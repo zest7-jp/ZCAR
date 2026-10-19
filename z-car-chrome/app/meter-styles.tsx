@@ -368,6 +368,10 @@ const BAR_SEGMENTS = 18;
 const RETRO_CRT = { x: 284, y: 328, w: 320, h: 214 };
 const RETRO_DEST = { x: 616, y: 325, w: 137, h: 56 };
 const RETRO_START = { x: 616, y: 391, w: 137, h: 154 };
+/** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
+const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
+/** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。 */
+const RETRO_MAP_BAY = { x: 784, y: 272, w: 216, h: 278 };
 
 /** 80年代のデジタルの、動かない絵(下地・仕切り・説明の文字・消えている棒)。 */
 const RetroFace = memo(function RetroFace() {
@@ -385,17 +389,17 @@ const RetroFace = memo(function RetroFace() {
     label("cruiseUnit", 740, 228, "km/h", { anchor: "end", size: 9, spacing: 1 }),
     label("fuel", 636, 248, "AVG FUEL"),
     label("fuelUnit", 740, 302, "km/L", { anchor: "end", size: 9, spacing: 1 }),
-    label("tank", 778, 26, "FUEL"),
-    label("e", 778, 61, "E", { color: RETRO.soft, size: 10, spacing: 0 }),
-    label("f", 998, 61, "F", { color: RETRO.soft, size: 10, anchor: "end", spacing: 0 }),
-    label("range", 778, 92, "SAFE RANGE"),
-    label("rangeUnit", 966, 109, "km", { color: RETRO.amber, size: 12, spacing: 0 }),
-    label("coolant", 778, 144, "COOLANT"),
-    label("c", 778, 179, "C", { color: RETRO.soft, size: 10, spacing: 0 }),
-    label("h", 998, 179, "H", { color: RETRO.soft, size: 10, anchor: "end", spacing: 0 }),
-    label("coolantUnit", 966, 227, "°C", { color: RETRO.cyan, size: 12, spacing: 0 }),
-    label("battery", 778, 262, "BATTERY"),
-    label("voltUnit", 968, 303, "V", { color: RETRO.green, size: 12, spacing: 0 }),
+    label("tank", 778, RETRO_RIGHT.fuelBar - 12, "FUEL"),
+    label("e", 778, RETRO_RIGHT.fuelBar + 15, "E", { color: RETRO.soft, size: 10, spacing: 0 }),
+    label("f", 998, RETRO_RIGHT.fuelBar + 15, "F", { color: RETRO.soft, size: 10, anchor: "end", spacing: 0 }),
+    label("range", 778, RETRO_RIGHT.range + 16, "SAFE RANGE"),
+    label("rangeUnit", 966, RETRO_RIGHT.range + 29, "km", { color: RETRO.amber, size: 12, spacing: 0 }),
+    label("coolant", 778, RETRO_RIGHT.coolantBar - 10, "COOLANT"),
+    label("c", 778, RETRO_RIGHT.coolantBar + 15, "C", { color: RETRO.soft, size: 10, spacing: 0 }),
+    label("h", 998, RETRO_RIGHT.coolantBar + 15, "H", { color: RETRO.soft, size: 10, anchor: "end", spacing: 0 }),
+    label("coolantUnit", 966, RETRO_RIGHT.coolant + 29, "°C", { color: RETRO.cyan, size: 12, spacing: 0 }),
+    label("battery", 778, RETRO_RIGHT.battery - 8, "BATTERY"),
+    label("voltUnit", 968, RETRO_RIGHT.battery + 29, "V", { color: RETRO.green, size: 12, spacing: 0 }),
     label("change", RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + 20, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 }),
     label("gmaps", RETRO_START.x + 14, RETRO_START.y + RETRO_START.h - 16, "GOOGLE MAPS", { size: 7.5, spacing: 1.8 }),
   ];
@@ -432,9 +436,9 @@ const RetroFace = memo(function RetroFace() {
         <line x1="22" y1="184" x2="248" y2="184" />
         <line x1="22" y1="346" x2="248" y2="346" />
         <line x1="22" y1="470" x2="248" y2="470" />
-        <line x1="778" y1="126" x2="1002" y2="126" />
-        <line x1="778" y1="244" x2="1002" y2="244" />
-        <line x1="778" y1="314" x2="1002" y2="314" />
+        <line x1="778" y1={RETRO_RIGHT.coolantBar - 26} x2="1002" y2={RETRO_RIGHT.coolantBar - 26} />
+        <line x1="778" y1={RETRO_RIGHT.battery - 24} x2="1002" y2={RETRO_RIGHT.battery - 24} />
+        <line x1="778" y1={RETRO_RIGHT.battery + 40} x2="1002" y2={RETRO_RIGHT.battery + 40} />
       </g>
       {/* 曜日の札(今日の札は動く絵の方で点ける)。 */}
       {WEEK_ORDER.map((dayIndex, i) => (
@@ -459,10 +463,13 @@ const RetroFace = memo(function RetroFace() {
       {/* 燃料と水温の棒(消えている方)。 */}
       {Array.from({ length: BAR_SEGMENTS }, (_, i) => (
         <g key={i}>
-          <rect x={790 + i * 11} y="46" width="8.5" height="20" fill={i < 3 ? RETRO.red : RETRO.amber} opacity=".1" />
-          <rect x={790 + i * 11} y="164" width="8.5" height="20" fill={RETRO.cyan} opacity=".1" />
+          <rect x={790 + i * 11} y={RETRO_RIGHT.fuelBar} width="8.5" height="18" fill={i < 3 ? RETRO.red : RETRO.amber} opacity=".1" />
+          <rect x={790 + i * 11} y={RETRO_RIGHT.coolantBar} width="8.5" height="18" fill={RETRO.cyan} opacity=".1" />
         </g>
       ))}
+      {/* 右下の縦長の箱(Google マップの小さな画面を置く所。中は何も描かない)。 */}
+      <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
+      {label("bay", RETRO_MAP_BAY.x + 16, RETRO_MAP_BAY.y + 24, "GOOGLE MAPS", { color: "#3f6f5a", size: 8, spacing: 2.4 })}
       {/* 地図の画面の枠と、その右の DEST・START のボタンの枠。 */}
       <rect x={RETRO_CRT.x - 3} y={RETRO_CRT.y - 3} width={RETRO_CRT.w + 6} height={RETRO_CRT.h + 6} rx="20" fill="#0b0f0f" stroke="#2a3534" strokeWidth="2" />
       <rect x={RETRO_DEST.x} y={RETRO_DEST.y} width={RETRO_DEST.w} height={RETRO_DEST.h} rx="4" fill={RETRO.amber} fillOpacity=".06" stroke={RETRO.amber} strokeOpacity=".75" strokeWidth="1.6" />
@@ -485,7 +492,7 @@ const RetroFace = memo(function RetroFace() {
 /** 燃料・水温の点いている棒。 */
 const litSegments = (value: number, y: number, color: (index: number) => string) =>
   Array.from({ length: Math.round(clamp01(value) * BAR_SEGMENTS) }, (_, i) => (
-    <rect key={i} x={790 + i * 11} y={y} width="8.5" height="20" fill={color(i)} />
+    <rect key={i} x={790 + i * 11} y={y} width="8.5" height="18" fill={color(i)} />
   ));
 
 export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }: ClusterProps & MapProps) {
@@ -566,19 +573,19 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         />
         <SevenSeg text={data.avgCruise === null ? "--" : String(Math.round(data.avgCruise))} x={740} y={182} h={30} color={RETRO.amber} align="end" />
         <SevenSeg text={data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)} x={740} y={256} h={30} color={RETRO.amber} align="end" />
-        <g filter="url(#ms-vfd)">{litSegments(data.fuelPercent / 100, 46, (i) => (i < 3 ? RETRO.red : RETRO.amber))}</g>
-        <SevenSeg text={String(Math.round(data.rangeKm))} x={960} y={76} h={34} color={RETRO.amber} align="end" />
+        <g filter="url(#ms-vfd)">{litSegments(data.fuelPercent / 100, RETRO_RIGHT.fuelBar, (i) => (i < 3 ? RETRO.red : RETRO.amber))}</g>
+        <SevenSeg text={String(Math.round(data.rangeKm))} x={960} y={RETRO_RIGHT.range} h={30} color={RETRO.amber} align="end" />
         <g filter="url(#ms-vfd)">
-          {data.coolant === null ? null : litSegments((data.coolant - 50) / 70, 164, () => RETRO.cyan)}
+          {data.coolant === null ? null : litSegments((data.coolant - 50) / 70, RETRO_RIGHT.coolantBar, () => RETRO.cyan)}
         </g>
-        <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={194} h={34} color={RETRO.cyan} align="end" />
-        <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={270} h={34} color={RETRO.green} align="end" />
+        <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={RETRO_RIGHT.coolant} h={30} color={RETRO.cyan} align="end" />
+        <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={RETRO_RIGHT.battery} h={30} color={RETRO.green} align="end" />
         <text x={RETRO_START.x + 14} y={RETRO_START.y + 96} fill={RETRO.cyan} fontSize={destSize} fontWeight="700" filter="url(#ms-vfd)" className="ms-ja">
           {dest}
         </text>
       </svg>
       <i className="ms-retro-mesh" aria-hidden="true" />
-      <Hit box={[770, 12, 240, 112]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[626, 236, 124, 76]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
