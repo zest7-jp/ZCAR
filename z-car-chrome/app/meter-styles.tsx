@@ -368,6 +368,10 @@ const BAR_SEGMENTS = 18;
 const RETRO_CRT = { x: 284, y: 328, w: 320, h: 214 };
 const RETRO_DEST = { x: 616, y: 325, w: 137, h: 56 };
 const RETRO_START = { x: 616, y: 391, w: 137, h: 154 };
+/** START の箱は大きな ▶ だけ。見た目で真ん中に来るよう、少し右に寄せる。 */
+const START_CX = RETRO_START.x + RETRO_START.w / 2;
+const START_CY = RETRO_START.y + RETRO_START.h / 2;
+const START_PLAY = `${START_CX - 22},${START_CY - 32} ${START_CX + 34},${START_CY} ${START_CX - 22},${START_CY + 32}`;
 /** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。 */
@@ -401,7 +405,6 @@ const RetroFace = memo(function RetroFace() {
     label("battery", 778, RETRO_RIGHT.battery - 8, "BATTERY"),
     label("voltUnit", 968, RETRO_RIGHT.battery + 29, "V", { color: RETRO.green, size: 12, spacing: 0 }),
     label("change", RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + 20, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 }),
-    label("gmaps", RETRO_START.x + 14, RETRO_START.y + RETRO_START.h - 16, "GOOGLE MAPS", { size: 7.5, spacing: 1.8 }),
   ];
   for (let k = 0; k <= 8; k += 1) {
     labels.push(label(`n${k}`, r2(284 + k * 4 * 14.25 - (k === 8 ? 3 : 0)), 122, String(k), { color: k >= 7 ? RETRO.red : RETRO.soft, size: 10, anchor: "middle", spacing: 0 }));
@@ -477,14 +480,8 @@ const RetroFace = memo(function RetroFace() {
         DEST
       </text>
       <rect x={RETRO_START.x} y={RETRO_START.y} width={RETRO_START.w} height={RETRO_START.h} rx="4" fill={RETRO.cyan} fillOpacity=".07" stroke={RETRO.cyan} strokeOpacity=".85" strokeWidth="2" />
-      <text x={RETRO_START.x + 14} y={RETRO_START.y + 28} fill={RETRO.cyan} fontSize="13" letterSpacing="4" filter="url(#ms-vfd)">
-        START
-      </text>
-      <polygon
-        points={`${RETRO_START.x + 110},${RETRO_START.y + 14} ${RETRO_START.x + 126},${RETRO_START.y + 24} ${RETRO_START.x + 110},${RETRO_START.y + 34}`}
-        fill={RETRO.cyan}
-        filter="url(#ms-vfd)"
-      />
+      {/* START の ▶(消えている方。点いている方は動く絵で、行き先があるときだけ出す)。 */}
+      <polygon points={START_PLAY} fill={RETRO.cyan} opacity=".1" />
     </svg>
   );
 });
@@ -504,9 +501,6 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
       ]
     : [];
   const temperature = data.weather ? String(Math.round(data.weather.temperature)) : "--";
-  const dest = data.destLabel ?? "NO DEST";
-  // ボタンの幅(約108px)に収まる大きさ。
-  const destSize = Math.min(34, Math.floor(108 / Math.max(1, [...dest].length)));
   return (
     <Board className="ms-retro">
       <RetroFace />
@@ -580,9 +574,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         </g>
         <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={RETRO_RIGHT.coolant} h={30} color={RETRO.cyan} align="end" />
         <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={RETRO_RIGHT.battery} h={30} color={RETRO.green} align="end" />
-        <text x={RETRO_START.x + 14} y={RETRO_START.y + 96} fill={RETRO.cyan} fontSize={destSize} fontWeight="700" filter="url(#ms-vfd)" className="ms-ja">
-          {dest}
-        </text>
+        {onStart ? <polygon points={START_PLAY} fill={RETRO.cyan} filter="url(#ms-vfd)" /> : null}
       </svg>
       <i className="ms-retro-mesh" aria-hidden="true" />
       <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
