@@ -84,6 +84,9 @@ const GREEN_METER_MAP_STYLES = [
 ];
 
 const FUEL_LOG_STORAGE_KEY = "zcar-fuel-log-v1";
+// 最後の給油から走った距離と、数え始めた時刻(その給油を記録した時刻)。
+const FUEL_TRIP_KM_STORAGE_KEY = "zcar-fuel-trip-km";
+const FUEL_TRIP_SINCE_STORAGE_KEY = "zcar-fuel-trip-since";
 // スマホで変えた内容(給油記録・目的地・色)を取りに行く間隔。
 const PHONE_SYNC_POLL_MS = 30000;
 /**
@@ -290,6 +293,8 @@ export default function Home() {
   const [showFuel, setShowFuel] = useState(false);
   // 給油記録は設定と同じ入れ物に置き、スマホと共有する。
   const fuelEntries = settings.fuelEntries;
+  // いちばん新しい給油を記録した時刻。スマホで記録した給油も、届いたらここが新しくなる。
+  const latestRefuelAt = fuelEntries.reduce((latest, entry) => Math.max(latest, entry.createdAt), 0);
   const [fuelDraft, setFuelDraft] = useState<FuelDraft>({
     date: japanDateKey(),
     liters: "",
@@ -306,7 +311,9 @@ export default function Home() {
     autoState: obdAutoState,
   } = useObd2();
   const [displaySpeed, setDisplaySpeed] = useState<number | null>(null);
-  const [fuelTripKm, setFuelTripKm] = useState(0);
+  // 最後の給油から走った距離(km)と、数え始めた時刻(その給油を記録した時刻)。
+  // 数え始めより新しい給油が記録されたら(車でもスマホでも)、0から数え直す。
+  const [fuelTrip, setFuelTrip] = useState({ km: 0, since: 0 });
   // 今日の走行。距離と、動いていた時間(止まっている時間は数えない)。
   const [dailyTrip, setDailyTrip] = useState({
     date: japanDateKey(),
@@ -352,6 +359,7 @@ export default function Home() {
     speed: null,
     status: "idle",
   });
+  const latestRefuelRef = useRef(0);
   const speedTargetRef = useRef<number | null>(null);
   const speedSamplesRef = useRef<Array<{ value: number; sampledAt: number }>>([]);
   const smoothedSpeedRef = useRef<number | null>(null);
@@ -379,13 +387,16 @@ export default function Home() {
     try {
       setSettings(readSettings());
       const savedFuelTrip = Number.parseFloat(
-        localStorage.getItem("zcar-fuel-trip-km") || "0",
+        localStorage.getItem(FUEL_TRIP_KM_STORAGE_KEY) || "0",
       );
-      setFuelTripKm(
-        Number.isFinite(savedFuelTrip)
-          ? Math.max(0, savedFuelTrip)
-          : 0,
+      // 前の版は数え始めた時刻を残していないので0にする(いちばん新しい給油から数え直す)。
+      const savedFuelTripSince = Number(
+        localStorage.getItem(FUEL_TRIP_SINCE_STORAGE_KEY) || "0",
       );
+      setFuelTrip({
+        km: Number.isFinite(savedFuelTrip) ? Math.max(0, savedFuelTrip) : 0,
+        since: Number.isFinite(savedFuelTripSince) ? savedFuelTripSince : 0,
+      });
       const savedDailyTrip = JSON.parse(
         localStorage.getItem(DAILY_TRIP_STORAGE_KEY) || "null",
       ) as { date?: unknown; distanceKm?: unknown; movingSec?: unknown } | null;
@@ -554,6 +565,10 @@ export default function Home() {
   }, [obdData.speed, obdStatus]);
 
   useEffect(() => {
+    latestRefuelRef.current = latestRefuelAt;
+  }, [latestRefuelAt]);
+
+  useEffect(() => {
     speedTargetRef.current = obdData.speed;
     if (obdData.speed === null) {
       speedSamplesRef.current = [];
@@ -621,7 +636,13 @@ export default function Home() {
       const { speed, status } = fuelMotionRef.current;
       if (status !== "live" || speed === null || speed <= 0) return;
       const travelledKm = speed * (elapsedMs / 3_600_000);
-      setFuelTripKm((current) => current + travelledKm);
+      // 数え始めより新しい給油(スマホで記録して届いた給油など)があれば、そこから数え直す。
+      const refuelAt = latestRefuelRef.current;
+      setFuelTrip((current) =>
+        refuelAt > current.since
+          ? { km: travelledKm, since: refuelAt }
+          : { ...current, km: current.km + travelledKm },
+      );
       const currentDate = japanDateKey();
       const movedSec = elapsedMs / 1000;
       setDailyTrip((current) =>
@@ -639,9 +660,10 @@ export default function Home() {
 
   useEffect(() => {
     if (ready) {
-      localStorage.setItem("zcar-fuel-trip-km", fuelTripKm.toFixed(4));
+      localStorage.setItem(FUEL_TRIP_KM_STORAGE_KEY, fuelTrip.km.toFixed(4));
+      localStorage.setItem(FUEL_TRIP_SINCE_STORAGE_KEY, String(fuelTrip.since));
     }
-  }, [fuelTripKm, ready]);
+  }, [fuelTrip, ready]);
 
   useEffect(() => {
     if (ready) {
@@ -1100,7 +1122,7 @@ export default function Home() {
     cancelFuelReset();
     setFuelResetting(true);
     fuelResetTimerRef.current = window.setTimeout(() => {
-      setFuelTripKm(0);
+      setFuelTrip({ km: 0, since: Date.now() });
       setFuelResetting(false);
       fuelResetTimerRef.current = null;
       navigator.vibrate?.(60);
@@ -1356,6 +1378,9 @@ export default function Home() {
   );
   const recentFuelEconomy =
     recentFuelLiters > 0 ? recentFuelDistance / recentFuelLiters : null;
+  // 最後の給油から走った距離。数え始めより新しい給油が届いていれば(スマホで記録した給油など)、
+  // まだ走っていないので0。走り出すと、その給油から数え直す。
+  const fuelTripKm = latestRefuelAt > fuelTrip.since ? 0 : fuelTrip.km;
   const estimatedUsedLiters =
     recentFuelEconomy === null ? null : fuelTripKm / recentFuelEconomy;
   const estimatedRemainingLiters =
@@ -1392,7 +1417,7 @@ export default function Home() {
         },
       ]),
     }));
-    setFuelTripKm(0);
+    setFuelTrip({ km: 0, since: now });
     navigator.vibrate?.(60);
     setFuelDraft({
       date: japanDateKey(),

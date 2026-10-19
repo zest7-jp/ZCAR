@@ -7047,8 +7047,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-brand { display: grid; gap: 4px; }
 /* 見出しの右: 今の版の時刻と、読み込み直すボタン(印だけ)。
    ホーム画面のアプリには更新ボタンが無いため。 */
-.zr-reload-box { display: flex; align-items: center; gap: 10px; }
-.zr-reload-box small {
+/* 今の版の時刻。長押しで読み込み直す。目立たせない(押している間だけ配色の色になり、下の線が伸びる)。 */
+.zr-reload-stamp {
+  position: relative;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
   color: var(--zr-muted);
   opacity: .75;
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -7056,34 +7061,25 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 700;
   letter-spacing: .04em;
   white-space: nowrap;
-}
-/* 目立たせない: 色は控えめにして光らせない。押している間だけ配色の色になる。 */
-.zr-reload {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, .07);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--zr-muted);
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
-.zr-reload:active {
-  transform: rotate(-30deg);
-  border-color: rgba(var(--zr-accent-rgb), .3);
-  color: var(--zr-accent);
+.zr-reload-stamp::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 12px;
+  left: 2px;
+  height: 1px;
+  background: var(--zr-accent);
+  transform: scaleX(0);
+  transform-origin: left;
 }
-.zr-reload svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
+.zr-reload-stamp.is-pressing { color: var(--zr-accent); opacity: 1; }
+.zr-reload-stamp.is-pressing::after { transform: scaleX(1); transition: transform .7s linear; }
 .zr-brand b {
   font-size: clamp(28px, 3.7dvh, 36px);
   font-weight: 900;
@@ -8395,53 +8391,24 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* --- 車両位置(車載機が最後に送ってきた場所を地図に出す) --- */
 /* 画面の残りの高さいっぱいに広げ、余った高さは地図が受け持つ。 */
 .zr-park { display: flex; flex: 1 0 auto; flex-direction: column; }
+/* 枠はこのカードの1本だけ。地図はカードいっぱいに広げる。 */
 .zr-park-card {
   display: flex;
   flex: 1 0 auto;
   flex-direction: column;
   margin-bottom: 12px;
-  padding: 13px 14px 11px;
+  overflow: hidden;
   border: 1px solid var(--zr-edge);
   border-radius: 18px;
-  background:
-    linear-gradient(120deg, rgba(var(--zr-accent-rgb), .14), transparent 55%),
-    var(--zr-panel);
-  box-shadow: inset 3px 0 var(--zr-accent);
+  background: var(--zr-panel);
 }
-/* 地図のまわりの照準の枠(四隅のかぎ)。地図の外側のすき間に描く。
-   光らせる filter は枠だけに付ける(地図にかかると動きが重くなるため)。 */
-.zr-park-scope {
-  position: relative;
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 220px;
-  margin: 2px -5px 10px;
-  padding: 5px;
-}
-.zr-park-scope::before {
-  --zr-bracket: rgba(var(--zr-accent-rgb), .95);
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left top / 22px 2px,
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left top / 2px 22px,
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right top / 22px 2px,
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right top / 2px 22px,
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left bottom / 22px 2px,
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) left bottom / 2px 22px,
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right bottom / 22px 2px,
-    linear-gradient(var(--zr-bracket), var(--zr-bracket)) right bottom / 2px 22px;
-  background-repeat: no-repeat;
-  filter: drop-shadow(0 0 5px rgba(var(--zr-accent-rgb), .45));
-  pointer-events: none;
-}
+/* 上の角はカードの角に合わせて丸める(iPhone ではカードで切るだけだと、地図の絵が角からはみ出すことがあるため)。 */
 .zr-park-map {
   position: relative;
   flex: 1 1 auto;
+  min-height: 220px;
   overflow: hidden;
-  border: 1px solid rgba(var(--zr-accent-rgb), .28);
-  border-radius: 12px;
+  border-radius: 17px 17px 0 0;
   background:
     radial-gradient(circle at 50% 50%, rgba(var(--zr-accent-rgb), .1), transparent 62%),
     linear-gradient(rgba(var(--zr-accent-rgb), .06) 1px, transparent 1px) 0 0 / 22px 22px,
@@ -8450,57 +8417,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   isolation: isolate;
 }
 .zr-park-canvas { position: absolute; inset: 0; }
-/* ふちを少し暗くして、地図をカードになじませる。 */
+/* 下のふち(数字との境目)だけ少し暗くして、地図をカードになじませる。 */
 .zr-park-map::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 1;
-  border-radius: inherit;
-  box-shadow: inset 0 0 22px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(var(--zr-accent-rgb), .08);
+  box-shadow: inset 0 -18px 22px -18px rgba(0, 0, 0, .55);
   pointer-events: none;
-}
-/* 左上の座標(北緯・東経)。 */
-.zr-park-coords {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 6px 8px;
-  border-left: 2px solid var(--zr-accent);
-  border-radius: 0 8px 8px 0;
-  background: rgba(3, 8, 7, .74);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  color: var(--zr-accent-strong);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  pointer-events: none;
-}
-/* どこから来た位置か(LIVE · iPhone GPS / CAR · 16:31)。 */
-.zr-park-coords small {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 2px;
-  color: var(--zr-muted);
-  font-size: 8px;
-  letter-spacing: .14em;
-}
-.zr-park-coords small.is-live { color: var(--zr-accent); }
-.zr-park-coords small.is-live::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--zr-accent);
-  box-shadow: 0 0 6px var(--zr-accent);
-  animation: zr-park-blink 1.1s ease-in-out infinite;
 }
 .zr-park-standby {
   position: absolute;
@@ -8579,7 +8503,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* 状態の色(配色によらない)。走行中はやわらかい白、停車中は黄、駐車中は灰色。
-   右上の状態の表示と、地図の上の車の印で同じ色にする。 */
+   左上の状態の表示と、地図の上の車の印で同じ色にする。 */
 .zr-park-state,
 .zr-park-pin {
   --zr-state: var(--zr-accent-strong);
@@ -8644,35 +8568,37 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   transform: translateX(-50%);
   filter: drop-shadow(0 0 4px rgba(var(--zr-state-rgb), .9));
 }
-/* 照準のように、ゆっくり回る点線の輪。 */
-.zr-park-pin-lock {
-  position: absolute;
-  inset: -15px;
-  border: 1.5px dashed rgba(var(--zr-state-rgb), .8);
-  border-radius: 50%;
-  animation: zr-park-spin 16s linear infinite;
-}
-@keyframes zr-park-spin {
-  to { transform: rotate(360deg); }
-}
 @keyframes zr-park-pulse {
   from { opacity: .85; transform: scale(1); }
   to { opacity: 0; transform: scale(2.8); }
 }
 
-/* 駐車中・停車中・走行中の表示。印(八卦)と文字を、状態の色で出す。 */
-.zr-panel-head > .zr-park-state {
+/* 駐車中・停車中・走行中の表示。地図の左上に重ね、印(八卦)と文字を状態の色で出す。
+   高さと上の位置は、右上のボタン(高さ42px)と真ん中がそろうようにする。 */
+.zr-park-state {
+  position: absolute;
+  top: 16px;
+  left: 10px;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 4px 10px 4px 8px;
+  height: 30px;
+  padding: 0 11px 0 9px;
   border: 1px solid rgba(var(--zr-state-rgb), .45);
   border-radius: 999px;
-  background: rgba(var(--zr-state-rgb), .08);
+  background: linear-gradient(rgba(var(--zr-state-rgb), .1), rgba(var(--zr-state-rgb), .1)), rgba(4, 8, 7, .8);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   color: var(--zr-state);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
   letter-spacing: .18em;
+  pointer-events: none;
 }
-.zr-panel-head > .zr-park-state.is-parked { background: transparent; }
+.zr-park-state.is-parked { background: rgba(4, 8, 7, .8); }
 .zr-park-state small {
   color: var(--zr-ink);
   font-family: inherit;
@@ -8702,17 +8628,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 @keyframes zr-park-breathe {
   50% { opacity: .55; }
 }
-@keyframes zr-park-blink {
-  50% { opacity: .25; }
-}
 
 .zr-park-facts {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  margin-top: auto;
-  padding-top: 9px;
+  padding: 10px 14px 12px;
   border-top: 1px solid var(--zr-edge);
 }
 .zr-park-elapsed { display: grid; gap: 4px; min-width: 0; margin: 0; }
@@ -8833,9 +8755,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr.is-tinted .zr-park-go a.zr-primary { color: var(--zt-on-accent); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
-  .zr-park-pin-lock,
-  .zr-park-state.is-driving .zr-park-trigram,
-  .zr-park-coords small.is-live::before { animation: none; }
+  .zr-park-state.is-driving .zr-park-trigram { animation: none; }
   .zr-park-pin-dir { transition: none; }
   .zr-park-pin-ring { opacity: 0; }
 }
@@ -8858,8 +8778,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-theme i { width: 38px; height: 38px; margin-bottom: 3px; }
   .zr-design { padding: 6px 4px 7px; }
   .zr-design .dg-thumb { width: min(100%, 76px); }
-  .zr-park-card { padding: 11px 12px 9px; }
-  .zr-park-scope { min-height: 184px; margin-bottom: 8px; }
+  .zr-park-map { min-height: 184px; }
+  .zr-park-facts { padding: 8px 12px 10px; }
   .zr-park-go a,
   .zr-park-go button { min-height: 46px; }
 }

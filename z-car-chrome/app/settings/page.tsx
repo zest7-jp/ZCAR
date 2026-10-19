@@ -52,6 +52,9 @@ const SYNC_POLL_MS = 30000;
  */
 const RELOAD_AFTER_HIDDEN_MS = 10 * 60_000;
 
+/** 版の時刻をこれだけ長く押すと、読み込み直す(押すだけでは何もしない。うっかり押さないように)。 */
+const RELOAD_HOLD_MS = 700;
+
 /** いま動いている版の時刻(10/14 13:30)。更新ボタンの左に小さく出す。 */
 const BUILD_STAMP = (() => {
   const iso = process.env.NEXT_PUBLIC_BUILD_TIME;
@@ -215,6 +218,29 @@ export default function PhoneSettingsPage() {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [applyCarKey]);
+
+  // 版の時刻の長押し(読み込み直す)。
+  const [reloadPressing, setReloadPressing] = useState(false);
+  const reloadTimerRef = useRef(0);
+  const startReloadPress = () => {
+    window.clearTimeout(reloadTimerRef.current);
+    setReloadPressing(true);
+    reloadTimerRef.current = window.setTimeout(() => {
+      reloadTimerRef.current = 0;
+      window.location.reload();
+    }, RELOAD_HOLD_MS);
+  };
+  const cancelReloadPress = () => {
+    if (!reloadTimerRef.current) return false;
+    window.clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = 0;
+    setReloadPressing(false);
+    return true;
+  };
+  /** 指を離した: 長押しの前なら、やめて使い方を知らせる。 */
+  const endReloadPress = () => {
+    if (cancelReloadPress()) setToast("長押しで読み込み直します");
+  };
 
   // 「接続完了」とお知らせは、少ししたら消す。
   useEffect(() => {
@@ -628,23 +654,24 @@ export default function PhoneSettingsPage() {
           <b>Z CAR</b>
           <small>TANTO · REMOTE</small>
         </div>
-        {/* ホーム画面のアプリにはブラウザの更新ボタンが無いので、ここに置く(印だけ)。
-            左に小さく今の版の時刻を出す(公開した版に入れ替わったかが分かる)。
-            見出しの高さを変えないよう、時刻はボタンの横に並べる。 */}
-        <div className="zr-reload-box">
-          {BUILD_STAMP ? <small aria-hidden="true">{BUILD_STAMP}</small> : null}
-          <button
-            type="button"
-            className="zr-reload"
-            onClick={() => window.location.reload()}
-            aria-label={`更新(読み込み直す。新しい版があれば入れ替わる)${BUILD_STAMP ? `・今の版 ${BUILD_STAMP}` : ""}`}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
-              <path d="M19.5 3.6v4.6h-4.6" />
-            </svg>
-          </button>
-        </div>
+        {/* ホーム画面のアプリにはブラウザの更新ボタンが無いので、今の版の時刻を長押しで読み込み直す
+            (公開した版に入れ替わったかも、この時刻で分かる)。押している間は、下の線が伸びる。 */}
+        <button
+          type="button"
+          className={`zr-reload-stamp${reloadPressing ? " is-pressing" : ""}`}
+          aria-label={`今の版${BUILD_STAMP ? ` ${BUILD_STAMP}` : ""}。長押しで読み込み直す(新しい版があれば入れ替わる)`}
+          onPointerDown={startReloadPress}
+          onPointerUp={endReloadPress}
+          onPointerLeave={cancelReloadPress}
+          onPointerCancel={cancelReloadPress}
+          onContextMenu={(event) => event.preventDefault()}
+          onClick={(event) => {
+            // キーボードで押したとき(長押しできない)は、すぐ読み込み直す。
+            if (event.detail === 0) window.location.reload();
+          }}
+        >
+          {BUILD_STAMP ?? "UPDATE"}
+        </button>
       </header>
 
       {syncTrouble ? (
