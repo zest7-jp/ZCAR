@@ -15,6 +15,8 @@ import {
   MAX_PLACES,
   METER_DESIGNS,
   meterDesignInfo,
+  METER_STYLES,
+  meterStyleInfo,
   METER_THEMES,
   meterThemeInfo,
   MIN_SYNC_KEY_LENGTH,
@@ -30,6 +32,13 @@ import {
   type Settings,
 } from "./settings-store";
 import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
+import {
+  ClassicCluster,
+  MeterStyleThumb,
+  RetroCluster,
+  STYLE_MAP_LOOKS,
+  type ClusterData,
+} from "./meter-styles";
 import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
 import { readCoords } from "./place-import";
 import { StarMark } from "./star-mark";
@@ -857,8 +866,14 @@ export default function Home() {
   }, [weatherLocationKey]);
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
-  // 地図はメーター(NAVI・ORBIT のどちらにも地図がある)を出しているときだけ作る。
-  const mapHost = showFuel ? null : meterDesignInfo(settings.meterDesign).id;
+  // 地図はメーター(どのテーマ・形にも地図がある)を出しているときだけ作る。
+  // 地図の器はテーマ(近未来なら形)ごとに違う。
+  const meterStyleId = meterStyleInfo(settings.meterStyle).id;
+  const mapHost = showFuel
+    ? null
+    : meterStyleId === "future"
+      ? meterDesignInfo(settings.meterDesign).id
+      : meterStyleId;
 
   // 燃費画面や別の形へ移ると、地図の器が外れる(または別の器になる)ので作り直す。
   useEffect(() => {
@@ -895,13 +910,22 @@ export default function Home() {
           };
         };
         if (!greenGmapRef.current) {
+          // 80年代・本物の針のテーマは、それぞれの色の地図にする。
+          const look =
+            mapHost === "retro" || mapHost === "classic"
+              ? STYLE_MAP_LOOKS[mapHost]
+              : {
+                  zoom: GREEN_METER_MAP_ZOOM,
+                  styles: GREEN_METER_MAP_STYLES,
+                  background: GREEN_METER_MAP_BACKGROUND,
+                };
           const map = new mapsApi.Map(greenMapElementRef.current, {
             center: focusPoint,
-            zoom: GREEN_METER_MAP_ZOOM,
-            styles: GREEN_METER_MAP_STYLES,
+            zoom: look.zoom,
+            styles: look.styles,
             // タイル未読込の間に出る既定の明るい下地(#e5e3df)が、
             // メーターのフィルタを通ると白く光ってしまうので暗色にする。
-            backgroundColor: GREEN_METER_MAP_BACKGROUND,
+            backgroundColor: look.background,
             disableDefaultUI: true,
             clickableIcons: false,
             gestureHandling: "none",
@@ -994,6 +1018,9 @@ export default function Home() {
   const hideTopbar = !showFuel;
   const activeTheme = meterThemeInfo(settings.meterTheme);
   const activeDesign = meterDesignInfo(settings.meterDesign);
+  // テーマ。近未来のときだけ、上の色と形を使う。
+  const activeStyle = meterStyleInfo(settings.meterStyle);
+  const isFuture = activeStyle.id === "future";
 
   // 上のバーに出す4つの状態。
   // 見た目は前のオレンジ計器と同じ「日本語 + 英語」の二段組み。
@@ -1093,14 +1120,14 @@ export default function Home() {
             : "off",
     },
     {
-      // 前はメーターの右下にあった「メーターの色を選ぶ」。
+      // 前はメーターの右下にあった「メーターの色を選ぶ」。近未来のほかのテーマでは、テーマの名前。
       key: "theme",
-      nameJa: "配色",
-      nameEn: "COLOR",
-      stateJa: activeTheme.shortJa,
-      stateEn: activeTheme.shortEn,
+      nameJa: isFuture ? "配色" : "テーマ",
+      nameEn: isFuture ? "COLOR" : "THEME",
+      stateJa: isFuture ? activeTheme.shortJa : activeStyle.shortJa,
+      stateEn: isFuture ? activeTheme.shortEn : activeStyle.shortEn,
       tone: "ok",
-      pressLabel: "メーターの色を選ぶ",
+      pressLabel: "メーターのテーマと色を選ぶ",
     },
   ];
 
@@ -1401,6 +1428,38 @@ export default function Home() {
       : Math.max(0, Math.min(100, (estimatedRemainingLiters / FUEL_TANK_CAPACITY_L) * 100));
   const estimatedAverageFuelEconomy = recentFuelEconomy;
 
+  // 80年代のデジタル・本物の針のテーマに渡す値(近未来のメーターと同じ値)。
+  const clusterData: ClusterData = {
+    speed: greenCenterSpeed,
+    rpm: obdData.rpm ?? null,
+    coolant: obdData.coolant ?? null,
+    voltage: obdData.voltage ?? null,
+    clock,
+    year: todayYear,
+    month: todayMonth,
+    day: todayDay,
+    weekday: todayWeekdayIndex,
+    world: [
+      { name: "CALIFORNIA", time: californiaClock },
+      { name: "RUSSIA", time: russiaClock },
+      { name: "CHINA", time: chinaClock },
+    ],
+    weather,
+    sunrise: solarSunrise,
+    sunset: solarSunset,
+    todayKm: dailyTripKm,
+    avgCruise: averageCruiseKmh,
+    avgFuel: estimatedAverageFuelEconomy,
+    rangeKm: fuelRangeKm,
+    fuelPercent,
+    // 360度に丸めない向き(北をまたいでも、車の印が逆向きに一回りしないように)。
+    heading: location?.heading ?? null,
+    destLabel: navTarget ? navTarget.label : null,
+  };
+  const startNavigation = navTarget
+    ? () => void beginNavigation(navTarget.destination, "DESTINATION")
+    : null;
+
   const recordFuelEntry = () => {
     if (!fuelDraftIsValid) return;
     const now = Date.now();
@@ -1518,7 +1577,13 @@ export default function Home() {
     <div className="screen-shell">
       <div
         id="app"
-        className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}meter-theme-${activeTheme.id}${activeTheme.tinted ? ` meter-tinted zt-${activeTheme.id}` : ""}`}
+        className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}${
+          // 80年代・本物の針のテーマでは、近未来の色の決まり(filter など)をかけない。
+          // 燃費画面は今まで通り、近未来の色で出す。
+          isFuture || showFuel
+            ? `meter-theme-${activeTheme.id}${activeTheme.tinted ? ` meter-tinted zt-${activeTheme.id}` : ""}`
+            : `meter-style-${activeStyle.id}`
+        }`}
         aria-label="Z CAR"
       >
         {/* ターコイズのメーターは四隅の操作だけで完結するので、上のバーは
@@ -1653,7 +1718,32 @@ export default function Home() {
           </header>
         )}
 
-        {!showFuel && (
+        {!showFuel && activeStyle.id === "retro" ? (
+          <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
+            <RetroCluster
+              data={clusterData}
+              mapRef={greenMapElementRef}
+              mapReady={greenMapReady}
+              onFuel={toggleFuelView}
+              onDest={openDestDialog}
+              onStart={startNavigation}
+            />
+          </main>
+        ) : null}
+        {!showFuel && activeStyle.id === "classic" ? (
+          <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
+            <ClassicCluster
+              data={clusterData}
+              mapRef={greenMapElementRef}
+              mapReady={greenMapReady}
+              onFuel={toggleFuelView}
+              onDest={openDestDialog}
+              onStart={startNavigation}
+            />
+          </main>
+        ) : null}
+
+        {!showFuel && isFuture && (
           <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
@@ -2087,7 +2177,7 @@ export default function Home() {
           <header>
             <span>
               <small>FULLSCREEN DISPLAY</small>
-              <h2>METER COLOR</h2>
+              <h2>METER THEME</h2>
             </span>
             <button
               type="button"
@@ -2097,12 +2187,37 @@ export default function Home() {
               CLOSE
             </button>
           </header>
+          {/* テーマ(画面全体の雰囲気)。近未来では、下の8色と、メーターの真ん中を押して変える形を使う。 */}
+          <div className="meter-style-options">
+            {METER_STYLES.map((style) => {
+              const selected = activeStyle.id === style.id;
+              return (
+                <button
+                  key={style.id}
+                  type="button"
+                  className={`is-${style.id}${selected ? " selected" : ""}`}
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setSettings((current) => ({ ...current, meterStyle: style.id }));
+                    themeDialog.current?.close();
+                  }}
+                >
+                  <i aria-hidden="true">
+                    <MeterStyleThumb style={style.id} />
+                  </i>
+                  <span><b>{style.name}</b><small>{style.captionEn}</small></span>
+                  <em>{selected ? "ACTIVE" : "SELECT"}</em>
+                </button>
+              );
+            })}
+          </div>
+          <p className="meter-theme-subhead">FUTURE COLOR<small>近未来のテーマの色</small></p>
           {/* 8色。どれも同じ盤面で、ターコイズとオレンジは専用の CSS、
               ほかは globals.css の .zt-<名前> の色を共通の決まりで使う。
-              形はここでは選ばず、メーターの真ん中を押して変える。 */}
+              形はここでは選ばず、メーターの真ん中を押して変える。色を選ぶと近未来のテーマになる。 */}
           <div className="meter-theme-options">
             {METER_THEMES.map((theme) => {
-              const selected = activeTheme.id === theme.id;
+              const selected = isFuture && activeTheme.id === theme.id;
               const tint = theme.tinted ? ` is-tinted zt-${theme.id}` : "";
               return (
                 <button
@@ -2111,7 +2226,7 @@ export default function Home() {
                   className={`${theme.id}${tint}${selected ? " selected" : ""}`}
                   aria-pressed={selected}
                   onClick={() => {
-                    setSettings({ ...settings, meterTheme: theme.id });
+                    setSettings((current) => ({ ...current, meterTheme: theme.id, meterStyle: "future" }));
                     themeDialog.current?.close();
                   }}
                 >
