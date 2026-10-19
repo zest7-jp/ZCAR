@@ -8981,13 +8981,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* --- 80年代のデジタル --- */
 .ms-retro text { font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
 .ms-retro .ms-hit:active { background: rgba(82, 255, 214, .12); }
-/* 地図は昔の車の緑のブラウン管ふう(地図の色は STYLE_MAP_LOOKS)。 */
+/* 地図は昔の車の緑のブラウン管ふう(地図の色は RETRO_MAP_LOOK、場所は RETRO_CRT)。 */
 .ms-retro-crt {
   position: absolute;
-  left: 284px;
-  top: 328px;
-  width: 456px;
-  height: 214px;
   overflow: hidden;
   border-radius: 18px;
   background: #021208;

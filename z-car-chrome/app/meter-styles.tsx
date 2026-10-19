@@ -361,6 +361,13 @@ const tachoBar = (index: number) => {
   };
 };
 const BAR_SEGMENTS = 18;
+/**
+ * 緑の画面(地図)と、DEST・START の場所。右の列の BATTERY より下は、
+ * Google マップの小さな画面(ナビ中に重ねて出す)のために空けておく。
+ */
+const RETRO_CRT = { x: 284, y: 328, w: 320, h: 214 };
+const RETRO_DEST = { x: 616, y: 325, w: 137, h: 56 };
+const RETRO_START = { x: 616, y: 391, w: 137, h: 154 };
 
 /** 80年代のデジタルの、動かない絵(下地・仕切り・説明の文字・消えている棒)。 */
 const RetroFace = memo(function RetroFace() {
@@ -389,8 +396,8 @@ const RetroFace = memo(function RetroFace() {
     label("coolantUnit", 966, 227, "°C", { color: RETRO.cyan, size: 12, spacing: 0 }),
     label("battery", 778, 262, "BATTERY"),
     label("voltUnit", 968, 303, "V", { color: RETRO.green, size: 12, spacing: 0 }),
-    label("change", 890, 363, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 }),
-    label("gmaps", 796, 530, "GOOGLE MAPS · NAVI", { size: 7.5, spacing: 1.8 }),
+    label("change", RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + 20, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 }),
+    label("gmaps", RETRO_START.x + 14, RETRO_START.y + RETRO_START.h - 16, "GOOGLE MAPS", { size: 7.5, spacing: 1.8 }),
   ];
   for (let k = 0; k <= 8; k += 1) {
     labels.push(label(`n${k}`, r2(284 + k * 4 * 14.25 - (k === 8 ? 3 : 0)), 122, String(k), { color: k >= 7 ? RETRO.red : RETRO.soft, size: 10, anchor: "middle", spacing: 0 }));
@@ -427,6 +434,7 @@ const RetroFace = memo(function RetroFace() {
         <line x1="22" y1="470" x2="248" y2="470" />
         <line x1="778" y1="126" x2="1002" y2="126" />
         <line x1="778" y1="244" x2="1002" y2="244" />
+        <line x1="778" y1="314" x2="1002" y2="314" />
       </g>
       {/* 曜日の札(今日の札は動く絵の方で点ける)。 */}
       {WEEK_ORDER.map((dayIndex, i) => (
@@ -455,13 +463,21 @@ const RetroFace = memo(function RetroFace() {
           <rect x={790 + i * 11} y="164" width="8.5" height="20" fill={RETRO.cyan} opacity=".1" />
         </g>
       ))}
-      {/* 地図の画面の枠と、DEST・START のボタンの枠。 */}
-      <rect x="281" y="325" width="462" height="220" rx="20" fill="#0b0f0f" stroke="#2a3534" strokeWidth="2" />
-      <rect x="778" y="342" width="224" height="58" rx="4" fill={RETRO.amber} fillOpacity=".06" stroke={RETRO.amber} strokeOpacity=".75" strokeWidth="1.6" />
-      <text x="890" y="388" textAnchor="middle" fill={RETRO.amber} fontSize="19" letterSpacing="5" filter="url(#ms-vfd)">DEST</text>
-      <rect x="778" y="414" width="224" height="128" rx="4" fill={RETRO.cyan} fillOpacity=".07" stroke={RETRO.cyan} strokeOpacity=".85" strokeWidth="2" />
-      <text x="796" y="444" fill={RETRO.cyan} fontSize="13" letterSpacing="4" filter="url(#ms-vfd)">START</text>
-      <polygon points="972,430 990,441 972,452" fill={RETRO.cyan} filter="url(#ms-vfd)" />
+      {/* 地図の画面の枠と、その右の DEST・START のボタンの枠。 */}
+      <rect x={RETRO_CRT.x - 3} y={RETRO_CRT.y - 3} width={RETRO_CRT.w + 6} height={RETRO_CRT.h + 6} rx="20" fill="#0b0f0f" stroke="#2a3534" strokeWidth="2" />
+      <rect x={RETRO_DEST.x} y={RETRO_DEST.y} width={RETRO_DEST.w} height={RETRO_DEST.h} rx="4" fill={RETRO.amber} fillOpacity=".06" stroke={RETRO.amber} strokeOpacity=".75" strokeWidth="1.6" />
+      <text x={RETRO_DEST.x + RETRO_DEST.w / 2} y={RETRO_DEST.y + 44} textAnchor="middle" fill={RETRO.amber} fontSize="19" letterSpacing="5" filter="url(#ms-vfd)">
+        DEST
+      </text>
+      <rect x={RETRO_START.x} y={RETRO_START.y} width={RETRO_START.w} height={RETRO_START.h} rx="4" fill={RETRO.cyan} fillOpacity=".07" stroke={RETRO.cyan} strokeOpacity=".85" strokeWidth="2" />
+      <text x={RETRO_START.x + 14} y={RETRO_START.y + 28} fill={RETRO.cyan} fontSize="13" letterSpacing="4" filter="url(#ms-vfd)">
+        START
+      </text>
+      <polygon
+        points={`${RETRO_START.x + 110},${RETRO_START.y + 14} ${RETRO_START.x + 126},${RETRO_START.y + 24} ${RETRO_START.x + 110},${RETRO_START.y + 34}`}
+        fill={RETRO.cyan}
+        filter="url(#ms-vfd)"
+      />
     </svg>
   );
 });
@@ -482,11 +498,12 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
     : [];
   const temperature = data.weather ? String(Math.round(data.weather.temperature)) : "--";
   const dest = data.destLabel ?? "NO DEST";
-  const destSize = dest.length <= 4 ? 36 : dest.length <= 6 ? 28 : 22;
+  // ボタンの幅(約108px)に収まる大きさ。
+  const destSize = Math.min(34, Math.floor(108 / Math.max(1, [...dest].length)));
   return (
     <Board className="ms-retro">
       <RetroFace />
-      <div className="ms-retro-crt">
+      <div className="ms-retro-crt" style={{ left: RETRO_CRT.x, top: RETRO_CRT.y, width: RETRO_CRT.w, height: RETRO_CRT.h }}>
         <div ref={mapRef} className="ms-map-canvas" />
         {!mapReady ? <span className="ms-retro-crt-wait">MAP LOADING</span> : null}
         <i className="ms-retro-scan" aria-hidden="true" />
@@ -556,16 +573,16 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         </g>
         <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={194} h={34} color={RETRO.cyan} align="end" />
         <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={270} h={34} color={RETRO.green} align="end" />
-        <text x="796" y="508" fill={RETRO.cyan} fontSize={destSize} fontWeight="700" filter="url(#ms-vfd)" className="ms-ja">
+        <text x={RETRO_START.x + 14} y={RETRO_START.y + 96} fill={RETRO.cyan} fontSize={destSize} fontWeight="700" filter="url(#ms-vfd)" className="ms-ja">
           {dest}
         </text>
       </svg>
       <i className="ms-retro-mesh" aria-hidden="true" />
       <Hit box={[770, 12, 240, 112]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[626, 236, 124, 76]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[778, 342, 224, 58]} label="目的地を選ぶ" onPress={onDest} />
+      <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
-        box={[778, 414, 224, 128]}
+        box={[RETRO_START.x, RETRO_START.y, RETRO_START.w, RETRO_START.h]}
         label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
         onPress={onStart}
       />
