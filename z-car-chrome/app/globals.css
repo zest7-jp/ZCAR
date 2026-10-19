@@ -8163,6 +8163,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   overflow: visible;
   font-family: inherit;
 }
+/* ブルーでは、回転計の 7〜8 の所(差し色)は白にする(色を回すと紫になるため)。白は色を回しても白のまま。 */
+.zt-blue .dg { --dg-alt: #fff; }
 .dg text { fill: var(--dg-label); font-weight: 800; }
 
 /* 文字盤・輪 */
