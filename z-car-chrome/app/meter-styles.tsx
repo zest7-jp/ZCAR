@@ -374,8 +374,8 @@ const START_CY = RETRO_START.y + RETRO_START.h / 2;
 const START_PLAY = `${START_CX - 22},${START_CY - 32} ${START_CX + 34},${START_CY} ${START_CX - 22},${START_CY + 32}`;
 /** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
-/** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。 */
-const RETRO_MAP_BAY = { x: 784, y: 272, w: 216, h: 278 };
+/** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
+const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
 
 /** 80年代のデジタルの、動かない絵(下地・仕切り・説明の文字・消えている棒)。 */
 const RetroFace = memo(function RetroFace() {
