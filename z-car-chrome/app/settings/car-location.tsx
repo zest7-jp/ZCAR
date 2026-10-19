@@ -240,7 +240,6 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
   // 光る輪と影は span に付ける(iPhone では svg に付けると四角く出るため)。
   element.innerHTML =
     '<i class="zr-park-pin-ring"></i>' +
-    '<i class="zr-park-pin-lock"></i>' +
     '<i class="zr-park-pin-dir"></i>' +
     '<span class="zr-park-pin-core"></span>';
   const core = element.querySelector(".zr-park-pin-core") as HTMLElement;
@@ -751,14 +750,6 @@ export function CarLocationPanel({
     status === "driving" ? (tripSince !== null ? "走行時間" : "何分前") : "停めてから";
   const sameDay = park !== null && clock > 0 && dateText(shownAt) === dateText(clock);
   const destination = park ? `${park.lat.toFixed(6)},${park.lng.toFixed(6)}` : "";
-  // 地図の左上に小さく出す座標(北緯・東経)と、どこから来た位置か。
-  const coords = shown
-    ? [
-        `${shown.lat < 0 ? "S" : "N"} ${Math.abs(shown.lat).toFixed(5)}°`,
-        `${shown.lng < 0 ? "W" : "E"} ${Math.abs(shown.lng).toFixed(5)}°`,
-      ]
-    : null;
-  const source = phoneInCar ? "LIVE · iPhone GPS" : carOn && park ? `CAR · ${clockText(park.at)}` : null;
   // 速さ(iPhone の GPS で追っている間だけ)。
   const kmh = phoneInCar ? phoneFix.kmh : null;
 
@@ -780,12 +771,10 @@ export function CarLocationPanel({
 
   return (
     <div className="zr-park">
+      {/* 枠はこのカードの1本だけ。地図をカードいっぱいに広げ、状態と地図のボタンは地図の上に重ねる。 */}
       <section className="zr-park-card" aria-label="車両位置">
-        <header className="zr-panel-head">
-          <span>
-            <small>CAR LOCATION</small>
-            <b>車両位置</b>
-          </span>
+        <div className="zr-park-map">
+          <div ref={mapElementRef} className="zr-park-canvas" />
           {status ? (
             <em className={`zr-park-state is-${status}`}>
               <TrigramMark lines={STATUS[status].lines} />
@@ -793,50 +782,35 @@ export function CarLocationPanel({
               <small>{STATUS[status].ja}</small>
             </em>
           ) : null}
-        </header>
-        {/* 四隅の照準の枠は、地図の外側(すき間)に描く。地図の Google の表示に重ねないため。 */}
-        <div className="zr-park-scope">
-          <div className="zr-park-map">
-            <div ref={mapElementRef} className="zr-park-canvas" />
-            {standby ? (
-              <p className="zr-park-standby" role="status">
-                <b>{standby.en}</b>
-                <small>{standby.ja}</small>
-              </p>
-            ) : (
-              <>
-                {coords ? (
-                  <p className="zr-park-coords" aria-hidden="true">
-                    <span>{coords[0]}</span>
-                    <span>{coords[1]}</span>
-                    {source ? <small className={phoneInCar ? "is-live" : undefined}>{source}</small> : null}
-                  </p>
-                ) : null}
-                <div className="zr-park-tools">
-                  <button
-                    type="button"
-                    aria-pressed={satellite}
-                    onClick={() => setSatellite((value) => !value)}
-                  >
-                    {satellite ? "地図" : "航空写真"}
-                  </button>
-                  <button
-                    type="button"
-                    className={following ? undefined : "is-off"}
-                    aria-label="車両位置を真ん中にして追いかける"
-                    onClick={recenter}
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="12" r="6.5" />
-                      <circle cx="12" cy="12" r="2" className="is-fill" />
-                      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
-                    </svg>
-                  </button>
-                </div>
-              </>
-            )}
-            {failed && loaded ? <i className="zr-park-offline">NO SIGNAL</i> : null}
-          </div>
+          {standby ? (
+            <p className="zr-park-standby" role="status">
+              <b>{standby.en}</b>
+              <small>{standby.ja}</small>
+            </p>
+          ) : (
+            <div className="zr-park-tools">
+              <button
+                type="button"
+                aria-pressed={satellite}
+                onClick={() => setSatellite((value) => !value)}
+              >
+                {satellite ? "地図" : "航空写真"}
+              </button>
+              <button
+                type="button"
+                className={following ? undefined : "is-off"}
+                aria-label="車両位置を真ん中にして追いかける"
+                onClick={recenter}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="6.5" />
+                  <circle cx="12" cy="12" r="2" className="is-fill" />
+                  <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
+                </svg>
+              </button>
+            </div>
+          )}
+          {failed && loaded ? <i className="zr-park-offline">NO SIGNAL</i> : null}
         </div>
         {park ? (
           <div className="zr-park-facts">
