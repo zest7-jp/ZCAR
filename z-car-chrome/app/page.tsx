@@ -35,8 +35,8 @@ import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
 import {
   ClassicCluster,
   MeterStyleThumb,
+  RETRO_MAP_LOOK,
   RetroCluster,
-  STYLE_MAP_LOOKS,
   type ClusterData,
 } from "./meter-styles";
 import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
@@ -866,14 +866,16 @@ export default function Home() {
   }, [weatherLocationKey]);
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
-  // 地図はメーター(どのテーマ・形にも地図がある)を出しているときだけ作る。
-  // 地図の器はテーマ(近未来なら形)ごとに違う。
+  // 地図はメーター(近未来のどちらの形と、80年代のテーマに地図がある)を出しているときだけ作る。
+  // 地図の器はテーマ(近未来なら形)ごとに違う。本物の針のテーマには地図を置かない。
   const meterStyleId = meterStyleInfo(settings.meterStyle).id;
   const mapHost = showFuel
     ? null
     : meterStyleId === "future"
       ? meterDesignInfo(settings.meterDesign).id
-      : meterStyleId;
+      : meterStyleId === "retro"
+        ? "retro"
+        : null;
 
   // 燃費画面や別の形へ移ると、地図の器が外れる(または別の器になる)ので作り直す。
   useEffect(() => {
@@ -910,10 +912,10 @@ export default function Home() {
           };
         };
         if (!greenGmapRef.current) {
-          // 80年代・本物の針のテーマは、それぞれの色の地図にする。
+          // 80年代のテーマは、昔の車の緑の画面ふうの地図にする。
           const look =
-            mapHost === "retro" || mapHost === "classic"
-              ? STYLE_MAP_LOOKS[mapHost]
+            mapHost === "retro"
+              ? RETRO_MAP_LOOK
               : {
                   zoom: GREEN_METER_MAP_ZOOM,
                   styles: GREEN_METER_MAP_STYLES,
@@ -1734,8 +1736,6 @@ export default function Home() {
           <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
             <ClassicCluster
               data={clusterData}
-              mapRef={greenMapElementRef}
-              mapReady={greenMapReady}
               onFuel={toggleFuelView}
               onDest={openDestDialog}
               onStart={startNavigation}

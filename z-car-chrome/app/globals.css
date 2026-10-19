@@ -8926,7 +8926,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 /* ------------------------------------------------------------------
    80年代のデジタル・本物の針のテーマ(app/meter-styles.tsx)。
-   1024x566 の板に描き、使える広さに合わせて拡大・縮小する。
+   1024x566 の板に描き、使える広さに合わせて拡大・縮小する。地図があるのは80年代だけ。
    近未来のテーマの色の決まり(8色の filter など)は、どちらにもかからない。
    ------------------------------------------------------------------ */
 #app.meter-style-retro.is-fullscreen,
@@ -9084,27 +9084,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .ms-classic text.ms-serif { font-family: "Liberation Serif", "Noto Serif", Georgia, serif; }
 .ms-classic .ms-hit { border-radius: 12px; }
 .ms-classic .ms-hit:active { background: rgba(255, 177, 90, .12); }
-/* 速度計の真ん中の丸い地図。真ん中(=針の根元)が自分の車の位置。 */
-.ms-classic-map {
-  position: absolute;
-  left: 394px;
-  top: 164px;
-  width: 236px;
-  height: 236px;
-  overflow: hidden;
-  border-radius: 50%;
-  background: #1e1813;
-  isolation: isolate;
-}
-.ms-classic-map-wait {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: #6d5843;
-  font: 700 11px/1 "Helvetica Neue", Roboto, Arial, sans-serif;
-  letter-spacing: .4em;
-}
 #app.meter-style-classic .meter-status {
   background: linear-gradient(#1d1813, #0d0b09);
   box-shadow: inset 0 -1px 0 #3b3128;

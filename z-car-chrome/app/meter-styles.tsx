@@ -55,9 +55,6 @@ export type ClusterData = {
 
 export type ClusterProps = {
   data: ClusterData;
-  /** 地図を置く場所。page.tsx がここに Google マップを作る。 */
-  mapRef: RefObject<HTMLDivElement | null>;
-  mapReady: boolean;
   /** 燃費の記録を開く。 */
   onFuel: () => void;
   /** 目的地を選ぶ。 */
@@ -66,51 +63,35 @@ export type ClusterProps = {
   onStart: (() => void) | null;
 };
 
-/** テーマごとの地図の色(Google マップの styles)と寄り。 */
-export const STYLE_MAP_LOOKS: Record<
-  Exclude<MeterStyle, "future">,
-  { zoom: number; background: string; styles: Record<string, unknown>[] }
-> = {
-  // 昔の車の緑の画面: 黒い下地に緑の道。文字は町の名前だけ。
-  retro: {
-    zoom: 13,
-    background: "#021208",
-    styles: [
-      { elementType: "geometry", stylers: [{ color: "#021208" }] },
-      { elementType: "labels", stylers: [{ visibility: "off" }] },
-      { featureType: "administrative.locality", elementType: "labels.text", stylers: [{ visibility: "on" }] },
-      { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#5dff8a" }] },
-      { featureType: "administrative.locality", elementType: "labels.text.stroke", stylers: [{ color: "#021208" }, { weight: 3 }] },
-      { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
-      { featureType: "poi", stylers: [{ visibility: "off" }] },
-      { featureType: "transit", stylers: [{ visibility: "off" }] },
-      { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#04190c" }] },
-      { featureType: "road.local", elementType: "geometry", stylers: [{ color: "#145c2c" }] },
-      { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#2fc35a" }] },
-      { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#62ff84" }] },
-      { featureType: "water", elementType: "geometry", stylers: [{ color: "#03301a" }] },
-    ],
-  },
-  // 革と真鍮の色: 茶色がかった暗い地図。
-  classic: {
-    zoom: 14,
-    background: "#1e1813",
-    styles: [
-      { elementType: "geometry", stylers: [{ color: "#1e1813" }] },
-      { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-      { elementType: "labels.text.fill", stylers: [{ color: "#b7a68c" }] },
-      { elementType: "labels.text.stroke", stylers: [{ color: "#120e0b" }, { weight: 3 }] },
-      { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
-      { featureType: "poi", stylers: [{ visibility: "off" }] },
-      { featureType: "transit", stylers: [{ visibility: "off" }] },
-      { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#262019" }] },
-      { featureType: "road", elementType: "geometry.stroke", stylers: [{ visibility: "off" }] },
-      { featureType: "road.local", elementType: "geometry.fill", stylers: [{ color: "#463a2e" }] },
-      { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#6a5641" }] },
-      { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#9a7b52" }] },
-      { featureType: "water", elementType: "geometry", stylers: [{ color: "#17212b" }] },
-    ],
-  },
+/** 地図のあるテーマ(80年代)に渡す、地図の置き場所。page.tsx がここに Google マップを作る。 */
+type MapProps = {
+  mapRef: RefObject<HTMLDivElement | null>;
+  mapReady: boolean;
+};
+
+/**
+ * 80年代のテーマの地図の色(Google マップの styles)と寄り。
+ * 昔の車の緑の画面: 黒い下地に緑の道。文字は町の名前だけ。
+ * (本物の針のテーマには地図を置かない)
+ */
+export const RETRO_MAP_LOOK: { zoom: number; background: string; styles: Record<string, unknown>[] } = {
+  zoom: 13,
+  background: "#021208",
+  styles: [
+    { elementType: "geometry", stylers: [{ color: "#021208" }] },
+    { elementType: "labels", stylers: [{ visibility: "off" }] },
+    { featureType: "administrative.locality", elementType: "labels.text", stylers: [{ visibility: "on" }] },
+    { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#5dff8a" }] },
+    { featureType: "administrative.locality", elementType: "labels.text.stroke", stylers: [{ color: "#021208" }, { weight: 3 }] },
+    { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
+    { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+    { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#04190c" }] },
+    { featureType: "road.local", elementType: "geometry", stylers: [{ color: "#145c2c" }] },
+    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#2fc35a" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#62ff84" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#03301a" }] },
+  ],
 };
 
 // --- 共通の道具 ---
@@ -491,7 +472,7 @@ const litSegments = (value: number, y: number, color: (index: number) => string)
     <rect key={i} x={790 + i * 11} y={y} width="8.5" height="20" fill={color(i)} />
   ));
 
-export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }: ClusterProps) {
+export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -603,7 +584,7 @@ const CLASSIC = {
   stitch: "#6d5843",
   red: "#c53a22",
 };
-/** 速度計の真ん中(=地図の真ん中・自分の車の位置)。 */
+/** 速度計の真ん中。 */
 const SX = 512;
 const SY = 282;
 /** 時計と回転計の真ん中。 */
@@ -657,10 +638,6 @@ const ClassicDefs = () => (
       <stop offset=".5" stopColor="#f3ecdf" />
       <stop offset="1" stopColor="#8a8173" />
     </linearGradient>
-    <radialGradient id="ms-map-shade" cx=".5" cy=".5" r=".5">
-      <stop offset=".62" stopColor="#000" stopOpacity="0" />
-      <stop offset="1" stopColor="#000" stopOpacity=".75" />
-    </radialGradient>
     <filter id="ms-shadow" x="-30%" y="-30%" width="160%" height="160%">
       <feDropShadow dx="1.5" dy="3" stdDeviation="2.4" floodColor="#000" floodOpacity=".75" />
     </filter>
@@ -829,8 +806,11 @@ const ClassicFace = memo(function ClassicFace() {
       {/* 速度計 */}
       <Dial cx={SX} cy={SY} r={226} ring={14} />
       <Scale cx={SX} cy={SY} r={212} from={0} to={SPEED_MAX} major={20} mid={10} minor={2} label={20} labelR={160} font={22} />
-      <text x={SX} y={SY - 138} textAnchor="middle" fill={CLASSIC.muted} fontSize="11" letterSpacing="3">
+      <text x={SX} y={SY - 66} textAnchor="middle" fill={CLASSIC.muted} fontSize="12" letterSpacing="3">
         km/h
+      </text>
+      <text x={SX} y={SY + 70} textAnchor="middle" fill={CLASSIC.muted} fontSize="15" fontStyle="italic" fontWeight="700" letterSpacing="3" className="ms-serif" opacity=".8">
+        Z CAR
       </text>
       <ApertureFrame {...APERTURES.cruise} top="AVG CRUISE" />
       <ApertureFrame {...APERTURES.speed} top="SPEED" />
@@ -950,19 +930,6 @@ const ClassicFace = memo(function ClassicFace() {
   );
 });
 
-/** 地図の上にかぶせる、動かない絵(地図の縁の金属の輪・ふちの影・北の印)。 */
-const ClassicGlass = memo(function ClassicGlass() {
-  return (
-    <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-      <circle cx={SX} cy={SY} r="118" fill="url(#ms-map-shade)" />
-      <circle cx={SX} cy={SY} r="120" fill="none" stroke="url(#ms-metal)" strokeWidth="5" />
-      <text x={SX} y={SY - 98} textAnchor="middle" fill={CLASSIC.ink} fontSize="10" fontWeight="700" opacity=".8">
-        N
-      </text>
-    </svg>
-  );
-});
-
 /** 天気の小さな絵(線で描く)。 */
 const ClassicWeatherIcon = ({ kind, isDay }: { kind: WeatherKind; isDay: boolean }) => {
   const cloud = (
@@ -1008,7 +975,7 @@ const clockAngles = (h: number, m: number, s: number) => ({
   second: s * 6,
 });
 
-export function ClassicCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }: ClusterProps) {
+export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
   // 時計の秒針のため、1秒ごとに今の時刻を読む(分までは data.clock と同じ)。
   const [now, setNow] = useState<{ h: number; m: number; s: number } | null>(null);
   useEffect(() => {
@@ -1040,11 +1007,6 @@ export function ClassicCluster({ data, mapRef, mapReady, onFuel, onDest, onStart
   return (
     <Board className="ms-classic">
       <ClassicFace />
-      <div className="ms-classic-map">
-        <div ref={mapRef} className="ms-map-canvas" />
-        {!mapReady ? <span className="ms-classic-map-wait">MAP</span> : null}
-      </div>
-      <ClassicGlass />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         {/* 速度計 */}
         <ApertureValue {...APERTURES.cruise} value={data.avgCruise === null ? "—" : String(Math.round(data.avgCruise))} unit="km/h" />
