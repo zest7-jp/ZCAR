@@ -712,7 +712,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
 }
 
 // ------------------------------------------------------------------
-// 本物の針のメーター: 金属の縁の文字盤と、本物のように動く針。
+// 本物の針のメーター: 金属の縁のクリーム色の文字盤(ヴィンテージ)と、本物のように動く針。
 // ------------------------------------------------------------------
 
 const CLASSIC = {
@@ -721,15 +721,24 @@ const CLASSIC = {
   needle: "#ff6a24",
   stitch: "#6d5843",
   red: "#c53a22",
+  /** クリーム色の文字盤とボタンの上の、文字・目盛り・針の色。 */
+  dialInk: "#1d1813",
+  dialMuted: "#7a6853",
+  dialRed: "#c0321c",
+  plateInk: "#2b2118",
 };
-/** 速度計の真ん中。 */
+/**
+ * 三連のメーター。左に回転計、真ん中に大きな速度計、右に時計(曜日・日付だけ)。左右は少し小さく、少し高い所に置き、
+ * 真ん中の金属の縁の後ろに少し隠れる。下の左右の板に、天気と、電圧・目的地・START。
+ */
 const SX = 512;
-const SY = 282;
-/** 時計と回転計の真ん中。 */
-const CX = 134;
-const CY = 128;
-const TX = 890;
-const TY = 132;
+const SY = 283;
+const SPEED_R = 218;
+const TX = 170;
+const TY = 196;
+const CX = 854;
+const CY = 196;
+const SIDE_R = 130;
 
 const ClassicDefs = () => (
   <defs>
@@ -745,11 +754,15 @@ const ClassicDefs = () => (
       <stop offset=".5" stopColor="#7a7a7a" />
       <stop offset="1" stopColor="#c4c4c4" />
     </linearGradient>
-    <radialGradient id="ms-dial" cx=".5" cy=".4" r=".65">
-      <stop offset="0" stopColor="#26262a" />
-      <stop offset=".65" stopColor="#0e0e10" />
-      <stop offset="1" stopColor="#040405" />
+    <radialGradient id="ms-cream" cx=".5" cy=".4" r=".7">
+      <stop offset="0" stopColor="#f8f1e2" />
+      <stop offset=".7" stopColor="#eae0c9" />
+      <stop offset="1" stopColor="#cdbd9e" />
     </radialGradient>
+    <linearGradient id="ms-ivory" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#f6eedc" />
+      <stop offset="1" stopColor="#d5c7aa" />
+    </linearGradient>
     <radialGradient id="ms-leather" cx=".5" cy=".45" r=".75">
       <stop offset="0" stopColor="#231c15" />
       <stop offset=".7" stopColor="#110d0a" />
@@ -786,23 +799,23 @@ const ClassicDefs = () => (
   </defs>
 );
 
-/** 金属の縁と黒い文字盤(放射状のすじ入り)。 */
-const Dial = ({ cx, cy, r, ring }: { cx: number; cy: number; r: number; ring: number }) => (
-  <g>
-    <circle cx={cx} cy={cy} r={r + ring} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
-    <circle cx={cx} cy={cy} r={r + 1.2} fill="#000" />
-    <circle cx={cx} cy={cy} r={r} fill="url(#ms-dial)" />
-    <g strokeWidth={r2(r / 60)}>
-      {Array.from({ length: 180 }, (_, i) => {
-        const [x1, y1] = pol(cx, cy, r * 0.05, i * 2);
-        const [x2, y2] = pol(cx, cy, r, i * 2);
-        return (
-          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={i % 2 ? "#fff" : "#000"} strokeOpacity={i % 2 ? 0.035 : 0.12} />
-        );
-      })}
+/** 金属の縁とクリーム色の文字盤(細い同心の輪の模様と、縁の内側の細い線)。 */
+const Dial = ({ cx, cy, r, ring }: { cx: number; cy: number; r: number; ring: number }) => {
+  const rings = Math.max(6, Math.round(r / 4));
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r + ring} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
+      <circle cx={cx} cy={cy} r={r + 1.2} fill="#000" />
+      <circle cx={cx} cy={cy} r={r} fill="url(#ms-cream)" />
+      <g fill="none" stroke="#000" strokeOpacity=".045" strokeWidth={r2(Math.max(0.5, r / 260))}>
+        {Array.from({ length: rings }, (_, i) => (
+          <circle key={i} cx={cx} cy={cy} r={r2((r * (i + 1)) / rings)} />
+        ))}
+      </g>
+      <circle cx={cx} cy={cy} r={r2(r * 0.97)} fill="none" stroke={CLASSIC.dialInk} strokeOpacity=".55" strokeWidth={r2(Math.max(0.8, r / 140))} />
     </g>
-  </g>
-);
+  );
+};
 
 type ScaleOptions = {
   cx: number;
@@ -817,10 +830,14 @@ type ScaleOptions = {
   labelR: number;
   font: number;
   red?: number;
+  /** 目盛りの広がり(度)。ふつうは 270(-135度〜135度)。 */
+  sweep?: number;
 };
-/** -135度〜135度に割り当てた目盛りの角度。 */
-const scaleAngle = (o: Pick<ScaleOptions, "from" | "to">, value: number) =>
-  -135 + (270 * (Math.max(o.from, Math.min(o.to, value)) - o.from)) / (o.to - o.from);
+/** 目盛りの角度。ふつうは -135度〜135度(sweep を決めると、そのぶん真上を中心に広がる)。 */
+const scaleAngle = (o: Pick<ScaleOptions, "from" | "to" | "sweep">, value: number) => {
+  const sweep = o.sweep ?? 270;
+  return -sweep / 2 + (sweep * (Math.max(o.from, Math.min(o.to, value)) - o.from)) / (o.to - o.from);
+};
 const near = (value: number, step: number) => Math.abs(value / step - Math.round(value / step)) < 1e-6;
 /** 目盛りと数字。red から上は赤。 */
 const Scale = (o: ScaleOptions) => {
@@ -840,7 +857,7 @@ const Scale = (o: ScaleOptions) => {
         y1={y1}
         x2={x2}
         y2={y2}
-        stroke={o.red !== undefined && v >= o.red ? "#ff6a4a" : CLASSIC.ink}
+        stroke={o.red !== undefined && v >= o.red ? CLASSIC.dialRed : CLASSIC.dialInk}
         strokeWidth={r2(major ? o.r * 0.018 : mid ? o.r * 0.011 : o.r * 0.007)}
       />,
     );
@@ -855,7 +872,7 @@ const Scale = (o: ScaleOptions) => {
         x={x}
         y={r2(y + o.font * 0.36)}
         textAnchor="middle"
-        fill={o.red !== undefined && v >= o.red ? "#ff7a5a" : CLASSIC.ink}
+        fill={o.red !== undefined && v >= o.red ? CLASSIC.dialRed : CLASSIC.dialInk}
         fontSize={o.font}
         fontWeight="700"
         letterSpacing="-.5"
@@ -898,178 +915,204 @@ const Needle = ({ cx, cy, len, tail, width, deg }: { cx: number; cy: number; len
   </g>
 );
 
-/** 文字盤に開けた黒い小窓の枠と、上の説明。 */
-const ApertureFrame = ({ x, y, w, h, top }: { x: number; y: number; w: number; h: number; top: string }) => (
+/** 速度計の下の、平均燃費の回るドラム(3つ。最後の白いドラムが小数)。 */
+const FUEL_DRUM = { x: SX - 37, y: SY + 132, w: 74, h: 40 };
+const VDRUM = { w: 15, gap: 2, h: 22 };
+const VDRUM_X = FUEL_DRUM.x + (FUEL_DRUM.w - (VDRUM.w * 3 + VDRUM.gap * 2)) / 2;
+const VDRUM_Y = FUEL_DRUM.y + 16;
+
+/** 燃費のドラムの枠と、上の説明(動かない所)。 */
+const FuelDrumFace = () => (
   <g>
-    <rect x={x} y={y} width={w} height={h} rx="5" fill="#050505" stroke="url(#ms-metal-soft)" strokeWidth="1.6" />
-    <text x={x + w / 2} y={y + 12} textAnchor="middle" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="1.4">
-      {top}
+    <text x={FUEL_DRUM.x + FUEL_DRUM.w / 2} y={FUEL_DRUM.y + 10} textAnchor="middle" fill={CLASSIC.plateInk} fontSize="7" fontWeight="700" letterSpacing="1">
+      AVG FUEL km/L
     </text>
+    <rect x={VDRUM_X - 3} y={VDRUM_Y - 3} width={VDRUM.w * 3 + VDRUM.gap * 2 + 6} height={VDRUM.h + 6} rx="3" fill="#141210" stroke="url(#ms-metal)" strokeWidth="1.8" />
+    {[0, 1, 2].map((j) => (
+      <rect key={j} x={VDRUM_X + j * (VDRUM.w + VDRUM.gap)} y={VDRUM_Y} width={VDRUM.w} height={VDRUM.h} rx="1.5" fill={j === 2 ? "url(#ms-drum-light)" : "url(#ms-drum)"} />
+    ))}
+    <circle cx={VDRUM_X + 2 * (VDRUM.w + VDRUM.gap) - VDRUM.gap / 2} cy={VDRUM_Y + VDRUM.h - 3} r="1.3" fill={CLASSIC.ink} />
   </g>
 );
-const ApertureValue = ({ x, y, w, h, value, unit }: { x: number; y: number; w: number; h: number; value: string; unit: string }) => (
-  <text x={x + w / 2} y={y + h - 8} textAnchor="middle" fill={CLASSIC.ink} fontSize="16" fontWeight="700">
-    {value}
-    <tspan fontSize="8.5" fill={CLASSIC.muted} fontWeight="400" dx="2">
-      {unit}
-    </tspan>
-  </text>
-);
-const APERTURES = {
-  cruise: { x: SX - 116, y: SY + 160, w: 74, h: 40 },
-  speed: { x: SX - 36, y: SY + 166, w: 72, h: 44 },
-  fuel: { x: SX + 42, y: SY + 160, w: 74, h: 40 },
-};
-const WORLD_X = [56, 134, 212];
-const WORLD_Y = 372;
-const FANS = [
-  { cx: 834, cy: 290, lo: "E", hi: "F", name: "FUEL · RANGE" },
-  { cx: 946, cy: 290, lo: "C", hi: "H", name: "COOLANT TEMP" },
-];
-const DRUMS = 5;
 
-/** 本物の針のメーターの、地図より下の動かない絵。 */
+/** 燃費のドラムの数字(動く所)。値がないときは「---」。 */
+const FuelDrumDigits = ({ value }: { value: string | null }) => (
+  <g>
+    {(value === null ? "---" : value.replace(".", ""))
+      .padStart(3, " ")
+      .slice(-3)
+      .split("")
+      .map((digit, j) => (
+        <text
+          key={j}
+          x={VDRUM_X + j * (VDRUM.w + VDRUM.gap) + VDRUM.w / 2}
+          y={VDRUM_Y + 16}
+          textAnchor="middle"
+          fill={j === 2 ? "#1a1612" : CLASSIC.ink}
+          fontSize="14"
+          fontWeight="700"
+        >
+          {digit}
+        </text>
+      ))}
+  </g>
+);
+
+/** 今日の距離(速度計の中の、回るドラム5つ)。 */
+const ODO = { drums: 5, w: 16, gap: 2, h: 24, y: SY + 64 };
+const ODO_X = SX - (ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap) / 2;
+/**
+ * 小さなメーター: 燃料は回転計の下、水温は時計の下(どちらも真ん中)。
+ * 回転計の目盛りは少し狭く(240度)して、下に燃料のメーターの場所をとる。
+ */
+const TACHO_SWEEP = 240;
+const MINI = [
+  { key: "fuel", cx: TX, cy: TY + 86, lo: "E", hi: "F" },
+  { key: "temp", cx: CX, cy: CY + 86, lo: "C", hi: "H" },
+] as const;
+const MINI_R = 22;
+type MiniGauge = (typeof MINI)[number];
+/** 小さなメーターの目盛りと E・F(C・H)の文字(動かない所)。空に近い側・熱い側は赤。 */
+const MiniGaugeFace = ({ g }: { g: MiniGauge }) => {
+  const [lx, ly] = pol(g.cx, g.cy, MINI_R + 5, -60);
+  const [hx, hy] = pol(g.cx, g.cy, MINI_R + 5, 60);
+  return (
+    <g>
+      {Array.from({ length: 5 }, (_, i) => {
+        const [x1, y1] = pol(g.cx, g.cy, MINI_R, -60 + i * 30);
+        const [x2, y2] = pol(g.cx, g.cy, i % 2 === 0 ? MINI_R - 6 : MINI_R - 4, -60 + i * 30);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={i % 2 === 0 ? 1.6 : 0.9} />;
+      })}
+      <text x={lx} y={ly + 3} textAnchor="middle" fill={g.key === "fuel" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
+        {g.lo}
+      </text>
+      <text x={hx} y={hy + 3} textAnchor="middle" fill={g.key === "temp" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
+        {g.hi}
+      </text>
+    </g>
+  );
+};
+/** 下の左右の板と、右の板の中の電圧・目的地・START。 */
+const PANELS = [
+  { x: 16, y: 352, w: 268, h: 196 },
+  { x: 740, y: 352, w: 268, h: 196 },
+];
+const BATTERY_BOX = { x: 756, y: 366, w: 236, h: 36 };
+const DEST_BTN = { x: 756, y: 410, w: 236, h: 44 };
+const START_BTN = { x: 756, y: 462, w: 236, h: 72 };
+
+/** 本物の針のメーターの、動かない絵。 */
 const ClassicFace = memo(function ClassicFace() {
   return (
     <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <ClassicDefs />
       <rect width={BOARD_W} height={BOARD_H} fill="url(#ms-leather)" />
       <rect width={BOARD_W} height={BOARD_H} filter="url(#ms-grain)" opacity=".16" />
-      {[12, 768].map((x) => (
-        <g key={x}>
-          <rect x={x} y="8" width="244" height="548" rx="16" fill="url(#ms-panel)" stroke="#2e261d" filter="url(#ms-shadow)" />
-          <rect x={x + 6} y="14" width="232" height="536" rx="11" fill="none" stroke={CLASSIC.stitch} strokeDasharray="4 3.5" opacity=".75" />
+      {/* 下の左右の板(縫い目入り) */}
+      {PANELS.map((panel) => (
+        <g key={panel.x}>
+          <rect x={panel.x} y={panel.y} width={panel.w} height={panel.h} rx="16" fill="url(#ms-panel)" stroke="#2e261d" filter="url(#ms-shadow)" />
+          <rect x={panel.x + 6} y={panel.y + 6} width={panel.w - 12} height={panel.h - 12} rx="11" fill="none" stroke={CLASSIC.stitch} strokeDasharray="4 3.5" opacity=".75" />
         </g>
       ))}
-      {/* 速度計 */}
-      <Dial cx={SX} cy={SY} r={226} ring={14} />
-      <Scale cx={SX} cy={SY} r={212} from={0} to={SPEED_MAX} major={20} mid={10} minor={2} label={20} labelR={160} font={22} />
-      <text x={SX} y={SY - 66} textAnchor="middle" fill={CLASSIC.muted} fontSize="12" letterSpacing="3">
-        km/h
+      {/* 左: 回転計(中に回転数の窓と、燃料の小さなメーター) */}
+      <Dial cx={TX} cy={TY} r={SIDE_R} ring={10} />
+      <Scale cx={TX} cy={TY} r={SIDE_R - 6} from={0} to={8} major={1} mid={0.5} minor={0.25} label={1} labelR={96} font={17} red={RPM_RED / 1000} sweep={TACHO_SWEEP} />
+      <rect x={TX - 26} y={TY - 62} width="52" height="18" rx="3" fill="#050505" stroke="url(#ms-metal-soft)" />
+      <text x={TX} y={TY - 30} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7" letterSpacing="1.6">
+        ×1000 r/min
       </text>
-      <text x={SX} y={SY + 70} textAnchor="middle" fill={CLASSIC.muted} fontSize="15" fontStyle="italic" fontWeight="700" letterSpacing="3" className="ms-serif" opacity=".8">
-        Z CAR
-      </text>
-      <ApertureFrame {...APERTURES.cruise} top="AVG CRUISE" />
-      <ApertureFrame {...APERTURES.speed} top="SPEED" />
-      <ApertureFrame {...APERTURES.fuel} top="AVG FUEL" />
-      {/* 時計 */}
-      <text x={CX} y="30" textAnchor="middle" fill={CLASSIC.muted} fontSize="8.5" letterSpacing="2.4">
-        LOCAL TIME · JST
-      </text>
-      <Dial cx={CX} cy={CY} r={84} ring={8} />
+      <MiniGaugeFace g={MINI[0]} />
+      {/* 右: 時計(中に曜日と日付の小窓、上に LOCAL TIME と年月日、下に水温の小さなメーター) */}
+      <Dial cx={CX} cy={CY} r={SIDE_R} ring={10} />
       {Array.from({ length: 60 }, (_, i) => {
         const major = i % 5 === 0;
-        const [x1, y1] = pol(CX, CY, 80, i * 6);
-        const [x2, y2] = pol(CX, CY, major ? 66 : 75, i * 6);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.ink} strokeWidth={major ? (i === 0 ? 4.2 : 3) : 1} />;
+        const [x1, y1] = pol(CX, CY, SIDE_R - 4, i * 6);
+        const [x2, y2] = pol(CX, CY, major ? SIDE_R - 18 : SIDE_R - 10, i * 6);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={major ? (i === 0 ? 4.6 : 3.2) : 1.1} />;
       })}
-      <rect x={CX + 34} y={CY - 9} width="26" height="18" rx="2" fill="#f4ecdc" stroke="url(#ms-metal-soft)" />
-      <rect x={CX - 60} y={CY - 9} width="26" height="18" rx="2" fill="#0b0b0b" stroke="url(#ms-metal-soft)" />
-      {/* 日の出・日の入り */}
-      <g fill="none" stroke={CLASSIC.muted} strokeWidth="1.2">
-        <path d="M40 246 h20 M44 242 a6 6 0 0 1 12 0" />
-        <path d="M50 234 v3 M42 237 l2 2 M58 237 l-2 2" />
-        <path d="M170 246 h20 M174 242 a6 6 0 0 1 12 0" />
-      </g>
-      <line x1="104" y1="243" x2="164" y2="243" stroke={CLASSIC.stitch} strokeDasharray="2 3" />
-      <g stroke="#3a3027">
-        <line x1="30" y1="262" x2="238" y2="262" />
-        <line x1="30" y1="332" x2="238" y2="332" />
-        <line x1="30" y1="442" x2="238" y2="442" />
-      </g>
-      <text x="136" y="287" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="1.6">
-        OUTSIDE
+      <text x={CX} y={CY - 58} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.2">
+        LOCAL TIME · JST
       </text>
-      {/* 世界の時刻の小さな時計 */}
-      {WORLD_X.map((x, i) => (
-        <g key={x}>
-          <Dial cx={x} cy={WORLD_Y} r={24} ring={3.5} />
-          {Array.from({ length: 12 }, (_, k) => {
-            const [x1, y1] = pol(x, WORLD_Y, 21, k * 30);
-            const [x2, y2] = pol(x, WORLD_Y, k % 3 === 0 ? 16 : 18.5, k * 30);
-            return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.ink} strokeWidth={k % 3 === 0 ? 1.6 : 0.8} />;
-          })}
-          <text x={x} y={WORLD_Y + 40} textAnchor="middle" fill={CLASSIC.muted} fontSize="7" letterSpacing="1.2">
-            {["CALIFORNIA", "RUSSIA", "CHINA"][i]}
-          </text>
-        </g>
-      ))}
-      {/* 今日の距離(回るドラム) */}
-      <text x={CX} y="464" textAnchor="middle" fill={CLASSIC.muted} fontSize="8" letterSpacing="2.4">
-        TODAY DISTANCE
+      <MiniGaugeFace g={MINI[1]} />
+      <rect x={CX + 40} y={CY - 10} width="28" height="20" rx="2" fill="#f4ecdc" stroke="url(#ms-metal-soft)" />
+      <rect x={CX - 68} y={CY - 10} width="28" height="20" rx="2" fill="#0b0b0b" stroke="url(#ms-metal-soft)" />
+      {/* 真ん中: 速度計(左右より手前。中に今日の距離と、平均・速さのドラム) */}
+      <Dial cx={SX} cy={SY} r={SPEED_R} ring={14} />
+      <Scale cx={SX} cy={SY} r={SPEED_R - 12} from={0} to={SPEED_MAX} major={20} mid={10} minor={2} label={20} labelR={156} font={22} />
+      <text x={SX} y={SY - 70} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="12" letterSpacing="3">
+        km/h
       </text>
-      {Array.from({ length: DRUMS }, (_, i) => (
-        <rect key={i} x={66 + i * 23} y="474" width="20" height="30" rx="2" fill={i === DRUMS - 1 ? "url(#ms-drum-light)" : "url(#ms-drum)"} stroke="#555" strokeWidth=".8" />
+      <text x={SX} y={SY + 50} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="15" fontStyle="italic" fontWeight="700" letterSpacing="3" className="ms-serif" opacity=".8">
+        Z CAR
+      </text>
+      <rect x={ODO_X - 4} y={ODO.y - 4} width={ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap + 8} height={ODO.h + 8} rx="4" fill="#141210" stroke="url(#ms-metal)" strokeWidth="1.8" />
+      {Array.from({ length: ODO.drums }, (_, i) => (
+        <rect key={i} x={ODO_X + i * (ODO.w + ODO.gap)} y={ODO.y} width={ODO.w} height={ODO.h} rx="1.5" fill={i === ODO.drums - 1 ? "url(#ms-drum-light)" : "url(#ms-drum)"} />
       ))}
-      <rect x="60" y="470" width={DRUMS * 23 + 8} height="38" rx="4" fill="none" stroke="url(#ms-metal-soft)" strokeWidth="1.6" />
-      <text x={66 + DRUMS * 23 + 4} y="495" fill={CLASSIC.muted} fontSize="10">
+      <text x={ODO_X - 10} y={ODO.y + 16} textAnchor="end" fill={CLASSIC.plateInk} fontSize="7" fontWeight="700" letterSpacing="1">
+        TODAY
+      </text>
+      <text x={ODO_X + ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap + 10} y={ODO.y + 16} fill={CLASSIC.plateInk} fontSize="8" fontWeight="700">
         km
       </text>
-      {/* 回転計 */}
-      <text x={TX} y="28" textAnchor="middle" fill={CLASSIC.muted} fontSize="8.5" letterSpacing="2.4">
-        ENGINE · ×1000 r/min
+      <FuelDrumFace />
+      {/* 左下の板: 天気と日の出・日の入り */}
+      <text x="150" y="388" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="1.6">
+        OUTSIDE
       </text>
-      <Dial cx={TX} cy={TY} r={80} ring={7} />
-      <Scale cx={TX} cy={TY} r={76} from={0} to={8} major={1} mid={0.5} minor={0.25} label={1} labelR={55} font={14} red={RPM_RED / 1000} />
-      <rect x={TX - 24} y={TY + 33} width="48" height="18" rx="3" fill="#050505" stroke="url(#ms-metal-soft)" />
-      {/* 燃料・水温(扇形の小さなメーター) */}
-      {FANS.map((fan) => {
-        const [lx, ly] = pol(fan.cx, fan.cy, 30, -60);
-        const [hx, hy] = pol(fan.cx, fan.cy, 30, 60);
-        return (
-          <g key={fan.name}>
-            <rect x={fan.cx - 52} y={fan.cy - 62} width="104" height="92" rx="12" fill="#0b0a09" stroke="url(#ms-metal-soft)" strokeWidth="1.6" />
-            {Array.from({ length: 9 }, (_, i) => {
-              const [x1, y1] = pol(fan.cx, fan.cy, 46, -60 + i * 15);
-              const [x2, y2] = pol(fan.cx, fan.cy, i % 4 === 0 ? 37 : 41, -60 + i * 15);
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.ink} strokeWidth={i % 4 === 0 ? 2.2 : 1.1} />;
-            })}
-            <text x={lx} y={ly + 4} textAnchor="middle" fill={CLASSIC.ink} fontSize="10" fontWeight="700">
-              {fan.lo}
-            </text>
-            <text x={hx} y={hy + 4} textAnchor="middle" fill={CLASSIC.ink} fontSize="10" fontWeight="700">
-              {fan.hi}
-            </text>
-            <text x={fan.cx} y={fan.cy + 47} textAnchor="middle" fill={CLASSIC.muted} fontSize="7" letterSpacing="1.2">
-              {fan.name}
-            </text>
-          </g>
-        );
-      })}
-      {/* 電圧 */}
-      <rect x="782" y="352" width="216" height="40" rx="10" fill="#0b0a09" stroke="url(#ms-metal-soft)" strokeWidth="1.6" />
-      <text x="800" y="376" fill={CLASSIC.muted} fontSize="8" letterSpacing="2">
+      <line x1="34" y1="448" x2="266" y2="448" stroke="#3a3027" />
+      <g fill="none" stroke={CLASSIC.muted} strokeWidth="1.2">
+        <path d="M36 496 h20 M40 492 a6 6 0 0 1 12 0" />
+        <path d="M46 484 v3 M38 487 l2 2 M54 487 l-2 2" />
+        <path d="M168 496 h20 M172 492 a6 6 0 0 1 12 0" />
+      </g>
+      <line x1="102" y1="493" x2="162" y2="493" stroke={CLASSIC.stitch} strokeDasharray="2 3" />
+      {/* 右下の板: 電圧・目的地・START(金属の縁の、ねじ留めのクリーム色の板) */}
+      <rect x={BATTERY_BOX.x} y={BATTERY_BOX.y} width={BATTERY_BOX.w} height={BATTERY_BOX.h} rx="10" fill="#0b0a09" stroke="url(#ms-metal-soft)" strokeWidth="1.6" />
+      <text x={BATTERY_BOX.x + 16} y={BATTERY_BOX.y + 22} fill={CLASSIC.muted} fontSize="8" letterSpacing="2">
         BATTERY
       </text>
-      {/* 目的地を選ぶ・START(金属の縁のボタン) */}
-      {[
-        [782, 404, 216, 46],
-        [782, 460, 216, 74],
-      ].map(([x, y, w, h]) => (
-        <g key={y}>
-          <rect x={x} y={y} width={w} height={h} rx="12" fill="url(#ms-metal)" filter="url(#ms-shadow)" />
-          <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} rx="9" fill="#141210" />
+      {[DEST_BTN, START_BTN].map((b) => (
+        <g key={b.y}>
+          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="12" fill="url(#ms-metal)" filter="url(#ms-shadow)" />
+          <rect x={b.x + 3} y={b.y + 3} width={b.w - 6} height={b.h - 6} rx="9" fill="url(#ms-ivory)" />
+          {[
+            [b.x + 11, b.y + 11],
+            [b.x + b.w - 11, b.y + 11],
+            [b.x + 11, b.y + b.h - 11],
+            [b.x + b.w - 11, b.y + b.h - 11],
+          ].map(([sx, sy]) => (
+            <g key={`${sx}-${sy}`}>
+              <circle cx={sx} cy={sy} r="3" fill="url(#ms-metal-soft)" stroke="#6d5f4c" strokeWidth=".6" />
+              <line x1={sx - 2} y1={sy - 1} x2={sx + 2} y2={sy + 1} stroke="#4a3f33" strokeWidth=".8" />
+            </g>
+          ))}
         </g>
       ))}
-      <text x="890" y="423" textAnchor="middle" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="2">
+      <text x={DEST_BTN.x + DEST_BTN.w / 2} y={DEST_BTN.y + 18} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7.5" letterSpacing="2">
         CHANGE
       </text>
-      <text x="890" y="440" textAnchor="middle" fill={CLASSIC.ink} fontSize="14" fontWeight="700" letterSpacing="3">
+      <text x={DEST_BTN.x + DEST_BTN.w / 2} y={DEST_BTN.y + 35} textAnchor="middle" fill={CLASSIC.plateInk} fontSize="14" fontWeight="700" letterSpacing="3">
         DEST
       </text>
-      <circle cx="818" cy="497" r="17" fill="none" stroke={CLASSIC.needle} strokeWidth="1.6" />
-      <path d="M818 508 s7-6.5 7-11.5 a7 7 0 1 0-14 0 c0 5 7 11.5 7 11.5z" fill="none" stroke={CLASSIC.needle} strokeWidth="1.6" />
-      <text x="846" y="489" fill={CLASSIC.muted} fontSize="8" letterSpacing="2.4">
+      <circle cx={START_BTN.x + 40} cy={START_BTN.y + START_BTN.h / 2} r="16" fill="none" stroke={CLASSIC.needle} strokeWidth="1.8" />
+      <path
+        d={`M${START_BTN.x + 40} ${START_BTN.y + START_BTN.h / 2 + 10} s6.5-6 6.5-10.8 a6.5 6.5 0 1 0-13 0 c0 4.8 6.5 10.8 6.5 10.8z`}
+        fill="none"
+        stroke={CLASSIC.plateInk}
+        strokeWidth="1.6"
+      />
+      <text x={START_BTN.x + 68} y={START_BTN.y + 28} fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.4">
         START
       </text>
-      <path d="M972 488 l9 9 -9 9" fill="none" stroke={CLASSIC.ink} strokeWidth="2" />
+      <path d={`M${START_BTN.x + START_BTN.w - 28} ${START_BTN.y + 27} l9 9 -9 9`} fill="none" stroke={CLASSIC.plateInk} strokeWidth="2" />
     </svg>
   );
 });
 
 /** 天気の小さな絵(線で描く)。 */
-const ClassicWeatherIcon = ({ kind, isDay }: { kind: WeatherKind; isDay: boolean }) => {
+const ClassicWeatherIcon = ({ kind, isDay, x, y }: { kind: WeatherKind; isDay: boolean; x: number; y: number }) => {
   const cloud = (
     <path d="M-14 6 a8 8 0 0 1 8-8 a10 10 0 0 1 19 3 a6 6 0 0 1 0 12 h-22 a6 6 0 0 1-5-7z" fill="#1a1612" stroke={CLASSIC.ink} strokeWidth="1.6" />
   );
@@ -1079,7 +1122,7 @@ const ClassicWeatherIcon = ({ kind, isDay }: { kind: WeatherKind; isDay: boolean
     <path d="M-2 -15 a9 9 0 1 0 9 12 a7 7 0 0 1 -9 -12z" fill="none" stroke="#ffd79a" strokeWidth="1.6" />
   );
   return (
-    <g transform="translate(46 296)">
+    <g transform={`translate(${x} ${y})`}>
       {kind === "clear" ? (
         isDay ? (
           <g fill="none" stroke="#ffb15a" strokeWidth="1.8">
@@ -1131,10 +1174,16 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
   const time = now ?? { ...readHm(data.clock), s: 0 };
   const hands = clockAngles(time.h, time.m, time.s);
   const speedDeg = scaleAngle({ from: 0, to: SPEED_MAX }, data.speed ?? 0);
-  const rpmDeg = scaleAngle({ from: 0, to: 8 }, (data.rpm ?? 0) / 1000);
-  const fuelDeg = -60 + 120 * clamp01(data.fuelPercent / 100);
-  const tempDeg = -60 + 120 * clamp01(data.coolant === null ? 0 : (data.coolant - 50) / 70);
-  const odometer = String(Math.min(99999, Math.round(data.todayKm * 10))).padStart(DRUMS, "0").split("");
+  const rpmDeg = scaleAngle({ from: 0, to: 8, sweep: TACHO_SWEEP }, (data.rpm ?? 0) / 1000);
+  const miniDeg = {
+    fuel: -60 + 120 * clamp01(data.fuelPercent / 100),
+    temp: -60 + 120 * clamp01(data.coolant === null ? 0 : (data.coolant - 50) / 70),
+  };
+  const miniValue = {
+    fuel: { value: String(Math.round(data.rangeKm)), unit: "km" },
+    temp: { value: data.coolant === null ? "—" : String(Math.round(data.coolant)), unit: "°C" },
+  };
+  const odometer = String(Math.min(99999, Math.round(data.todayKm * 10))).padStart(ODO.drums, "0").split("");
   const kind = data.weather ? weatherKind(data.weather.code) : null;
   const later = data.weather?.hours ?? [];
   const forecast = later
@@ -1146,110 +1195,96 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
     <Board className="ms-classic">
       <ClassicFace />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-        {/* 速度計 */}
-        <ApertureValue {...APERTURES.cruise} value={data.avgCruise === null ? "—" : String(Math.round(data.avgCruise))} unit="km/h" />
-        <ApertureValue {...APERTURES.speed} value={data.speed === null ? "—" : String(Math.round(data.speed))} unit="km/h" />
-        <ApertureValue {...APERTURES.fuel} value={data.avgFuel === null ? "—" : data.avgFuel.toFixed(1)} unit="km/L" />
-        <Needle cx={SX} cy={SY} len={206} tail={34} width={9} deg={speedDeg} />
-        <Hub cx={SX} cy={SY} r={15} />
-        {/* 時計 */}
-        <text x={CX + 47} y={CY + 5} textAnchor="middle" fill="#1a1612" fontSize="12.5" fontWeight="700">
+        {/* 左: 回転計 */}
+        <text x={TX} y={TY - 48.5} textAnchor="middle" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
+          {data.rpm === null ? "—" : Math.round(data.rpm)}
+        </text>
+        {MINI.map((g) => (
+          <g key={g.key}>
+            <Needle cx={g.cx} cy={g.cy} len={MINI_R - 3} tail={4} width={3.2} deg={miniDeg[g.key]} />
+            <Hub cx={g.cx} cy={g.cy} r={3.6} />
+            <text x={g.cx} y={g.cy + 15} textAnchor="middle" fill={CLASSIC.dialInk} fontSize="9" fontWeight="700">
+              {miniValue[g.key].value}
+              <tspan fontSize="6.5" fill={CLASSIC.dialMuted}>
+                {` ${miniValue[g.key].unit}`}
+              </tspan>
+            </text>
+          </g>
+        ))}
+        <Needle cx={TX} cy={TY} len={112} tail={20} width={6.5} deg={rpmDeg} />
+        <Hub cx={TX} cy={TY} r={10} />
+        {/* 右: 時計 */}
+        <text x={CX + 54} y={CY + 5} textAnchor="middle" fill="#1a1612" fontSize="13" fontWeight="700">
           {data.day}
         </text>
-        <text x={CX - 47} y={CY + 5} textAnchor="middle" fill={CLASSIC.needle} fontSize="11.5" fontWeight="700" className="ms-ja">
+        <text x={CX - 54} y={CY + 5} textAnchor="middle" fill={CLASSIC.needle} fontSize="12" fontWeight="700" className="ms-ja">
           {WEEKDAYS[data.weekday]}
         </text>
-        <text x={CX} y={CY + 44} textAnchor="middle" fill={CLASSIC.muted} fontSize="8" letterSpacing="2">
+        <text x={CX} y={CY - 42} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8.5" letterSpacing="2.2">
           {`${data.year}.${pad2(data.month)}.${pad2(data.day)}`}
         </text>
         <g filter="url(#ms-shadow)">
-          <polygon points="-4.5,8 0,-48 4.5,8" fill="url(#ms-metal)" transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
-          <polygon points="-3.6,10 0,-72 3.6,10" fill="url(#ms-metal)" transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
+          <polygon points="-5,9 0,-72 5,9" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
+          <polygon points="-3.8,11 0,-108 3.8,11" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
           <g transform={`translate(${CX} ${CY}) rotate(${hands.second})`}>
-            <line x1="0" y1="16" x2="0" y2="-76" stroke={CLASSIC.needle} strokeWidth="1.4" />
-            <circle r="3.2" fill={CLASSIC.needle} />
+            <line x1="0" y1="20" x2="0" y2="-116" stroke={CLASSIC.needle} strokeWidth="1.5" />
+            <circle r="3.6" fill={CLASSIC.needle} />
           </g>
         </g>
-        <Hub cx={CX} cy={CY} r={5} />
-        {/* 日の出・日の入り・天気 */}
-        <text x="64" y="247" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
-          {data.sunrise ?? "--:--"}
-        </text>
-        <text x="194" y="247" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
-          {data.sunset ?? "--:--"}
-        </text>
-        {kind && data.weather ? <ClassicWeatherIcon kind={kind} isDay={data.weather.isDay} /> : null}
-        <text x="70" y="302" fill={CLASSIC.ink} fontSize="34" fontWeight="700" className="ms-serif">
+        <Hub cx={CX} cy={CY} r={6} />
+        {/* 真ん中: 速度計 */}
+        {odometer.map((digit, i) => (
+          <text
+            key={i}
+            x={ODO_X + i * (ODO.w + ODO.gap) + ODO.w / 2}
+            y={ODO.y + 18}
+            textAnchor="middle"
+            fill={i === ODO.drums - 1 ? "#1a1612" : CLASSIC.ink}
+            fontSize="16"
+            fontWeight="700"
+          >
+            {digit}
+          </text>
+        ))}
+        <FuelDrumDigits value={data.avgFuel === null ? null : data.avgFuel.toFixed(1)} />
+        <Needle cx={SX} cy={SY} len={196} tail={32} width={9} deg={speedDeg} />
+        <Hub cx={SX} cy={SY} r={15} />
+        {/* 左下の板: 天気と日の出・日の入り */}
+        {kind && data.weather ? <ClassicWeatherIcon kind={kind} isDay={data.weather.isDay} x={52} y={404} /> : null}
+        <text x="80" y="412" fill={CLASSIC.ink} fontSize="34" fontWeight="700" className="ms-serif">
           {data.weather ? Math.round(data.weather.temperature) : "—"}
           <tspan fontSize="14" dx="1">
             °C
           </tspan>
         </text>
-        <text x="136" y="302" fill={CLASSIC.ink} fontSize="10.5" fontWeight="700" className="ms-ja">
+        <text x="150" y="404" fill={CLASSIC.ink} fontSize="10.5" fontWeight="700" className="ms-ja">
           {kind ? WEATHER_JA[kind] : "天気を読み込み中"}
         </text>
-        <text x="136" y="316" fill={CLASSIC.muted} fontSize="8.5">
+        <text x="150" y="420" fill={CLASSIC.muted} fontSize="8.5">
           {forecast}
         </text>
-        {/* 世界の時刻 */}
-        {data.world.map((city, i) => {
-          const { h, m } = readHm(city.time);
-          const x = WORLD_X[i] ?? WORLD_X[0];
-          return (
-            <g key={city.name}>
-              <line x1={x} y1={WORLD_Y} x2={x} y2={WORLD_Y - 12} stroke={CLASSIC.ink} strokeWidth="2.2" strokeLinecap="round" transform={`rotate(${((h % 12) + m / 60) * 30} ${x} ${WORLD_Y})`} />
-              <line x1={x} y1={WORLD_Y} x2={x} y2={WORLD_Y - 18} stroke={CLASSIC.ink} strokeWidth="1.4" strokeLinecap="round" transform={`rotate(${m * 6} ${x} ${WORLD_Y})`} />
-              <circle cx={x} cy={WORLD_Y} r="2" fill={CLASSIC.needle} />
-              <text x={x} y={WORLD_Y + 53} textAnchor="middle" fill={CLASSIC.ink} fontSize="10.5" fontWeight="700">
-                {city.time}
-              </text>
-            </g>
-          );
-        })}
-        {/* 今日の距離 */}
-        {odometer.map((digit, i) => (
-          <text key={i} x={66 + i * 23 + 10} y="495" textAnchor="middle" fill={i === DRUMS - 1 ? "#1a1612" : CLASSIC.ink} fontSize="17" fontWeight="700">
-            {digit}
-          </text>
-        ))}
-        {/* 回転計 */}
-        <text x={TX} y={TY + 46.5} textAnchor="middle" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
-          {data.rpm === null ? "—" : Math.round(data.rpm)}
+        <text x="62" y="497" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
+          {data.sunrise ?? "--:--"}
         </text>
-        <Needle cx={TX} cy={TY} len={70} tail={15} width={6} deg={rpmDeg} />
-        <Hub cx={TX} cy={TY} r={9} />
-        {/* 燃料・水温 */}
-        {[
-          { fan: FANS[0], deg: fuelDeg, value: String(Math.round(data.rangeKm)), unit: "km" },
-          { fan: FANS[1], deg: tempDeg, value: data.coolant === null ? "—" : String(Math.round(data.coolant)), unit: "°C" },
-        ].map(({ fan, deg, value, unit }) => (
-          <g key={fan.name}>
-            <Needle cx={fan.cx} cy={fan.cy} len={44} tail={6} width={4.2} deg={deg} />
-            <Hub cx={fan.cx} cy={fan.cy} r={5.5} />
-            <text x={fan.cx} y={fan.cy + 21} textAnchor="middle" fill={CLASSIC.ink} fontSize="12" fontWeight="700">
-              {value}
-              <tspan fontSize="8" fill={CLASSIC.muted}>
-                {` ${unit}`}
-              </tspan>
-            </text>
-          </g>
-        ))}
-        {/* 電圧・START の行き先 */}
-        <text x="982" y="379" textAnchor="end" fill={CLASSIC.ink} fontSize="17" fontWeight="700">
+        <text x="194" y="497" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
+          {data.sunset ?? "--:--"}
+        </text>
+        {/* 右下の板: 電圧と START の行き先 */}
+        <text x={BATTERY_BOX.x + BATTERY_BOX.w - 16} y={BATTERY_BOX.y + 24} textAnchor="end" fill={CLASSIC.ink} fontSize="17" fontWeight="700">
           {data.voltage === null ? "—" : data.voltage.toFixed(1)}
           <tspan fontSize="9" fill={CLASSIC.muted} dx="2">
             V
           </tspan>
         </text>
-        <text x="846" y="512" fill={CLASSIC.ink} fontSize={dest.length <= 5 ? 20 : 16} fontWeight="700" className="ms-ja">
+        <text x={START_BTN.x + 68} y={START_BTN.y + 51} fill={CLASSIC.plateInk} fontSize={dest.length <= 5 ? 20 : 16} fontWeight="700" className="ms-ja">
           {dest}
         </text>
       </svg>
-      <Hit box={[APERTURES.fuel.x, APERTURES.fuel.y, APERTURES.fuel.w, APERTURES.fuel.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[782, 226, 216, 116]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[782, 404, 216, 46]} label="目的地を選ぶ" onPress={onDest} />
+      <Hit box={[MINI[0].cx - MINI_R - 4, MINI[0].cy - MINI_R - 4, MINI_R * 2 + 8, MINI_R + 26]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[FUEL_DRUM.x, FUEL_DRUM.y, FUEL_DRUM.w, FUEL_DRUM.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[DEST_BTN.x, DEST_BTN.y, DEST_BTN.w, DEST_BTN.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
-        box={[782, 460, 216, 74]}
+        box={[START_BTN.x, START_BTN.y, START_BTN.w, START_BTN.h]}
         label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
         onPress={onStart}
       />
@@ -1295,21 +1330,21 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
         </defs>
         <rect width="120" height="70" fill="#15110d" />
         <circle cx="60" cy="38" r="31" fill="url(#ms-thumb-metal)" />
-        <circle cx="60" cy="38" r="28" fill="#0c0c0e" />
+        <circle cx="60" cy="38" r="28" fill="#efe5cf" />
         {Array.from({ length: 15 }, (_, i) => {
           const [x1, y1] = pol(60, 38, 26, -135 + i * (270 / 14));
           const [x2, y2] = pol(60, 38, i % 2 ? 23.5 : 21.5, -135 + i * (270 / 14));
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.ink} strokeWidth={i % 2 ? 0.8 : 1.6} />;
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={i % 2 ? 0.8 : 1.6} />;
         })}
         <line x1="60" y1="38" x2={nx} y2={ny} stroke={CLASSIC.needle} strokeWidth="2" strokeLinecap="round" />
         <circle cx="60" cy="38" r="3.4" fill="url(#ms-thumb-metal)" />
         <circle cx="19" cy="24" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="19" cy="24" r="10.5" fill="#0c0c0e" />
-        <line x1="19" y1="24" x2="19" y2="16" stroke={CLASSIC.ink} strokeWidth="1.2" />
-        <line x1="19" y1="24" x2="24" y2="27" stroke={CLASSIC.ink} strokeWidth="1.2" />
+        <circle cx="19" cy="24" r="10.5" fill="#efe5cf" />
+        <line x1="19" y1="24" x2="25" y2="20" stroke={CLASSIC.needle} strokeWidth="1.4" />
         <circle cx="101" cy="24" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="101" cy="24" r="10.5" fill="#0c0c0e" />
-        <line x1="101" y1="24" x2="95" y2="20" stroke={CLASSIC.needle} strokeWidth="1.4" />
+        <circle cx="101" cy="24" r="10.5" fill="#efe5cf" />
+        <line x1="101" y1="24" x2="101" y2="16" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
+        <line x1="101" y1="24" x2="106" y2="27" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
       </svg>
     );
   }
