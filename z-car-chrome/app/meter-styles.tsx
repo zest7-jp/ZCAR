@@ -367,9 +367,9 @@ const BAR_SEGMENTS = 18;
  * 置く箱。DEST・START はその箱の中。
  */
 const RETRO_CRT = { x: 284, y: 136, w: 469, h: 406 };
-/** 地図の上に重ねる札: 左下に速さ、右下に平均(巡航速度・燃費)。 */
-const RETRO_SPEED_PANEL = { x: 296, y: 420, w: 210, h: 110 };
-const RETRO_AVG_PANEL = { x: 590, y: 420, w: 151, h: 110 };
+/** 地図の上に重ねる札: 左上に速さ、右上に平均(巡航速度・燃費)。回転計のすぐ下に来る。 */
+const RETRO_SPEED_PANEL = { x: 296, y: 148, w: 210, h: 110 };
+const RETRO_AVG_PANEL = { x: 590, y: 148, w: 151, h: 110 };
 /** 速さの数字の高さ(地図を広く見せるため、少し小さめ)。 */
 const SPEED_DIGIT_H = 72;
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
