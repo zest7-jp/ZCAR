@@ -35,6 +35,7 @@ const MAX_KEY_LENGTH = 128;
 const ALLOWED_FIELDS = [
     'meterTheme'  => 24,
     'meterDesign' => 24,
+    'meterStyle'  => 24,
     'storeName'   => 120,
     'storeDest'   => 200,
     'start'       => 5,

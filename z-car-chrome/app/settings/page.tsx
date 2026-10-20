@@ -11,6 +11,8 @@ import {
   mergeFuelEntries,
   METER_DESIGNS,
   meterDesignInfo,
+  METER_STYLES,
+  meterStyleInfo,
   METER_THEMES,
   meterThemeInfo,
   MIN_SYNC_KEY_LENGTH,
@@ -23,12 +25,14 @@ import {
   writeSettings,
   type FuelEntry,
   type MeterDesign,
+  type MeterStyle,
   type MeterTheme,
   type NavChoice,
   type Settings,
 } from "../settings-store";
 import { DEFAULT_GMAPS_KEY } from "../google-maps";
 import { MeterDesignGauge, SAMPLE_GAUGE_VALUES } from "../meter-designs";
+import { MeterStyleThumb } from "../meter-styles";
 import {
   isSamePlace,
   issueShareToken,
@@ -609,19 +613,28 @@ export default function PhoneSettingsPage() {
     </form>
   );
 
-  // --- メーターの色 ---
+  // --- テーマ(近未来・80年代・本物の針) ---
+  const activeStyle = meterStyleInfo(draft.meterStyle);
+  const isFuture = activeStyle.id === "future";
+  const chooseStyle = (id: MeterStyle) => {
+    if (draft.meterStyle === id) return;
+    setDraft((current) => ({ ...current, meterStyle: id }));
+    setToast(linked ? "テーマを変えました・車に送ります" : "テーマを変えました");
+  };
+
+  // --- メーターの色(近未来のテーマの色。選ぶと近未来のテーマになる) ---
   const activeTheme = meterThemeInfo(draft.meterTheme);
   const chooseTheme = (id: MeterTheme) => {
-    if (draft.meterTheme === id) return;
-    setDraft((current) => ({ ...current, meterTheme: id }));
+    if (draft.meterTheme === id && isFuture) return;
+    setDraft((current) => ({ ...current, meterTheme: id, meterStyle: "future" }));
     setToast(linked ? "メーターの色を変えました・車に送ります" : "メーターの色を変えました");
   };
 
-  // --- メーターの形 ---
+  // --- メーターの形(近未来のテーマの形。選ぶと近未来のテーマになる) ---
   const activeDesign = meterDesignInfo(draft.meterDesign);
   const chooseDesign = (id: MeterDesign) => {
-    if (draft.meterDesign === id) return;
-    setDraft((current) => ({ ...current, meterDesign: id }));
+    if (draft.meterDesign === id && isFuture) return;
+    setDraft((current) => ({ ...current, meterDesign: id, meterStyle: "future" }));
     setToast(linked ? "メーターの形を変えました・車に送ります" : "メーターの形を変えました");
   };
   // 形の見本は、今の色と同じ filter で描く。
@@ -1044,15 +1057,43 @@ export default function PhoneSettingsPage() {
       ) : null}
 
       {tab === "theme" ? (
-        <section className="zr-themes" aria-label="メーターの色と形">
-          {/* 色と形は小さな見本を4列に並べ、1画面に収める。選んでいる名前は見出しに出す。 */}
+        <section className="zr-themes" aria-label="メーターのテーマと色と形">
+          {/* テーマ・色・形は小さな見本を並べ、1画面に収める。選んでいる名前は見出しに出す。 */}
+          <p className="zr-new-head">
+            <b>THEME</b>
+            <small>
+              {activeStyle.name} · {activeStyle.caption}
+            </small>
+          </p>
+          <div className="zr-styles">
+            {METER_STYLES.map((style) => {
+              const active = activeStyle.id === style.id;
+              return (
+                <button
+                  key={style.id}
+                  type="button"
+                  className={`zr-style${active ? " is-active" : ""}`}
+                  aria-pressed={active}
+                  aria-label={`${style.name}(${style.caption})`}
+                  onClick={() => chooseStyle(style.id)}
+                >
+                  <i aria-hidden="true">
+                    <MeterStyleThumb style={style.id} />
+                  </i>
+                  <b>{style.shortJa}</b>
+                  <em>{active ? "ACTIVE" : "SELECT"}</em>
+                </button>
+              );
+            })}
+          </div>
+          {/* 色と形は、近未来のテーマのもの(選ぶと近未来のテーマになる)。 */}
           <p className="zr-new-head">
             <b>COLOR</b>
             <small>{activeTheme.name}</small>
           </p>
           <div className="zr-swatches">
             {METER_THEMES.map((theme) => {
-              const active = draft.meterTheme === theme.id;
+              const active = isFuture && draft.meterTheme === theme.id;
               return (
                 <button
                   key={theme.id}
@@ -1078,7 +1119,7 @@ export default function PhoneSettingsPage() {
           </p>
           <div className="zr-designs">
             {METER_DESIGNS.map((design) => {
-              const active = activeDesign.id === design.id;
+              const active = isFuture && activeDesign.id === design.id;
               return (
                 <button
                   key={design.id}
@@ -1099,7 +1140,7 @@ export default function PhoneSettingsPage() {
             })}
           </div>
           <p className="zr-note">
-            押すと車のメーターも変わります。形は、車のメーターの真ん中を押しても切り替わります。
+            色と形は、近未来のテーマで使います。
           </p>
         </section>
       ) : null}

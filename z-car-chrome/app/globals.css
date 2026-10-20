@@ -3587,6 +3587,48 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .meter-theme-options > button small { color: #748078; font-size: 7px; letter-spacing: .11em; }
 .meter-theme-options > button em { color: #68ce80; font-size: 7px; font-style: normal; font-weight: 900; letter-spacing: .13em; }
 
+/* テーマ(近未来・80年代・本物の針)。色の札より上に3つ並べる。 */
+.meter-style-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 15px;
+}
+.meter-style-options > button {
+  min-width: 0;
+  min-height: 106px;
+  padding: 9px 12px;
+  border: 1px solid #2b3730;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #111a13, #070a08);
+  color: #dce9df;
+  display: grid;
+  grid-template-rows: 50px auto auto;
+  gap: 6px;
+  text-align: left;
+}
+.meter-style-options > button i { display: block; overflow: hidden; border: 1px solid #26302a; border-radius: 8px; background: #000; }
+.meter-style-options > button.selected { border-color: #27dce3; box-shadow: inset 0 0 0 1px rgba(39, 220, 227, .34); }
+.meter-style-options > button > span { display: grid; gap: 3px; }
+.meter-style-options > button b { font-size: 11px; letter-spacing: .08em; }
+.meter-style-options > button small { color: #748078; font-size: 7px; letter-spacing: .11em; }
+.meter-style-options > button em { color: #4de6eb; font-size: 7px; font-style: normal; font-weight: 900; letter-spacing: .13em; }
+.meter-theme-subhead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 13px 0 0;
+  color: #9fb0a6;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .2em;
+}
+.meter-theme-subhead small { color: #5f6d66; font-size: 9px; font-weight: 700; letter-spacing: .06em; }
+/* テーマを足した分、色の札は少し低くして、車の画面(縦600)に収める。 */
+.meter-theme-dialog .meter-theme-options { margin-top: 10px; }
+.meter-theme-dialog .meter-theme-options > button { min-height: 112px; grid-template-rows: 44px auto auto; padding: 10px 12px; }
+.meter-theme-dialog .theme-preview { height: 44px; }
+
 .theme-preview {
   position: relative;
   overflow: hidden;
@@ -7725,7 +7767,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-editor-actions { display: grid; grid-template-columns: auto 1fr; gap: 10px; }
 
 /* --- メーターの色 --- */
-.zr-themes { display: grid; gap: 10px; }
+.zr-themes { display: grid; gap: 8px; }
 .zr-themes .zr-new-head { margin: 2px 2px 0; }
 .zr-themes .zr-new-head small {
   overflow: hidden;
@@ -7757,8 +7799,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   -webkit-tap-highlight-color: transparent;
 }
 .zr-theme i {
-  width: clamp(38px, 5.6dvh, 58px);
-  height: clamp(38px, 5.6dvh, 58px);
+  width: clamp(34px, 5dvh, 58px);
+  height: clamp(34px, 5dvh, 58px);
   margin-bottom: 4px;
   border-radius: 12px;
   background:
@@ -8163,6 +8205,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   overflow: visible;
   font-family: inherit;
 }
+/* ブルーでは、回転計の 7〜8 の所(差し色)は白にする(色を回すと紫になるため)。白は色を回しても白のまま。 */
+.zt-blue .dg { --dg-alt: #fff; }
 .dg text { fill: var(--dg-label); font-weight: 800; }
 
 /* 文字盤・輪 */
@@ -8290,9 +8334,54 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.zr-design .dg-thumb { width: min(100%, clamp(84px, 13dvh, 132px)); }
+.zr-design .dg-thumb { width: min(100%, clamp(70px, 11dvh, 132px)); }
 .zr-design b { font-size: 11px; font-weight: 900; letter-spacing: .1em; }
 .zr-design small { color: var(--zr-muted); font-size: 10px; }
+
+/* スマホ: テーマの一覧(近未来・80年代・本物の針の小さな見本) */
+.zr-styles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.zr-style {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 6px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 14px;
+  background: var(--zr-panel);
+  color: var(--zr-ink);
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.zr-style i {
+  display: block;
+  width: 100%;
+  height: clamp(36px, 6dvh, 68px);
+  overflow: hidden;
+  border-radius: 9px;
+  background: #000;
+}
+.zr-style b { font-size: 10px; font-weight: 900; letter-spacing: .08em; }
+.zr-style small { color: var(--zr-muted); font-size: 9px; }
+.zr-style em {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.zr-style.is-active {
+  border-color: rgba(var(--zr-accent-rgb), .75);
+  box-shadow: 0 0 0 1px rgba(var(--zr-accent-rgb), .3), 0 6px 18px rgba(var(--zr-accent-rgb), .2);
+}
+.zr-style.is-active b { color: var(--zr-accent-strong); }
 
 /* 給油の記録(履歴)。下から出るシート。 */
 .zr-sheet {
@@ -8775,9 +8864,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-swatches,
   .zr-designs { gap: 6px; }
   .zr-theme { padding: 7px 4px 6px; }
-  .zr-theme i { width: 38px; height: 38px; margin-bottom: 3px; }
+  .zr-theme i { width: 34px; height: 34px; margin-bottom: 3px; }
   .zr-design { padding: 6px 4px 7px; }
   .zr-design .dg-thumb { width: min(100%, 76px); }
+  .zr-style { padding: 5px 4px; }
+  .zr-style i { height: 34px; }
   .zr-park-map { min-height: 184px; }
   .zr-park-facts { padding: 8px 12px 10px; }
   .zr-park-go a,
@@ -8831,4 +8922,208 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .dg-orbit .dg-tick.is-red { stroke: var(--dg-alt); }
 @media (prefers-reduced-motion: reduce) {
   .dg .dg-orbit-north { transition: none; }
+}
+
+/* ------------------------------------------------------------------
+   80年代のデジタル・本物の針のテーマ(app/meter-styles.tsx)。
+   1024x566 の板に描き、使える広さに合わせて拡大・縮小する。地図があるのは80年代だけ。
+   近未来のテーマの色の決まり(8色の filter など)は、どちらにもかからない。
+   ------------------------------------------------------------------ */
+#app.meter-style-retro.is-fullscreen,
+#app.meter-style-classic.is-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  padding: 0;
+  gap: 0;
+}
+#app.meter-style-retro.is-fullscreen { background: #040506; }
+#app.meter-style-classic.is-fullscreen { background: #0c0a08; }
+#app.meter-style-retro .meter-status,
+#app.meter-style-classic .meter-status { margin: 0; }
+
+.ms-stage { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+.ms-board {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1024px;
+  height: 566px;
+  transform-origin: center;
+}
+.ms-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+/* 動かない絵は別の層にして、針や数字が動いても描き直さないようにする。 */
+.ms-static { will-change: transform; }
+.ms-map-canvas { position: absolute; inset: 0; }
+/* 押せる所(見た目は下の絵にあり、ボタンは透明)。押した間だけ少し明るくする。 */
+.ms-hit {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ms-hit:disabled { cursor: default; }
+/* 針は少しの時間をかけて動く(速度は0.4秒おきに変わる)。 */
+.ms-needle { transform-box: view-box; transition: transform .45s linear; }
+.ms-thumb { display: block; width: 100%; height: 100%; }
+.ms-stage text.ms-ja { font-family: "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", sans-serif; }
+
+/* --- 80年代のデジタル --- */
+.ms-retro text { font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
+.ms-retro .ms-hit:active { background: rgba(82, 255, 214, .12); }
+/* START の3つの矢印: 光が左から右へ順に点き、全部消えて、また始まる(80年代の流れる矢印)。 */
+.ms-retro-flow > polyline { opacity: .14; }
+.ms-retro-flow > polyline:nth-child(1) { animation: ms-flow-1 2s steps(1, end) infinite; }
+.ms-retro-flow > polyline:nth-child(2) { animation: ms-flow-2 2s steps(1, end) infinite; }
+.ms-retro-flow > polyline:nth-child(3) { animation: ms-flow-3 2s steps(1, end) infinite; }
+@keyframes ms-flow-1 { 0% { opacity: 1; } 75% { opacity: .14; } }
+@keyframes ms-flow-2 { 0% { opacity: .14; } 25% { opacity: 1; } 75% { opacity: .14; } }
+@keyframes ms-flow-3 { 0% { opacity: .14; } 50% { opacity: 1; } 75% { opacity: .14; } }
+/* 地図は昔の車の緑のブラウン管ふう(地図の色は RETRO_MAP_LOOK、場所は RETRO_CRT)。 */
+.ms-retro-crt {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #021208;
+  isolation: isolate;
+}
+.ms-retro-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, .78) 100%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .42) 0 1.2px, transparent 1.2px 3px);
+  pointer-events: none;
+}
+/* 自分の車(進む向きに回る三角)。 */
+.ms-retro-cursor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  fill: #52ffd6;
+  filter: drop-shadow(0 0 4px rgba(82, 255, 214, .9));
+  transition: transform .9s ease-out;
+}
+/* 地図の上の真ん中の、北の印(▲ と丸の中の N)。 */
+.ms-retro-north {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  z-index: 2;
+  width: 28px;
+  height: 34px;
+  transform: translateX(-50%);
+  fill: #7dff4f;
+  filter: drop-shadow(0 0 4px rgba(125, 255, 79, .8));
+}
+.ms-retro-north circle { fill: rgba(2, 18, 8, .7); stroke: #7dff4f; stroke-width: 1.6; }
+.ms-retro-north text { font: 700 12px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
+.ms-retro-crt-wait {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #7dff4f;
+  font: 700 12px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  letter-spacing: .3em;
+  animation: ms-blink 1.2s steps(1, end) infinite;
+}
+/* 光る管の細かい網目(画面全体にうっすら)。 */
+.ms-retro-mesh {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(0, 0, 0, .55) .55px, transparent .7px) 0 0 / 3px 3px;
+  opacity: .35;
+  pointer-events: none;
+}
+@keyframes ms-blink {
+  50% { opacity: .2; }
+}
+#app.meter-style-retro .meter-status {
+  background: #07090a;
+  box-shadow: inset 0 -1px 0 rgba(82, 255, 214, .14);
+}
+#app.meter-style-retro .meter-status-item small,
+#app.meter-style-retro .meter-status-item b,
+#app.meter-style-retro .meter-status-detail,
+#app.meter-style-retro .meter-reload,
+#app.meter-style-retro .meter-reload b { font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
+#app.meter-style-retro .meter-status-item i { width: 8px; height: 4px; border-radius: 0; transform: none; background: #16302a; }
+#app.meter-style-retro .meter-status-item.is-ok i { background: #52ffd6; box-shadow: 0 0 6px rgba(82, 255, 214, .9); }
+#app.meter-style-retro .meter-status-item.is-warn i { background: #ffb02e; box-shadow: 0 0 6px rgba(255, 176, 46, .8); }
+#app.meter-style-retro .meter-status-item.is-off i { background: #2a3a38; box-shadow: none; }
+#app.meter-style-retro .meter-status-item small { color: #4f6f69; }
+#app.meter-style-retro .meter-status-item small span { color: #7f9a96; }
+#app.meter-style-retro .meter-status-item b { color: #3fbf9f; }
+#app.meter-style-retro .meter-status-item b span { color: #52ffd6; text-shadow: 0 0 6px rgba(82, 255, 214, .55); }
+#app.meter-style-retro .meter-status-item.is-warn b,
+#app.meter-style-retro .meter-status-item.is-warn b span { color: #ffb02e; text-shadow: none; }
+#app.meter-style-retro .meter-status-item.is-off small,
+#app.meter-style-retro .meter-status-item.is-off small span,
+#app.meter-style-retro .meter-status-item.is-off b,
+#app.meter-style-retro .meter-status-item.is-off b span { color: #3d5250; text-shadow: none; }
+#app.meter-style-retro .meter-status-item + .meter-status-item::before { background: rgba(82, 255, 214, .12); }
+#app.meter-style-retro .meter-status-item.is-button:active,
+#app.meter-style-retro .meter-reload:active { background: rgba(82, 255, 214, .1); }
+#app.meter-style-retro .meter-status-detail { color: #36504c; }
+#app.meter-style-retro .meter-reload,
+#app.meter-style-retro .meter-reload small,
+#app.meter-style-retro .meter-reload small span { color: #9c7a3e; }
+#app.meter-style-retro .meter-reload b { color: #ffb02e; }
+#app.meter-style-retro .meter-full-button { border-color: rgba(82, 255, 214, .4); color: #52ffd6; }
+
+/* --- 本物の針のメーター --- */
+.ms-classic text { font-family: "Helvetica Neue", Roboto, "Liberation Sans", Arial, sans-serif; }
+.ms-classic text.ms-serif { font-family: "Liberation Serif", "Noto Serif", Georgia, serif; }
+.ms-classic .ms-hit { border-radius: 12px; }
+.ms-classic .ms-hit:active { background: rgba(255, 177, 90, .12); }
+#app.meter-style-classic .meter-status {
+  background: linear-gradient(#1d1813, #0d0b09);
+  box-shadow: inset 0 -1px 0 #3b3128;
+}
+#app.meter-style-classic .meter-status-item i { width: 6px; height: 6px; border-radius: 50%; transform: none; background: #4a3d31; }
+#app.meter-style-classic .meter-status-item.is-ok i { background: #ffb15a; box-shadow: 0 0 7px rgba(255, 154, 60, .75); }
+#app.meter-style-classic .meter-status-item.is-warn i { background: #ffd79a; box-shadow: 0 0 6px rgba(255, 215, 154, .6); }
+#app.meter-style-classic .meter-status-item.is-off i { background: #3a3027; box-shadow: none; }
+#app.meter-style-classic .meter-status-item small { color: #8a7a64; }
+#app.meter-style-classic .meter-status-item small span { color: #a8977f; }
+#app.meter-style-classic .meter-status-item b { color: #d8ccb6; }
+#app.meter-style-classic .meter-status-item b span { color: #f1e7d4; }
+#app.meter-style-classic .meter-status-item.is-warn b,
+#app.meter-style-classic .meter-status-item.is-warn b span { color: #ffd79a; }
+#app.meter-style-classic .meter-status-item.is-off small,
+#app.meter-style-classic .meter-status-item.is-off small span,
+#app.meter-style-classic .meter-status-item.is-off b,
+#app.meter-style-classic .meter-status-item.is-off b span { color: #6b5d4c; }
+#app.meter-style-classic .meter-status-item + .meter-status-item::before { background: rgba(241, 231, 212, .12); }
+#app.meter-style-classic .meter-status-item.is-button:active,
+#app.meter-style-classic .meter-reload:active { background: rgba(255, 177, 90, .1); }
+#app.meter-style-classic .meter-status-detail { color: #6b5d4c; }
+#app.meter-style-classic .meter-reload,
+#app.meter-style-classic .meter-reload small,
+#app.meter-style-classic .meter-reload small span { color: #8a7a64; }
+#app.meter-style-classic .meter-reload b { color: #d8ccb6; }
+#app.meter-style-classic .meter-full-button { border-color: rgba(241, 231, 212, .35); color: #d8ccb6; }
+@media (prefers-reduced-motion: reduce) {
+  .ms-needle,
+  .ms-retro-cursor { transition: none; }
+  .ms-retro-crt-wait { animation: none; }
+  .ms-retro-flow > polyline:nth-child(1) { animation: none; opacity: .35; }
+  .ms-retro-flow > polyline:nth-child(2) { animation: none; opacity: .65; }
+  .ms-retro-flow > polyline:nth-child(3) { animation: none; opacity: 1; }
 }

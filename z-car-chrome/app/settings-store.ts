@@ -26,6 +26,13 @@ export type MeterTheme =
  */
 export type MeterDesign = "navi" | "orbit";
 
+/**
+ * テーマ(画面全体の雰囲気)。future は今の近未来のメーター(上の色と形を選べる)、
+ * retro は80年代のデジタル、classic は本物の針のメーター。中身は下の METER_STYLES、
+ * 絵は app/meter-styles.tsx。
+ */
+export type MeterStyle = "future" | "retro" | "classic";
+
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
   id: string;
@@ -331,6 +338,8 @@ export type Settings = {
   meterTheme: MeterTheme;
   /** 真ん中のメーターの形。 */
   meterDesign: MeterDesign;
+  /** テーマ(画面全体の雰囲気)。色と形は、近未来のテーマのときに使う。 */
+  meterStyle: MeterStyle;
   /** 設定同期の合言葉。空なら同期しない。端末内だけに保存し、送信内容には含めない。 */
   syncKey: string;
   /** 車とつないだ時刻(0なら未接続)。端末ごとの値なので同期しない。 */
@@ -362,6 +371,7 @@ export const defaults: Settings = {
   checkedOutAt: "",
   meterTheme: "green",
   meterDesign: "navi",
+  meterStyle: "future",
   syncKey: "",
   pairedAt: 0,
   shareToken: "",
@@ -375,6 +385,7 @@ export const defaults: Settings = {
 export const SYNCED_FIELDS = [
   "meterTheme",
   "meterDesign",
+  "meterStyle",
   "storeName",
   "storeDest",
   "start",
@@ -457,6 +468,7 @@ export const sanitizeSyncedSettings = (
     delete cleaned.meterTheme;
   }
   if (!isMeterDesign(cleaned.meterDesign)) delete cleaned.meterDesign;
+  if (!isMeterStyle(cleaned.meterStyle)) delete cleaned.meterStyle;
   // サーバーにまだ一覧が無ければ、前のバージョンの1〜5の枠から移す。
   const legacy = value as { places?: unknown; mapDestinations?: unknown };
   if (Array.isArray(legacy.places) || Array.isArray(legacy.mapDestinations)) {
@@ -479,6 +491,7 @@ export const fetchSharedSettings = async (key: string) =>
 export const SHARED_EDIT_FIELDS = [
   "meterTheme",
   "meterDesign",
+  "meterStyle",
   "storeName",
   "storeDest",
   "homeDest",
@@ -665,6 +678,32 @@ export const meterDesignInfo = (id: string): MeterDesignInfo =>
 const isMeterDesign = (value: unknown): value is MeterDesign =>
   METER_DESIGNS.some((design) => design.id === value);
 
+export type MeterStyleInfo = {
+  id: MeterStyle;
+  name: string;
+  /** スマホのテーマ選びに出す説明。 */
+  caption: string;
+  /** 車のテーマ選びに出す説明(英語)。 */
+  captionEn: string;
+  /** 上のバーに出す短い名前。 */
+  shortJa: string;
+  shortEn: string;
+};
+
+/** テーマ選びに並べる順。最初は今の近未来のメーター。 */
+export const METER_STYLES: MeterStyleInfo[] = [
+  { id: "future", name: "FUTURE", caption: "近未来(色と形を選べる)", captionEn: "NEON COCKPIT", shortJa: "近未来", shortEn: "FUTURE" },
+  { id: "retro", name: "DIGITAL 80s", caption: "80年代のデジタル", captionEn: "RETRO DIGITAL DASH", shortJa: "80年代", shortEn: "80s" },
+  { id: "classic", name: "CLASSIC", caption: "本物の針のメーター", captionEn: "ANALOG NEEDLE GAUGES", shortJa: "クラシック", shortEn: "CLASSIC" },
+];
+
+/** テーマの説明を引く。知らない名前なら近未来。 */
+export const meterStyleInfo = (id: string): MeterStyleInfo =>
+  METER_STYLES.find((style) => style.id === id) ?? METER_STYLES[0];
+
+const isMeterStyle = (value: unknown): value is MeterStyle =>
+  METER_STYLES.some((style) => style.id === value);
+
 /** 前のバージョンが保存していた、もう使わない項目(目的地の枠は places に移してから消す)。 */
 const OBSOLETE_SETTINGS_FIELDS = ["playlists", "nowPlaying", "mapDestinations"];
 
@@ -691,6 +730,7 @@ export const readSettings = (): Settings => {
       meterDesign: isMeterDesign(stored.meterDesign)
         ? stored.meterDesign
         : defaults.meterDesign,
+      meterStyle: isMeterStyle(stored.meterStyle) ? stored.meterStyle : defaults.meterStyle,
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       shareToken: typeof stored.shareToken === "string" ? stored.shareToken : "",
