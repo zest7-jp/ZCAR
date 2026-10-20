@@ -8993,7 +8993,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .ms-retro-crt {
   position: absolute;
   overflow: hidden;
-  border-radius: 0 0 18px 18px;
+  border-radius: 18px;
   background: #021208;
   isolation: isolate;
 }
