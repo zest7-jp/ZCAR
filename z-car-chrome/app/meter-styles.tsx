@@ -712,7 +712,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
 }
 
 // ------------------------------------------------------------------
-// 本物の針のメーター: 金属の縁の文字盤と、本物のように動く針。
+// 本物の針のメーター: 金属の縁のクリーム色の文字盤(ヴィンテージ)と、本物のように動く針。
 // ------------------------------------------------------------------
 
 const CLASSIC = {
@@ -721,6 +721,11 @@ const CLASSIC = {
   needle: "#ff6a24",
   stitch: "#6d5843",
   red: "#c53a22",
+  /** クリーム色の文字盤とボタンの上の、文字・目盛り・針の色。 */
+  dialInk: "#1d1813",
+  dialMuted: "#7a6853",
+  dialRed: "#c0321c",
+  plateInk: "#2b2118",
 };
 /** 速度計の真ん中。 */
 const SX = 512;
@@ -745,11 +750,15 @@ const ClassicDefs = () => (
       <stop offset=".5" stopColor="#7a7a7a" />
       <stop offset="1" stopColor="#c4c4c4" />
     </linearGradient>
-    <radialGradient id="ms-dial" cx=".5" cy=".4" r=".65">
-      <stop offset="0" stopColor="#26262a" />
-      <stop offset=".65" stopColor="#0e0e10" />
-      <stop offset="1" stopColor="#040405" />
+    <radialGradient id="ms-cream" cx=".5" cy=".4" r=".7">
+      <stop offset="0" stopColor="#f8f1e2" />
+      <stop offset=".7" stopColor="#eae0c9" />
+      <stop offset="1" stopColor="#cdbd9e" />
     </radialGradient>
+    <linearGradient id="ms-ivory" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#f6eedc" />
+      <stop offset="1" stopColor="#d5c7aa" />
+    </linearGradient>
     <radialGradient id="ms-leather" cx=".5" cy=".45" r=".75">
       <stop offset="0" stopColor="#231c15" />
       <stop offset=".7" stopColor="#110d0a" />
@@ -786,23 +795,23 @@ const ClassicDefs = () => (
   </defs>
 );
 
-/** 金属の縁と黒い文字盤(放射状のすじ入り)。 */
-const Dial = ({ cx, cy, r, ring }: { cx: number; cy: number; r: number; ring: number }) => (
-  <g>
-    <circle cx={cx} cy={cy} r={r + ring} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
-    <circle cx={cx} cy={cy} r={r + 1.2} fill="#000" />
-    <circle cx={cx} cy={cy} r={r} fill="url(#ms-dial)" />
-    <g strokeWidth={r2(r / 60)}>
-      {Array.from({ length: 180 }, (_, i) => {
-        const [x1, y1] = pol(cx, cy, r * 0.05, i * 2);
-        const [x2, y2] = pol(cx, cy, r, i * 2);
-        return (
-          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={i % 2 ? "#fff" : "#000"} strokeOpacity={i % 2 ? 0.035 : 0.12} />
-        );
-      })}
+/** 金属の縁とクリーム色の文字盤(細い同心の輪の模様と、縁の内側の細い線)。 */
+const Dial = ({ cx, cy, r, ring }: { cx: number; cy: number; r: number; ring: number }) => {
+  const rings = Math.max(6, Math.round(r / 4));
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r + ring} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
+      <circle cx={cx} cy={cy} r={r + 1.2} fill="#000" />
+      <circle cx={cx} cy={cy} r={r} fill="url(#ms-cream)" />
+      <g fill="none" stroke="#000" strokeOpacity=".045" strokeWidth={r2(Math.max(0.5, r / 260))}>
+        {Array.from({ length: rings }, (_, i) => (
+          <circle key={i} cx={cx} cy={cy} r={r2((r * (i + 1)) / rings)} />
+        ))}
+      </g>
+      <circle cx={cx} cy={cy} r={r2(r * 0.97)} fill="none" stroke={CLASSIC.dialInk} strokeOpacity=".55" strokeWidth={r2(Math.max(0.8, r / 140))} />
     </g>
-  </g>
-);
+  );
+};
 
 type ScaleOptions = {
   cx: number;
@@ -840,7 +849,7 @@ const Scale = (o: ScaleOptions) => {
         y1={y1}
         x2={x2}
         y2={y2}
-        stroke={o.red !== undefined && v >= o.red ? "#ff6a4a" : CLASSIC.ink}
+        stroke={o.red !== undefined && v >= o.red ? CLASSIC.dialRed : CLASSIC.dialInk}
         strokeWidth={r2(major ? o.r * 0.018 : mid ? o.r * 0.011 : o.r * 0.007)}
       />,
     );
@@ -855,7 +864,7 @@ const Scale = (o: ScaleOptions) => {
         x={x}
         y={r2(y + o.font * 0.36)}
         textAnchor="middle"
-        fill={o.red !== undefined && v >= o.red ? "#ff7a5a" : CLASSIC.ink}
+        fill={o.red !== undefined && v >= o.red ? CLASSIC.dialRed : CLASSIC.dialInk}
         fontSize={o.font}
         fontWeight="700"
         letterSpacing="-.5"
@@ -898,28 +907,66 @@ const Needle = ({ cx, cy, len, tail, width, deg }: { cx: number; cy: number; len
   </g>
 );
 
-/** 文字盤に開けた黒い小窓の枠と、上の説明。 */
-const ApertureFrame = ({ x, y, w, h, top }: { x: number; y: number; w: number; h: number; top: string }) => (
-  <g>
-    <rect x={x} y={y} width={w} height={h} rx="5" fill="#050505" stroke="url(#ms-metal-soft)" strokeWidth="1.6" />
-    <text x={x + w / 2} y={y + 12} textAnchor="middle" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="1.4">
-      {top}
-    </text>
-  </g>
-);
-const ApertureValue = ({ x, y, w, h, value, unit }: { x: number; y: number; w: number; h: number; value: string; unit: string }) => (
-  <text x={x + w / 2} y={y + h - 8} textAnchor="middle" fill={CLASSIC.ink} fontSize="16" fontWeight="700">
-    {value}
-    <tspan fontSize="8.5" fill={CLASSIC.muted} fontWeight="400" dx="2">
-      {unit}
-    </tspan>
-  </text>
-);
 const APERTURES = {
   cruise: { x: SX - 116, y: SY + 160, w: 74, h: 40 },
   speed: { x: SX - 36, y: SY + 166, w: 72, h: 44 },
   fuel: { x: SX + 42, y: SY + 160, w: 74, h: 40 },
 };
+type ApertureKey = keyof typeof APERTURES;
+const APERTURE_KEYS: ApertureKey[] = ["cruise", "speed", "fuel"];
+const APERTURE_LABEL: Record<ApertureKey, string> = { cruise: "CRUISE km/h", speed: "SPEED km/h", fuel: "FUEL km/L" };
+/** 速度計の下の値は、回るドラム(1つの値に3つ)。燃費は最後のドラムが小数(白いドラム)。 */
+const VDRUM = { w: 15, gap: 2, h: 22 };
+const vdrumX = (a: { x: number; w: number }) => a.x + (a.w - (VDRUM.w * 3 + VDRUM.gap * 2)) / 2;
+const vdrumY = (a: { y: number }) => a.y + 16;
+const isDecimalDrum = (k: ApertureKey, j: number) => k === "fuel" && j === 2;
+
+/** 速度計の下の3つのドラムの枠と、上の説明(動かない所)。 */
+const ApertureDrums = () => (
+  <g>
+    {APERTURE_KEYS.map((k) => {
+      const a = APERTURES[k];
+      const x = vdrumX(a);
+      const y = vdrumY(a);
+      return (
+        <g key={k}>
+          <text x={a.x + a.w / 2} y={a.y + 10} textAnchor="middle" fill={CLASSIC.plateInk} fontSize="7" fontWeight="700" letterSpacing="1">
+            {APERTURE_LABEL[k]}
+          </text>
+          <rect x={x - 3} y={y - 3} width={VDRUM.w * 3 + VDRUM.gap * 2 + 6} height={VDRUM.h + 6} rx="3" fill="#141210" stroke="url(#ms-metal)" strokeWidth="1.8" />
+          {[0, 1, 2].map((j) => (
+            <rect key={j} x={x + j * (VDRUM.w + VDRUM.gap)} y={y} width={VDRUM.w} height={VDRUM.h} rx="1.5" fill={isDecimalDrum(k, j) ? "url(#ms-drum-light)" : "url(#ms-drum)"} />
+          ))}
+          {k === "fuel" ? <circle cx={x + 2 * (VDRUM.w + VDRUM.gap) - VDRUM.gap / 2} cy={y + VDRUM.h - 3} r="1.3" fill={CLASSIC.ink} /> : null}
+        </g>
+      );
+    })}
+  </g>
+);
+
+/** ドラムの数字(動く所)。値がないときは「---」。 */
+const ApertureDigits = ({ values }: { values: Record<ApertureKey, string | null> }) => (
+  <g>
+    {APERTURE_KEYS.map((k) => {
+      const a = APERTURES[k];
+      const value = values[k];
+      const digits = (value === null ? "---" : value.replace(".", "")).padStart(3, " ").slice(-3).split("");
+      return digits.map((digit, j) => (
+        <text
+          key={`${k}${j}`}
+          x={vdrumX(a) + j * (VDRUM.w + VDRUM.gap) + VDRUM.w / 2}
+          y={vdrumY(a) + 16}
+          textAnchor="middle"
+          fill={isDecimalDrum(k, j) ? "#1a1612" : CLASSIC.ink}
+          fontSize="14"
+          fontWeight="700"
+        >
+          {digit}
+        </text>
+      ));
+    })}
+  </g>
+);
 const WORLD_X = [56, 134, 212];
 const WORLD_Y = 372;
 const FANS = [
@@ -927,6 +974,8 @@ const FANS = [
   { cx: 946, cy: 290, lo: "C", hi: "H", name: "COOLANT TEMP" },
 ];
 const DRUMS = 5;
+const DEST_BTN = { x: 782, y: 404, w: 216, h: 46 };
+const START_BTN = { x: 782, y: 460, w: 216, h: 74 };
 
 /** 本物の針のメーターの、地図より下の動かない絵。 */
 const ClassicFace = memo(function ClassicFace() {
@@ -944,15 +993,13 @@ const ClassicFace = memo(function ClassicFace() {
       {/* 速度計 */}
       <Dial cx={SX} cy={SY} r={226} ring={14} />
       <Scale cx={SX} cy={SY} r={212} from={0} to={SPEED_MAX} major={20} mid={10} minor={2} label={20} labelR={160} font={22} />
-      <text x={SX} y={SY - 66} textAnchor="middle" fill={CLASSIC.muted} fontSize="12" letterSpacing="3">
+      <text x={SX} y={SY - 66} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="12" letterSpacing="3">
         km/h
       </text>
-      <text x={SX} y={SY + 70} textAnchor="middle" fill={CLASSIC.muted} fontSize="15" fontStyle="italic" fontWeight="700" letterSpacing="3" className="ms-serif" opacity=".8">
+      <text x={SX} y={SY + 70} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="15" fontStyle="italic" fontWeight="700" letterSpacing="3" className="ms-serif" opacity=".8">
         Z CAR
       </text>
-      <ApertureFrame {...APERTURES.cruise} top="AVG CRUISE" />
-      <ApertureFrame {...APERTURES.speed} top="SPEED" />
-      <ApertureFrame {...APERTURES.fuel} top="AVG FUEL" />
+      <ApertureDrums />
       {/* 時計 */}
       <text x={CX} y="30" textAnchor="middle" fill={CLASSIC.muted} fontSize="8.5" letterSpacing="2.4">
         LOCAL TIME · JST
@@ -962,7 +1009,7 @@ const ClassicFace = memo(function ClassicFace() {
         const major = i % 5 === 0;
         const [x1, y1] = pol(CX, CY, 80, i * 6);
         const [x2, y2] = pol(CX, CY, major ? 66 : 75, i * 6);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.ink} strokeWidth={major ? (i === 0 ? 4.2 : 3) : 1} />;
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={major ? (i === 0 ? 4.2 : 3) : 1} />;
       })}
       <rect x={CX + 34} y={CY - 9} width="26" height="18" rx="2" fill="#f4ecdc" stroke="url(#ms-metal-soft)" />
       <rect x={CX - 60} y={CY - 9} width="26" height="18" rx="2" fill="#0b0b0b" stroke="url(#ms-metal-soft)" />
@@ -988,7 +1035,7 @@ const ClassicFace = memo(function ClassicFace() {
           {Array.from({ length: 12 }, (_, k) => {
             const [x1, y1] = pol(x, WORLD_Y, 21, k * 30);
             const [x2, y2] = pol(x, WORLD_Y, k % 3 === 0 ? 16 : 18.5, k * 30);
-            return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.ink} strokeWidth={k % 3 === 0 ? 1.6 : 0.8} />;
+            return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={k % 3 === 0 ? 1.6 : 0.8} />;
           })}
           <text x={x} y={WORLD_Y + 40} textAnchor="middle" fill={CLASSIC.muted} fontSize="7" letterSpacing="1.2">
             {["CALIFORNIA", "RUSSIA", "CHINA"][i]}
@@ -1042,28 +1089,36 @@ const ClassicFace = memo(function ClassicFace() {
       <text x="800" y="376" fill={CLASSIC.muted} fontSize="8" letterSpacing="2">
         BATTERY
       </text>
-      {/* 目的地を選ぶ・START(金属の縁のボタン) */}
-      {[
-        [782, 404, 216, 46],
-        [782, 460, 216, 74],
-      ].map(([x, y, w, h]) => (
-        <g key={y}>
-          <rect x={x} y={y} width={w} height={h} rx="12" fill="url(#ms-metal)" filter="url(#ms-shadow)" />
-          <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} rx="9" fill="#141210" />
+      {/* 目的地を選ぶ・START(金属の縁の、ねじ留めのクリーム色の板) */}
+      {[DEST_BTN, START_BTN].map((b) => (
+        <g key={b.y}>
+          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="12" fill="url(#ms-metal)" filter="url(#ms-shadow)" />
+          <rect x={b.x + 3} y={b.y + 3} width={b.w - 6} height={b.h - 6} rx="9" fill="url(#ms-ivory)" />
+          {[
+            [b.x + 11, b.y + 11],
+            [b.x + b.w - 11, b.y + 11],
+            [b.x + 11, b.y + b.h - 11],
+            [b.x + b.w - 11, b.y + b.h - 11],
+          ].map(([sx, sy]) => (
+            <g key={`${sx}-${sy}`}>
+              <circle cx={sx} cy={sy} r="3" fill="url(#ms-metal-soft)" stroke="#6d5f4c" strokeWidth=".6" />
+              <line x1={sx - 2} y1={sy - 1} x2={sx + 2} y2={sy + 1} stroke="#4a3f33" strokeWidth=".8" />
+            </g>
+          ))}
         </g>
       ))}
-      <text x="890" y="423" textAnchor="middle" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="2">
+      <text x="890" y="423" textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7.5" letterSpacing="2">
         CHANGE
       </text>
-      <text x="890" y="440" textAnchor="middle" fill={CLASSIC.ink} fontSize="14" fontWeight="700" letterSpacing="3">
+      <text x="890" y="440" textAnchor="middle" fill={CLASSIC.plateInk} fontSize="14" fontWeight="700" letterSpacing="3">
         DEST
       </text>
-      <circle cx="818" cy="497" r="17" fill="none" stroke={CLASSIC.needle} strokeWidth="1.6" />
-      <path d="M818 508 s7-6.5 7-11.5 a7 7 0 1 0-14 0 c0 5 7 11.5 7 11.5z" fill="none" stroke={CLASSIC.needle} strokeWidth="1.6" />
-      <text x="846" y="489" fill={CLASSIC.muted} fontSize="8" letterSpacing="2.4">
+      <circle cx="826" cy="497" r="17" fill="none" stroke={CLASSIC.needle} strokeWidth="1.8" />
+      <path d="M826 508 s7-6.5 7-11.5 a7 7 0 1 0-14 0 c0 5 7 11.5 7 11.5z" fill="none" stroke={CLASSIC.plateInk} strokeWidth="1.6" />
+      <text x="854" y="489" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.4">
         START
       </text>
-      <path d="M972 488 l9 9 -9 9" fill="none" stroke={CLASSIC.ink} strokeWidth="2" />
+      <path d="M964 488 l9 9 -9 9" fill="none" stroke={CLASSIC.plateInk} strokeWidth="2" />
     </svg>
   );
 });
@@ -1147,9 +1202,13 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
       <ClassicFace />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         {/* 速度計 */}
-        <ApertureValue {...APERTURES.cruise} value={data.avgCruise === null ? "—" : String(Math.round(data.avgCruise))} unit="km/h" />
-        <ApertureValue {...APERTURES.speed} value={data.speed === null ? "—" : String(Math.round(data.speed))} unit="km/h" />
-        <ApertureValue {...APERTURES.fuel} value={data.avgFuel === null ? "—" : data.avgFuel.toFixed(1)} unit="km/L" />
+        <ApertureDigits
+          values={{
+            cruise: data.avgCruise === null ? null : String(Math.round(data.avgCruise)),
+            speed: data.speed === null ? null : String(Math.round(data.speed)),
+            fuel: data.avgFuel === null ? null : data.avgFuel.toFixed(1),
+          }}
+        />
         <Needle cx={SX} cy={SY} len={206} tail={34} width={9} deg={speedDeg} />
         <Hub cx={SX} cy={SY} r={15} />
         {/* 時計 */}
@@ -1159,12 +1218,12 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
         <text x={CX - 47} y={CY + 5} textAnchor="middle" fill={CLASSIC.needle} fontSize="11.5" fontWeight="700" className="ms-ja">
           {WEEKDAYS[data.weekday]}
         </text>
-        <text x={CX} y={CY + 44} textAnchor="middle" fill={CLASSIC.muted} fontSize="8" letterSpacing="2">
+        <text x={CX} y={CY + 44} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2">
           {`${data.year}.${pad2(data.month)}.${pad2(data.day)}`}
         </text>
         <g filter="url(#ms-shadow)">
-          <polygon points="-4.5,8 0,-48 4.5,8" fill="url(#ms-metal)" transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
-          <polygon points="-3.6,10 0,-72 3.6,10" fill="url(#ms-metal)" transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
+          <polygon points="-4.5,8 0,-48 4.5,8" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
+          <polygon points="-3.6,10 0,-72 3.6,10" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
           <g transform={`translate(${CX} ${CY}) rotate(${hands.second})`}>
             <line x1="0" y1="16" x2="0" y2="-76" stroke={CLASSIC.needle} strokeWidth="1.4" />
             <circle r="3.2" fill={CLASSIC.needle} />
@@ -1197,8 +1256,8 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
           const x = WORLD_X[i] ?? WORLD_X[0];
           return (
             <g key={city.name}>
-              <line x1={x} y1={WORLD_Y} x2={x} y2={WORLD_Y - 12} stroke={CLASSIC.ink} strokeWidth="2.2" strokeLinecap="round" transform={`rotate(${((h % 12) + m / 60) * 30} ${x} ${WORLD_Y})`} />
-              <line x1={x} y1={WORLD_Y} x2={x} y2={WORLD_Y - 18} stroke={CLASSIC.ink} strokeWidth="1.4" strokeLinecap="round" transform={`rotate(${m * 6} ${x} ${WORLD_Y})`} />
+              <line x1={x} y1={WORLD_Y} x2={x} y2={WORLD_Y - 12} stroke={CLASSIC.dialInk} strokeWidth="2.2" strokeLinecap="round" transform={`rotate(${((h % 12) + m / 60) * 30} ${x} ${WORLD_Y})`} />
+              <line x1={x} y1={WORLD_Y} x2={x} y2={WORLD_Y - 18} stroke={CLASSIC.dialInk} strokeWidth="1.4" strokeLinecap="round" transform={`rotate(${m * 6} ${x} ${WORLD_Y})`} />
               <circle cx={x} cy={WORLD_Y} r="2" fill={CLASSIC.needle} />
               <text x={x} y={WORLD_Y + 53} textAnchor="middle" fill={CLASSIC.ink} fontSize="10.5" fontWeight="700">
                 {city.time}
@@ -1241,15 +1300,15 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
             V
           </tspan>
         </text>
-        <text x="846" y="512" fill={CLASSIC.ink} fontSize={dest.length <= 5 ? 20 : 16} fontWeight="700" className="ms-ja">
+        <text x="854" y="512" fill={CLASSIC.plateInk} fontSize={dest.length <= 5 ? 20 : 16} fontWeight="700" className="ms-ja">
           {dest}
         </text>
       </svg>
       <Hit box={[APERTURES.fuel.x, APERTURES.fuel.y, APERTURES.fuel.w, APERTURES.fuel.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[782, 226, 216, 116]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[782, 404, 216, 46]} label="目的地を選ぶ" onPress={onDest} />
+      <Hit box={[DEST_BTN.x, DEST_BTN.y, DEST_BTN.w, DEST_BTN.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
-        box={[782, 460, 216, 74]}
+        box={[START_BTN.x, START_BTN.y, START_BTN.w, START_BTN.h]}
         label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
         onPress={onStart}
       />
@@ -1295,20 +1354,20 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
         </defs>
         <rect width="120" height="70" fill="#15110d" />
         <circle cx="60" cy="38" r="31" fill="url(#ms-thumb-metal)" />
-        <circle cx="60" cy="38" r="28" fill="#0c0c0e" />
+        <circle cx="60" cy="38" r="28" fill="#efe5cf" />
         {Array.from({ length: 15 }, (_, i) => {
           const [x1, y1] = pol(60, 38, 26, -135 + i * (270 / 14));
           const [x2, y2] = pol(60, 38, i % 2 ? 23.5 : 21.5, -135 + i * (270 / 14));
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.ink} strokeWidth={i % 2 ? 0.8 : 1.6} />;
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={i % 2 ? 0.8 : 1.6} />;
         })}
         <line x1="60" y1="38" x2={nx} y2={ny} stroke={CLASSIC.needle} strokeWidth="2" strokeLinecap="round" />
         <circle cx="60" cy="38" r="3.4" fill="url(#ms-thumb-metal)" />
         <circle cx="19" cy="24" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="19" cy="24" r="10.5" fill="#0c0c0e" />
-        <line x1="19" y1="24" x2="19" y2="16" stroke={CLASSIC.ink} strokeWidth="1.2" />
-        <line x1="19" y1="24" x2="24" y2="27" stroke={CLASSIC.ink} strokeWidth="1.2" />
+        <circle cx="19" cy="24" r="10.5" fill="#efe5cf" />
+        <line x1="19" y1="24" x2="19" y2="16" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
+        <line x1="19" y1="24" x2="24" y2="27" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
         <circle cx="101" cy="24" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="101" cy="24" r="10.5" fill="#0c0c0e" />
+        <circle cx="101" cy="24" r="10.5" fill="#efe5cf" />
         <line x1="101" y1="24" x2="95" y2="20" stroke={CLASSIC.needle} strokeWidth="1.4" />
       </svg>
     );
