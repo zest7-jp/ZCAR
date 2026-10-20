@@ -915,77 +915,83 @@ const Needle = ({ cx, cy, len, tail, width, deg }: { cx: number; cy: number; len
   </g>
 );
 
-const APERTURES = {
-  cruise: { x: SX - 116, y: SY + 132, w: 74, h: 40 },
-  speed: { x: SX - 36, y: SY + 138, w: 72, h: 44 },
-  fuel: { x: SX + 42, y: SY + 132, w: 74, h: 40 },
-};
-type ApertureKey = keyof typeof APERTURES;
-const APERTURE_KEYS: ApertureKey[] = ["cruise", "speed", "fuel"];
-const APERTURE_LABEL: Record<ApertureKey, string> = { cruise: "CRUISE km/h", speed: "SPEED km/h", fuel: "FUEL km/L" };
-/** 速度計の下の値は、回るドラム(1つの値に3つ)。燃費は最後のドラムが小数(白いドラム)。 */
+/** 速度計の下の、平均燃費の回るドラム(3つ。最後の白いドラムが小数)。 */
+const FUEL_DRUM = { x: SX - 37, y: SY + 132, w: 74, h: 40 };
 const VDRUM = { w: 15, gap: 2, h: 22 };
-const vdrumX = (a: { x: number; w: number }) => a.x + (a.w - (VDRUM.w * 3 + VDRUM.gap * 2)) / 2;
-const vdrumY = (a: { y: number }) => a.y + 16;
-const isDecimalDrum = (k: ApertureKey, j: number) => k === "fuel" && j === 2;
+const VDRUM_X = FUEL_DRUM.x + (FUEL_DRUM.w - (VDRUM.w * 3 + VDRUM.gap * 2)) / 2;
+const VDRUM_Y = FUEL_DRUM.y + 16;
 
-/** 速度計の下の3つのドラムの枠と、上の説明(動かない所)。 */
-const ApertureDrums = () => (
+/** 燃費のドラムの枠と、上の説明(動かない所)。 */
+const FuelDrumFace = () => (
   <g>
-    {APERTURE_KEYS.map((k) => {
-      const a = APERTURES[k];
-      const x = vdrumX(a);
-      const y = vdrumY(a);
-      return (
-        <g key={k}>
-          <text x={a.x + a.w / 2} y={a.y + 10} textAnchor="middle" fill={CLASSIC.plateInk} fontSize="7" fontWeight="700" letterSpacing="1">
-            {APERTURE_LABEL[k]}
-          </text>
-          <rect x={x - 3} y={y - 3} width={VDRUM.w * 3 + VDRUM.gap * 2 + 6} height={VDRUM.h + 6} rx="3" fill="#141210" stroke="url(#ms-metal)" strokeWidth="1.8" />
-          {[0, 1, 2].map((j) => (
-            <rect key={j} x={x + j * (VDRUM.w + VDRUM.gap)} y={y} width={VDRUM.w} height={VDRUM.h} rx="1.5" fill={isDecimalDrum(k, j) ? "url(#ms-drum-light)" : "url(#ms-drum)"} />
-          ))}
-          {k === "fuel" ? <circle cx={x + 2 * (VDRUM.w + VDRUM.gap) - VDRUM.gap / 2} cy={y + VDRUM.h - 3} r="1.3" fill={CLASSIC.ink} /> : null}
-        </g>
-      );
-    })}
+    <text x={FUEL_DRUM.x + FUEL_DRUM.w / 2} y={FUEL_DRUM.y + 10} textAnchor="middle" fill={CLASSIC.plateInk} fontSize="7" fontWeight="700" letterSpacing="1">
+      AVG FUEL km/L
+    </text>
+    <rect x={VDRUM_X - 3} y={VDRUM_Y - 3} width={VDRUM.w * 3 + VDRUM.gap * 2 + 6} height={VDRUM.h + 6} rx="3" fill="#141210" stroke="url(#ms-metal)" strokeWidth="1.8" />
+    {[0, 1, 2].map((j) => (
+      <rect key={j} x={VDRUM_X + j * (VDRUM.w + VDRUM.gap)} y={VDRUM_Y} width={VDRUM.w} height={VDRUM.h} rx="1.5" fill={j === 2 ? "url(#ms-drum-light)" : "url(#ms-drum)"} />
+    ))}
+    <circle cx={VDRUM_X + 2 * (VDRUM.w + VDRUM.gap) - VDRUM.gap / 2} cy={VDRUM_Y + VDRUM.h - 3} r="1.3" fill={CLASSIC.ink} />
   </g>
 );
 
-/** ドラムの数字(動く所)。値がないときは「---」。 */
-const ApertureDigits = ({ values }: { values: Record<ApertureKey, string | null> }) => (
+/** 燃費のドラムの数字(動く所)。値がないときは「---」。 */
+const FuelDrumDigits = ({ value }: { value: string | null }) => (
   <g>
-    {APERTURE_KEYS.map((k) => {
-      const a = APERTURES[k];
-      const value = values[k];
-      const digits = (value === null ? "---" : value.replace(".", "")).padStart(3, " ").slice(-3).split("");
-      return digits.map((digit, j) => (
+    {(value === null ? "---" : value.replace(".", ""))
+      .padStart(3, " ")
+      .slice(-3)
+      .split("")
+      .map((digit, j) => (
         <text
-          key={`${k}${j}`}
-          x={vdrumX(a) + j * (VDRUM.w + VDRUM.gap) + VDRUM.w / 2}
-          y={vdrumY(a) + 16}
+          key={j}
+          x={VDRUM_X + j * (VDRUM.w + VDRUM.gap) + VDRUM.w / 2}
+          y={VDRUM_Y + 16}
           textAnchor="middle"
-          fill={isDecimalDrum(k, j) ? "#1a1612" : CLASSIC.ink}
+          fill={j === 2 ? "#1a1612" : CLASSIC.ink}
           fontSize="14"
           fontWeight="700"
         >
           {digit}
         </text>
-      ));
-    })}
+      ))}
   </g>
 );
 
 /** 今日の距離(速度計の中の、回るドラム5つ)。 */
 const ODO = { drums: 5, w: 16, gap: 2, h: 24, y: SY + 64 };
 const ODO_X = SX - (ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap) / 2;
-/** 回転計の目盛りは少し狭く(240度)して、下の空いた所に燃料と水温の小さなメーターを入れる。 */
+/**
+ * 小さなメーター: 燃料は回転計の下、水温は時計の下(どちらも真ん中)。
+ * 回転計の目盛りは少し狭く(240度)して、下に燃料のメーターの場所をとる。
+ */
 const TACHO_SWEEP = 240;
 const MINI = [
-  { key: "fuel", cx: TX - 32, cy: TY + 88, lo: "E", hi: "F" },
-  { key: "temp", cx: TX + 32, cy: TY + 88, lo: "C", hi: "H" },
+  { key: "fuel", cx: TX, cy: TY + 86, lo: "E", hi: "F" },
+  { key: "temp", cx: CX, cy: CY + 86, lo: "C", hi: "H" },
 ] as const;
 const MINI_R = 22;
+type MiniGauge = (typeof MINI)[number];
+/** 小さなメーターの目盛りと E・F(C・H)の文字(動かない所)。空に近い側・熱い側は赤。 */
+const MiniGaugeFace = ({ g }: { g: MiniGauge }) => {
+  const [lx, ly] = pol(g.cx, g.cy, MINI_R + 5, -60);
+  const [hx, hy] = pol(g.cx, g.cy, MINI_R + 5, 60);
+  return (
+    <g>
+      {Array.from({ length: 5 }, (_, i) => {
+        const [x1, y1] = pol(g.cx, g.cy, MINI_R, -60 + i * 30);
+        const [x2, y2] = pol(g.cx, g.cy, i % 2 === 0 ? MINI_R - 6 : MINI_R - 4, -60 + i * 30);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={i % 2 === 0 ? 1.6 : 0.9} />;
+      })}
+      <text x={lx} y={ly + 3} textAnchor="middle" fill={g.key === "fuel" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
+        {g.lo}
+      </text>
+      <text x={hx} y={hy + 3} textAnchor="middle" fill={g.key === "temp" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
+        {g.hi}
+      </text>
+    </g>
+  );
+};
 /** 下の左右の板と、右の板の中の電圧・目的地・START。 */
 const PANELS = [
   { x: 16, y: 352, w: 268, h: 196 },
@@ -1009,33 +1015,15 @@ const ClassicFace = memo(function ClassicFace() {
           <rect x={panel.x + 6} y={panel.y + 6} width={panel.w - 12} height={panel.h - 12} rx="11" fill="none" stroke={CLASSIC.stitch} strokeDasharray="4 3.5" opacity=".75" />
         </g>
       ))}
-      {/* 左: 回転計(中に回転数の窓と、燃料・水温の小さなメーター) */}
+      {/* 左: 回転計(中に回転数の窓と、燃料の小さなメーター) */}
       <Dial cx={TX} cy={TY} r={SIDE_R} ring={10} />
       <Scale cx={TX} cy={TY} r={SIDE_R - 6} from={0} to={8} major={1} mid={0.5} minor={0.25} label={1} labelR={96} font={17} red={RPM_RED / 1000} sweep={TACHO_SWEEP} />
       <rect x={TX - 26} y={TY - 62} width="52" height="18" rx="3" fill="#050505" stroke="url(#ms-metal-soft)" />
       <text x={TX} y={TY - 30} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7" letterSpacing="1.6">
         ×1000 r/min
       </text>
-      {MINI.map((g) => {
-        const [lx, ly] = pol(g.cx, g.cy, MINI_R + 5, -60);
-        const [hx, hy] = pol(g.cx, g.cy, MINI_R + 5, 60);
-        return (
-          <g key={g.key}>
-            {Array.from({ length: 5 }, (_, i) => {
-              const [x1, y1] = pol(g.cx, g.cy, MINI_R, -60 + i * 30);
-              const [x2, y2] = pol(g.cx, g.cy, i % 2 === 0 ? MINI_R - 6 : MINI_R - 4, -60 + i * 30);
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={i % 2 === 0 ? 1.6 : 0.9} />;
-            })}
-            <text x={lx} y={ly + 3} textAnchor="middle" fill={g.key === "fuel" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
-              {g.lo}
-            </text>
-            <text x={hx} y={hy + 3} textAnchor="middle" fill={g.key === "temp" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
-              {g.hi}
-            </text>
-          </g>
-        );
-      })}
-      {/* 右: 時計(中に曜日と日付の小窓。上に LOCAL TIME、下に年月日) */}
+      <MiniGaugeFace g={MINI[0]} />
+      {/* 右: 時計(中に曜日と日付の小窓、上に LOCAL TIME と年月日、下に水温の小さなメーター) */}
       <Dial cx={CX} cy={CY} r={SIDE_R} ring={10} />
       {Array.from({ length: 60 }, (_, i) => {
         const major = i % 5 === 0;
@@ -1043,9 +1031,10 @@ const ClassicFace = memo(function ClassicFace() {
         const [x2, y2] = pol(CX, CY, major ? SIDE_R - 18 : SIDE_R - 10, i * 6);
         return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={major ? (i === 0 ? 4.6 : 3.2) : 1.1} />;
       })}
-      <text x={CX} y={CY - 52} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.2">
+      <text x={CX} y={CY - 58} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.2">
         LOCAL TIME · JST
       </text>
+      <MiniGaugeFace g={MINI[1]} />
       <rect x={CX + 40} y={CY - 10} width="28" height="20" rx="2" fill="#f4ecdc" stroke="url(#ms-metal-soft)" />
       <rect x={CX - 68} y={CY - 10} width="28" height="20" rx="2" fill="#0b0b0b" stroke="url(#ms-metal-soft)" />
       {/* 真ん中: 速度計(左右より手前。中に今日の距離と、平均・速さのドラム) */}
@@ -1067,7 +1056,7 @@ const ClassicFace = memo(function ClassicFace() {
       <text x={ODO_X + ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap + 10} y={ODO.y + 16} fill={CLASSIC.plateInk} fontSize="8" fontWeight="700">
         km
       </text>
-      <ApertureDrums />
+      <FuelDrumFace />
       {/* 左下の板: 天気と日の出・日の入り */}
       <text x="150" y="388" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="1.6">
         OUTSIDE
@@ -1231,7 +1220,7 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
         <text x={CX - 54} y={CY + 5} textAnchor="middle" fill={CLASSIC.needle} fontSize="12" fontWeight="700" className="ms-ja">
           {WEEKDAYS[data.weekday]}
         </text>
-        <text x={CX} y={CY + 62} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="9" letterSpacing="2.4">
+        <text x={CX} y={CY - 42} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8.5" letterSpacing="2.2">
           {`${data.year}.${pad2(data.month)}.${pad2(data.day)}`}
         </text>
         <g filter="url(#ms-shadow)">
@@ -1257,13 +1246,7 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
             {digit}
           </text>
         ))}
-        <ApertureDigits
-          values={{
-            cruise: data.avgCruise === null ? null : String(Math.round(data.avgCruise)),
-            speed: data.speed === null ? null : String(Math.round(data.speed)),
-            fuel: data.avgFuel === null ? null : data.avgFuel.toFixed(1),
-          }}
-        />
+        <FuelDrumDigits value={data.avgFuel === null ? null : data.avgFuel.toFixed(1)} />
         <Needle cx={SX} cy={SY} len={196} tail={32} width={9} deg={speedDeg} />
         <Hub cx={SX} cy={SY} r={15} />
         {/* 左下の板: 天気と日の出・日の入り */}
@@ -1298,7 +1281,7 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
         </text>
       </svg>
       <Hit box={[MINI[0].cx - MINI_R - 4, MINI[0].cy - MINI_R - 4, MINI_R * 2 + 8, MINI_R + 26]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[APERTURES.fuel.x, APERTURES.fuel.y, APERTURES.fuel.w, APERTURES.fuel.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[FUEL_DRUM.x, FUEL_DRUM.y, FUEL_DRUM.w, FUEL_DRUM.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[DEST_BTN.x, DEST_BTN.y, DEST_BTN.w, DEST_BTN.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
         box={[START_BTN.x, START_BTN.y, START_BTN.w, START_BTN.h]}
