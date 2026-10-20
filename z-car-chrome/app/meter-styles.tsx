@@ -362,20 +362,23 @@ const tachoBar = (index: number) => {
 };
 const BAR_SEGMENTS = 18;
 /**
- * 緑の画面(地図)と、DEST・START の場所。右の列の BATTERY より下は、エコ運転の表示と、
- * Google マップの小さな画面(ナビ中に重ねて出す)を置く箱。
+ * 緑の画面(地図)の場所。右の列の BATTERY より下は、エコ運転の表示と、
+ * Google マップの小さな画面(ナビ中に重ねて出す)を置く箱。DEST・START はその箱の中。
  */
-const RETRO_CRT = { x: 284, y: 328, w: 320, h: 214 };
-const RETRO_DEST = { x: 616, y: 325, w: 137, h: 56 };
-const RETRO_START = { x: 616, y: 391, w: 137, h: 154 };
+const RETRO_CRT = { x: 284, y: 328, w: 469, h: 214 };
+/** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
+const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
+/** DEST・START は箱の中にしまう(ナビ中は、Google マップの小さな画面がこの上に重なる)。 */
+const BAY_PAD = 12;
+const RETRO_DEST = { x: RETRO_MAP_BAY.x + BAY_PAD, y: RETRO_MAP_BAY.y + 16, w: RETRO_MAP_BAY.w - BAY_PAD * 2, h: 54 };
+const START_TOP = RETRO_DEST.y + RETRO_DEST.h + 10;
+const RETRO_START = { x: RETRO_DEST.x, y: START_TOP, w: RETRO_DEST.w, h: RETRO_MAP_BAY.y + RETRO_MAP_BAY.h - BAY_PAD - START_TOP };
 /** START の箱は大きな ▶ だけ。見た目で真ん中に来るよう、少し右に寄せる。 */
 const START_CX = RETRO_START.x + RETRO_START.w / 2;
 const START_CY = RETRO_START.y + RETRO_START.h / 2;
 const START_PLAY = `${START_CX - 22},${START_CY - 32} ${START_CX + 34},${START_CY} ${START_CX - 22},${START_CY + 32}`;
 /** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
-/** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
-const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
 
 /** 箱の上と左の空き: エコ運転のランプ(箱の上)と縦の棒(箱の左)。 */
 const RETRO_ECO = { x: 778, label: 282, lamp: 322, bar: { x: 786, y: 338, w: 32, h: 208 } };
@@ -435,7 +438,6 @@ const RetroFace = memo(function RetroFace() {
     label("voltUnit", 968, RETRO_RIGHT.battery + 29, "V", { color: RETRO.green, size: 12, spacing: 0 }),
     label("eco", RETRO_ECO.x, RETRO_ECO.label, "ECO DRIVE"),
     label("ecoRpm", 1000, RETRO_ECO.lamp - 3, "≤2000 r/min", { color: RETRO.soft, size: 9, anchor: "end", spacing: 1 }),
-    label("change", RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + 20, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 }),
   ];
   for (let k = 0; k <= 8; k += 1) {
     labels.push(label(`n${k}`, r2(284 + k * 4 * 14.25 - (k === 8 ? 3 : 0)), 122, String(k), { color: k >= 7 ? RETRO.red : RETRO.soft, size: 10, anchor: "middle", spacing: 0 }));
@@ -506,12 +508,14 @@ const RetroFace = memo(function RetroFace() {
       {Array.from({ length: ECO_SEGMENTS }, (_, i) => (
         <rect key={i} {...ecoSegment(i)} fill={RETRO.green} opacity=".1" />
       ))}
-      {/* 右下の縦長の箱(Google マップの小さな画面を置く所。中は何も描かない)。 */}
-      <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
-      {label("bay", RETRO_MAP_BAY.x + 16, RETRO_MAP_BAY.y + 24, "GOOGLE MAPS", { color: "#3f6f5a", size: 8, spacing: 2.4 })}
-      {/* 地図の画面の枠と、その右の DEST・START のボタンの枠。 */}
+      {/* 地図の画面の枠。 */}
       <rect x={RETRO_CRT.x - 3} y={RETRO_CRT.y - 3} width={RETRO_CRT.w + 6} height={RETRO_CRT.h + 6} rx="20" fill="#0b0f0f" stroke="#2a3534" strokeWidth="2" />
+      {/* 右下の縦長の箱(Google マップの小さな画面を置く所)。名前の札は上の線に切り込む。中に DEST・START。 */}
+      <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
+      <rect x={RETRO_MAP_BAY.x + 14} y={RETRO_MAP_BAY.y - 5} width="88" height="10" fill="#040506" />
+      {label("bay", RETRO_MAP_BAY.x + 19, RETRO_MAP_BAY.y + 3, "GOOGLE MAPS", { size: 8, spacing: 2.4 })}
       <rect x={RETRO_DEST.x} y={RETRO_DEST.y} width={RETRO_DEST.w} height={RETRO_DEST.h} rx="4" fill={RETRO.amber} fillOpacity=".06" stroke={RETRO.amber} strokeOpacity=".75" strokeWidth="1.6" />
+      {label("change", RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + 20, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 })}
       <text x={RETRO_DEST.x + RETRO_DEST.w / 2} y={RETRO_DEST.y + 44} textAnchor="middle" fill={RETRO.amber} fontSize="19" letterSpacing="5" filter="url(#ms-vfd)">
         DEST
       </text>
