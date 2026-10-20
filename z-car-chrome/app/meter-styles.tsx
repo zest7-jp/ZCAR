@@ -362,21 +362,40 @@ const tachoBar = (index: number) => {
 };
 const BAR_SEGMENTS = 18;
 /**
- * 緑の画面(地図)の場所。右の列の BATTERY より下は、エコ運転の表示と、
- * Google マップの小さな画面(ナビ中に重ねて出す)を置く箱。DEST・START はその箱の中。
+ * 緑の画面(地図)。回転計の下を全部使い、速さと平均は地図の上に重ねた札に出す。
+ * 右の列の BATTERY より下は、エコ運転の表示と、Google マップの小さな画面(ナビ中に重ねて出す)を
+ * 置く箱。DEST・START はその箱の中。
  */
-const RETRO_CRT = { x: 284, y: 328, w: 469, h: 214 };
+const RETRO_CRT = { x: 284, y: 136, w: 469, h: 406 };
+/** 地図の上に重ねる札: 左下に速さ、右下に平均(巡航速度・燃費)。 */
+const RETRO_SPEED_PANEL = { x: 296, y: 402, w: 244, h: 128 };
+const RETRO_AVG_PANEL = { x: 590, y: 402, w: 151, h: 128 };
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
 const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
-/** DEST・START は箱の中にしまう(ナビ中は、Google マップの小さな画面がこの上に重なる)。 */
+/** DEST・START は箱の中に同じ大きさで縦に並べる(ナビ中は、Google マップの小さな画面がこの上に重なる)。 */
 const BAY_PAD = 12;
-const RETRO_DEST = { x: RETRO_MAP_BAY.x + BAY_PAD, y: RETRO_MAP_BAY.y + 16, w: RETRO_MAP_BAY.w - BAY_PAD * 2, h: 54 };
-const START_TOP = RETRO_DEST.y + RETRO_DEST.h + 10;
-const RETRO_START = { x: RETRO_DEST.x, y: START_TOP, w: RETRO_DEST.w, h: RETRO_MAP_BAY.y + RETRO_MAP_BAY.h - BAY_PAD - START_TOP };
-/** START の箱は大きな ▶ だけ。見た目で真ん中に来るよう、少し右に寄せる。 */
+const KEY_GAP = 10;
+const KEY_H = (RETRO_MAP_BAY.h - 16 - BAY_PAD - KEY_GAP) / 2;
+const RETRO_DEST = { x: RETRO_MAP_BAY.x + BAY_PAD, y: RETRO_MAP_BAY.y + 16, w: RETRO_MAP_BAY.w - BAY_PAD * 2, h: KEY_H };
+const RETRO_START = { ...RETRO_DEST, y: RETRO_DEST.y + KEY_H + KEY_GAP };
+/** 地図のピン(頭の丸に穴)。(cx, cy) が全体の真ん中で、高さは 2.5r。 */
+const pinPath = (cx: number, cy: number, r: number) => {
+  const head = cy - r * 0.25;
+  const tip = cy + r * 1.25;
+  const hole = r * 0.42;
+  return [
+    `M${r2(cx)} ${r2(tip)}`,
+    `C${r2(cx - r * 0.55)} ${r2(head + r)} ${r2(cx - r)} ${r2(head + r * 0.45)} ${r2(cx - r)} ${r2(head)}`,
+    `A${r} ${r} 0 1 1 ${r2(cx + r)} ${r2(head)}`,
+    `C${r2(cx + r)} ${r2(head + r * 0.45)} ${r2(cx + r * 0.55)} ${r2(head + r)} ${r2(cx)} ${r2(tip)}Z`,
+    `M${r2(cx + hole)} ${r2(head)}A${r2(hole)} ${r2(hole)} 0 1 0 ${r2(cx - hole)} ${r2(head)}A${r2(hole)} ${r2(hole)} 0 1 0 ${r2(cx + hole)} ${r2(head)}Z`,
+  ].join("");
+};
+/** DEST は地図のピンだけ、START は ▶ だけ(▶ は見た目で真ん中に来るよう、少し右に寄せる)。 */
+const DEST_PIN = pinPath(RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + RETRO_DEST.h / 2, 17);
 const START_CX = RETRO_START.x + RETRO_START.w / 2;
 const START_CY = RETRO_START.y + RETRO_START.h / 2;
-const START_PLAY = `${START_CX - 22},${START_CY - 32} ${START_CX + 34},${START_CY} ${START_CX - 22},${START_CY + 32}`;
+const START_PLAY = `${START_CX - 18},${START_CY - 22} ${START_CX + 26},${START_CY} ${START_CX - 18},${START_CY + 22}`;
 /** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
 
@@ -409,6 +428,33 @@ const ecoLamp = (lit: boolean) => (
   </text>
 );
 
+/** 裏から光るキー(DEST・START)。色の光がまん中からにじみ、上の縁に細い光、下の縁に影。 */
+const retroKey = (key: typeof RETRO_DEST, color: string, gradient: string) => (
+  <g>
+    <rect x={key.x} y={key.y} width={key.w} height={key.h} rx="10" fill={`url(#${gradient})`} stroke={color} strokeOpacity=".6" strokeWidth="1.5" />
+    <line x1={key.x + 12} y1={key.y + 2.5} x2={key.x + key.w - 12} y2={key.y + 2.5} stroke="#fff" strokeOpacity=".16" strokeWidth="1.2" strokeLinecap="round" />
+    <line x1={key.x + 12} y1={key.y + key.h - 2.5} x2={key.x + key.w - 12} y2={key.y + key.h - 2.5} stroke="#000" strokeOpacity=".55" strokeWidth="1.2" strokeLinecap="round" />
+  </g>
+);
+
+/** 地図の上に重ねる札の、動かない所(下地と説明の文字)。地図より上に描く。 */
+const RetroMapOverlay = memo(function RetroMapOverlay() {
+  const speed = RETRO_SPEED_PANEL;
+  const avg = RETRO_AVG_PANEL;
+  return (
+    <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+      <rect x={speed.x} y={speed.y} width={speed.w} height={speed.h} rx="10" fill="#010403" fillOpacity=".8" stroke="#1f3a32" />
+      <rect x={avg.x} y={avg.y} width={avg.w} height={avg.h} rx="10" fill="#010403" fillOpacity=".8" stroke="#1f3a32" />
+      {label("speed", speed.x + 14, speed.y + 19, "SPEED")}
+      {label("kmh", speed.x + 186, speed.y + 114, "km/h", { color: RETRO.cyan, size: 16, spacing: 0 })}
+      {label("cruise", avg.x + 14, avg.y + 19, "AVG CRUISE")}
+      {label("cruiseUnit", avg.x + avg.w - 12, avg.y + 52, "km/h", { anchor: "end", size: 9, spacing: 1 })}
+      {label("fuel", avg.x + 14, avg.y + 75, "AVG FUEL")}
+      {label("fuelUnit", avg.x + avg.w - 12, avg.y + 108, "km/L", { anchor: "end", size: 9, spacing: 1 })}
+    </svg>
+  );
+});
+
 /** 80年代のデジタルの、動かない絵(下地・仕切り・説明の文字・消えている棒)。 */
 const RetroFace = memo(function RetroFace() {
   const labels: ReactNode[] = [
@@ -419,12 +465,6 @@ const RetroFace = memo(function RetroFace() {
     label("today", 22, 488, "TODAY DISTANCE"),
     label("km", 222, 531, "km", { color: RETRO.green, size: 12, spacing: 0 }),
     label("engine", 284, 26, "ENGINE ×1000 r/min"),
-    label("speed", 284, 154, "SPEED"),
-    label("kmh", 566, 296, "km/h", { color: RETRO.cyan, size: 18, spacing: 0 }),
-    label("cruise", 636, 174, "AVG CRUISE"),
-    label("cruiseUnit", 740, 228, "km/h", { anchor: "end", size: 9, spacing: 1 }),
-    label("fuel", 636, 248, "AVG FUEL"),
-    label("fuelUnit", 740, 302, "km/L", { anchor: "end", size: 9, spacing: 1 }),
     label("tank", 778, RETRO_RIGHT.fuelBar - 12, "FUEL"),
     label("e", 778, RETRO_RIGHT.fuelBar + 15, "E", { color: RETRO.soft, size: 10, spacing: 0 }),
     label("f", 998, RETRO_RIGHT.fuelBar + 15, "F", { color: RETRO.soft, size: 10, anchor: "end", spacing: 0 }),
@@ -453,6 +493,14 @@ const RetroFace = memo(function RetroFace() {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <radialGradient id="ms-key-amber" cx="50%" cy="45%" r="70%">
+          <stop offset="0" stopColor={RETRO.amber} stopOpacity=".22" />
+          <stop offset="1" stopColor={RETRO.amber} stopOpacity=".03" />
+        </radialGradient>
+        <radialGradient id="ms-key-cyan" cx="50%" cy="45%" r="70%">
+          <stop offset="0" stopColor={RETRO.cyan} stopOpacity=".2" />
+          <stop offset="1" stopColor={RETRO.cyan} stopOpacity=".03" />
+        </radialGradient>
         <linearGradient id="ms-retro-sheen" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".06" />
           <stop offset=".28" stopColor="#fff" stopOpacity="0" />
@@ -514,12 +562,10 @@ const RetroFace = memo(function RetroFace() {
       <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
       <rect x={RETRO_MAP_BAY.x + 14} y={RETRO_MAP_BAY.y - 5} width="88" height="10" fill="#040506" />
       {label("bay", RETRO_MAP_BAY.x + 19, RETRO_MAP_BAY.y + 3, "GOOGLE MAPS", { size: 8, spacing: 2.4 })}
-      <rect x={RETRO_DEST.x} y={RETRO_DEST.y} width={RETRO_DEST.w} height={RETRO_DEST.h} rx="4" fill={RETRO.amber} fillOpacity=".06" stroke={RETRO.amber} strokeOpacity=".75" strokeWidth="1.6" />
-      {label("change", RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + 20, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 })}
-      <text x={RETRO_DEST.x + RETRO_DEST.w / 2} y={RETRO_DEST.y + 44} textAnchor="middle" fill={RETRO.amber} fontSize="19" letterSpacing="5" filter="url(#ms-vfd)">
-        DEST
-      </text>
-      <rect x={RETRO_START.x} y={RETRO_START.y} width={RETRO_START.w} height={RETRO_START.h} rx="4" fill={RETRO.cyan} fillOpacity=".07" stroke={RETRO.cyan} strokeOpacity=".85" strokeWidth="2" />
+      {/* DEST(地図のピン)と START(▶)。同じ大きさの、裏から光るキー。 */}
+      {retroKey(RETRO_DEST, RETRO.amber, "ms-key-amber")}
+      <path d={DEST_PIN} fill={RETRO.amber} fillRule="evenodd" filter="url(#ms-vfd)" />
+      {retroKey(RETRO_START, RETRO.cyan, "ms-key-cyan")}
       {/* START の ▶(消えている方。点いている方は動く絵で、行き先があるときだけ出す)。 */}
       <polygon points={START_PLAY} fill={RETRO.cyan} opacity=".1" />
     </svg>
@@ -559,6 +605,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         </svg>
         <b className="ms-retro-crt-label" aria-hidden="true">NAVI ▲N</b>
       </div>
+      <RetroMapOverlay />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
         <SevenSeg text={`${pad2(data.month)}-${pad2(data.day)}`} x={22} y={118} h={22} color={RETRO.amber} />
@@ -601,13 +648,27 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         </g>
         <SevenSeg
           text={data.speed === null ? "---" : String(Math.round(data.speed)).padStart(3, " ")}
-          x={290}
-          y={160}
-          h={138}
+          x={RETRO_SPEED_PANEL.x + 14}
+          y={RETRO_SPEED_PANEL.y + 28}
+          h={88}
           color={RETRO.cyan}
         />
-        <SevenSeg text={data.avgCruise === null ? "--" : String(Math.round(data.avgCruise))} x={740} y={182} h={30} color={RETRO.amber} align="end" />
-        <SevenSeg text={data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)} x={740} y={256} h={30} color={RETRO.amber} align="end" />
+        <SevenSeg
+          text={data.avgCruise === null ? "--" : String(Math.round(data.avgCruise))}
+          x={RETRO_AVG_PANEL.x + RETRO_AVG_PANEL.w - 43}
+          y={RETRO_AVG_PANEL.y + 26}
+          h={26}
+          color={RETRO.amber}
+          align="end"
+        />
+        <SevenSeg
+          text={data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)}
+          x={RETRO_AVG_PANEL.x + RETRO_AVG_PANEL.w - 43}
+          y={RETRO_AVG_PANEL.y + 82}
+          h={26}
+          color={RETRO.amber}
+          align="end"
+        />
         <g filter="url(#ms-vfd)">{litSegments(data.fuelPercent / 100, RETRO_RIGHT.fuelBar, (i) => (i < 3 ? RETRO.red : RETRO.amber))}</g>
         <SevenSeg text={String(Math.round(data.rangeKm))} x={960} y={RETRO_RIGHT.range} h={30} color={RETRO.amber} align="end" />
         <g filter="url(#ms-vfd)">
@@ -625,7 +686,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
       </svg>
       <i className="ms-retro-mesh" aria-hidden="true" />
       <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[626, 236, 124, 76]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[RETRO_AVG_PANEL.x, RETRO_AVG_PANEL.y + 64, RETRO_AVG_PANEL.w, RETRO_AVG_PANEL.h - 64]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
         box={[RETRO_START.x, RETRO_START.y, RETRO_START.w, RETRO_START.h]}
