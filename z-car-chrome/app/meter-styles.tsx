@@ -362,8 +362,8 @@ const tachoBar = (index: number) => {
 };
 const BAR_SEGMENTS = 18;
 /**
- * 緑の画面(地図)と、DEST・START の場所。右の列の BATTERY より下は、
- * Google マップの小さな画面(ナビ中に重ねて出す)のために空けておく。
+ * 緑の画面(地図)と、DEST・START の場所。右の列の BATTERY より下は、エコ運転の表示と、
+ * Google マップの小さな画面(ナビ中に重ねて出す)を置く箱。
  */
 const RETRO_CRT = { x: 284, y: 328, w: 320, h: 214 };
 const RETRO_DEST = { x: 616, y: 325, w: 137, h: 56 };
@@ -376,6 +376,35 @@ const START_PLAY = `${START_CX - 22},${START_CY - 32} ${START_CX + 34},${START_C
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
 const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
+
+/** 箱の上と左の空き: エコ運転のランプ(箱の上)と縦の棒(箱の左)。 */
+const RETRO_ECO = { x: 778, label: 282, lamp: 322, bar: { x: 786, y: 338, w: 32, h: 208 } };
+const ECO_SEGMENTS = 12;
+/** 回転数がこれ以下なら棒が全部点き、ECO_EMPTY_RPM 以上なら1つも点かない(真ん中の 2000 で ECO が光る)。 */
+const ECO_FULL_RPM = 1000;
+const ECO_EMPTY_RPM = 3000;
+/** エコの度合い(0〜1)。走っていて回転数が低いほど大きい。止まっているとき(5 km/h 未満)は 0。 */
+const ecoLevel = (rpm: number | null, speed: number | null) =>
+  rpm === null || speed === null || speed < 5 ? 0 : clamp01((ECO_EMPTY_RPM - rpm) / (ECO_EMPTY_RPM - ECO_FULL_RPM));
+/** 縦の棒の i 段目(下から)。 */
+const ecoSegment = (i: number) => {
+  const pitch = RETRO_ECO.bar.h / ECO_SEGMENTS;
+  return { x: RETRO_ECO.bar.x, y: r2(RETRO_ECO.bar.y + RETRO_ECO.bar.h - (i + 1) * pitch + (pitch - 13)), width: RETRO_ECO.bar.w, height: 13 };
+};
+const ecoLamp = (lit: boolean) => (
+  <text
+    x={RETRO_ECO.x}
+    y={RETRO_ECO.lamp}
+    fill={RETRO.green}
+    opacity={lit ? undefined : 0.12}
+    fontSize="30"
+    fontWeight="700"
+    letterSpacing="6"
+    filter={lit ? "url(#ms-vfd)" : undefined}
+  >
+    ECO
+  </text>
+);
 
 /** 80年代のデジタルの、動かない絵(下地・仕切り・説明の文字・消えている棒)。 */
 const RetroFace = memo(function RetroFace() {
@@ -404,6 +433,8 @@ const RetroFace = memo(function RetroFace() {
     label("coolantUnit", 966, RETRO_RIGHT.coolant + 29, "°C", { color: RETRO.cyan, size: 12, spacing: 0 }),
     label("battery", 778, RETRO_RIGHT.battery - 8, "BATTERY"),
     label("voltUnit", 968, RETRO_RIGHT.battery + 29, "V", { color: RETRO.green, size: 12, spacing: 0 }),
+    label("eco", RETRO_ECO.x, RETRO_ECO.label, "ECO DRIVE"),
+    label("ecoRpm", 1000, RETRO_ECO.lamp - 3, "≤2000 r/min", { color: RETRO.soft, size: 9, anchor: "end", spacing: 1 }),
     label("change", RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + 20, "CHANGE", { anchor: "middle", size: 8, spacing: 2.4 }),
   ];
   for (let k = 0; k <= 8; k += 1) {
@@ -470,6 +501,11 @@ const RetroFace = memo(function RetroFace() {
           <rect x={790 + i * 11} y={RETRO_RIGHT.coolantBar} width="8.5" height="18" fill={RETRO.cyan} opacity=".1" />
         </g>
       ))}
+      {/* エコ運転のランプと縦の棒(消えている方)。 */}
+      {ecoLamp(false)}
+      {Array.from({ length: ECO_SEGMENTS }, (_, i) => (
+        <rect key={i} {...ecoSegment(i)} fill={RETRO.green} opacity=".1" />
+      ))}
       {/* 右下の縦長の箱(Google マップの小さな画面を置く所。中は何も描かない)。 */}
       <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
       {label("bay", RETRO_MAP_BAY.x + 16, RETRO_MAP_BAY.y + 24, "GOOGLE MAPS", { color: "#3f6f5a", size: 8, spacing: 2.4 })}
@@ -501,6 +537,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
       ]
     : [];
   const temperature = data.weather ? String(Math.round(data.weather.temperature)) : "--";
+  const eco = ecoLevel(rpm, data.speed);
   return (
     <Board className="ms-retro">
       <RetroFace />
@@ -575,6 +612,12 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={RETRO_RIGHT.coolant} h={30} color={RETRO.cyan} align="end" />
         <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={RETRO_RIGHT.battery} h={30} color={RETRO.green} align="end" />
         {onStart ? <polygon points={START_PLAY} fill={RETRO.cyan} filter="url(#ms-vfd)" /> : null}
+        {eco >= 0.5 ? ecoLamp(true) : null}
+        <g filter="url(#ms-vfd)">
+          {Array.from({ length: Math.round(eco * ECO_SEGMENTS) }, (_, i) => (
+            <rect key={i} {...ecoSegment(i)} fill={RETRO.green} />
+          ))}
+        </g>
       </svg>
       <i className="ms-retro-mesh" aria-hidden="true" />
       <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
