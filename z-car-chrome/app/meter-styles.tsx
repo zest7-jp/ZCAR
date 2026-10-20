@@ -380,24 +380,13 @@ const KEY_GAP = 10;
 const KEY_H = (RETRO_MAP_BAY.h - 16 - BAY_PAD - KEY_GAP) / 2;
 const RETRO_DEST = { x: RETRO_MAP_BAY.x + BAY_PAD, y: RETRO_MAP_BAY.y + 16, w: RETRO_MAP_BAY.w - BAY_PAD * 2, h: KEY_H };
 const RETRO_START = { ...RETRO_DEST, y: RETRO_DEST.y + KEY_H + KEY_GAP };
-/** 地図のピン(頭の丸に穴)。(cx, cy) が全体の真ん中で、高さは 2.5r。 */
-const pinPath = (cx: number, cy: number, r: number) => {
-  const head = cy - r * 0.25;
-  const tip = cy + r * 1.25;
-  const hole = r * 0.42;
-  return [
-    `M${r2(cx)} ${r2(tip)}`,
-    `C${r2(cx - r * 0.55)} ${r2(head + r)} ${r2(cx - r)} ${r2(head + r * 0.45)} ${r2(cx - r)} ${r2(head)}`,
-    `A${r} ${r} 0 1 1 ${r2(cx + r)} ${r2(head)}`,
-    `C${r2(cx + r)} ${r2(head + r * 0.45)} ${r2(cx + r * 0.55)} ${r2(head + r)} ${r2(cx)} ${r2(tip)}Z`,
-    `M${r2(cx + hole)} ${r2(head)}A${r2(hole)} ${r2(hole)} 0 1 0 ${r2(cx - hole)} ${r2(head)}A${r2(hole)} ${r2(hole)} 0 1 0 ${r2(cx + hole)} ${r2(head)}Z`,
-  ].join("");
-};
-/** DEST は地図のピンだけ、START は ▶ だけ(▶ は見た目で真ん中に来るよう、少し右に寄せる)。 */
-const DEST_PIN = pinPath(RETRO_DEST.x + RETRO_DEST.w / 2, RETRO_DEST.y + RETRO_DEST.h / 2, 17);
-const START_CX = RETRO_START.x + RETRO_START.w / 2;
+/** DEST はねらいの印(点線の輪と4本の目盛り)、START は3つの矢印(行き先があると、光が左から右へ流れる)。 */
+const DEST_CX = RETRO_DEST.x + RETRO_DEST.w / 2;
+const DEST_CY = RETRO_DEST.y + RETRO_DEST.h / 2;
+const START_CX = RETRO_START.x + RETRO_START.w / 2 + 3;
 const START_CY = RETRO_START.y + RETRO_START.h / 2;
-const START_PLAY = `${START_CX - 18},${START_CY - 22} ${START_CX + 26},${START_CY} ${START_CX - 18},${START_CY + 22}`;
+const startChevron = (i: number) =>
+  `${START_CX - 33 + i * 24},${START_CY - 17} ${START_CX - 15 + i * 24},${START_CY} ${START_CX - 33 + i * 24},${START_CY + 17}`;
 /** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
 
@@ -430,12 +419,11 @@ const ecoLamp = (lit: boolean) => (
   </text>
 );
 
-/** 裏から光るキー(DEST・START)。色の光がまん中からにじみ、上の縁に細い光、下の縁に影。 */
-const retroKey = (key: typeof RETRO_DEST, color: string, gradient: string) => (
+/** 光る管で縁取ったキー(DEST・START)。外の細い線と、内側の光る線の二重。 */
+const retroKey = (key: typeof RETRO_DEST, color: string) => (
   <g>
-    <rect x={key.x} y={key.y} width={key.w} height={key.h} rx="10" fill={`url(#${gradient})`} stroke={color} strokeOpacity=".6" strokeWidth="1.5" />
-    <line x1={key.x + 12} y1={key.y + 2.5} x2={key.x + key.w - 12} y2={key.y + 2.5} stroke="#fff" strokeOpacity=".16" strokeWidth="1.2" strokeLinecap="round" />
-    <line x1={key.x + 12} y1={key.y + key.h - 2.5} x2={key.x + key.w - 12} y2={key.y + key.h - 2.5} stroke="#000" strokeOpacity=".55" strokeWidth="1.2" strokeLinecap="round" />
+    <rect x={key.x} y={key.y} width={key.w} height={key.h} rx="12" fill={color} fillOpacity=".04" stroke={color} strokeOpacity=".3" />
+    <rect x={key.x + 4} y={key.y + 4} width={key.w - 8} height={key.h - 8} rx="9" fill="none" stroke={color} strokeWidth="1.6" filter="url(#ms-vfd)" />
   </g>
 );
 
@@ -495,14 +483,6 @@ const RetroFace = memo(function RetroFace() {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <radialGradient id="ms-key-amber" cx="50%" cy="45%" r="70%">
-          <stop offset="0" stopColor={RETRO.amber} stopOpacity=".22" />
-          <stop offset="1" stopColor={RETRO.amber} stopOpacity=".03" />
-        </radialGradient>
-        <radialGradient id="ms-key-cyan" cx="50%" cy="45%" r="70%">
-          <stop offset="0" stopColor={RETRO.cyan} stopOpacity=".2" />
-          <stop offset="1" stopColor={RETRO.cyan} stopOpacity=".03" />
-        </radialGradient>
         <linearGradient id="ms-retro-sheen" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".06" />
           <stop offset=".28" stopColor="#fff" stopOpacity="0" />
@@ -564,12 +544,22 @@ const RetroFace = memo(function RetroFace() {
       <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
       <rect x={RETRO_MAP_BAY.x + 14} y={RETRO_MAP_BAY.y - 5} width="88" height="10" fill="#040506" />
       {label("bay", RETRO_MAP_BAY.x + 19, RETRO_MAP_BAY.y + 3, "GOOGLE MAPS", { size: 8, spacing: 2.4 })}
-      {/* DEST(地図のピン)と START(▶)。同じ大きさの、裏から光るキー。 */}
-      {retroKey(RETRO_DEST, RETRO.amber, "ms-key-amber")}
-      <path d={DEST_PIN} fill={RETRO.amber} fillRule="evenodd" filter="url(#ms-vfd)" />
-      {retroKey(RETRO_START, RETRO.cyan, "ms-key-cyan")}
-      {/* START の ▶(消えている方。点いている方は動く絵で、行き先があるときだけ出す)。 */}
-      <polygon points={START_PLAY} fill={RETRO.cyan} opacity=".1" />
+      {/* DEST(ねらいの印)と START(3つの矢印)。同じ大きさの、光る管で縁取ったキー。 */}
+      {retroKey(RETRO_DEST, RETRO.amber)}
+      <g stroke={RETRO.amber} fill="none" filter="url(#ms-vfd)">
+        <circle cx={DEST_CX} cy={DEST_CY} r="20" strokeWidth="3.2" strokeDasharray="7.6 5" />
+        {[0, 90, 180, 270].map((angle) => (
+          <line key={angle} x1={DEST_CX} y1={DEST_CY - 25} x2={DEST_CX} y2={DEST_CY - 33} strokeWidth="3" transform={`rotate(${angle} ${DEST_CX} ${DEST_CY})`} />
+        ))}
+        <circle cx={DEST_CX} cy={DEST_CY} r="4.5" fill={RETRO.amber} stroke="none" />
+      </g>
+      {retroKey(RETRO_START, RETRO.cyan)}
+      {/* START の矢印(消えている方。光が流れる方は動く絵で、行き先があるときだけ出す)。 */}
+      <g stroke={RETRO.cyan} fill="none" strokeWidth="7" opacity=".1">
+        {[0, 1, 2].map((i) => (
+          <polyline key={i} points={startChevron(i)} />
+        ))}
+      </g>
     </svg>
   );
 });
@@ -678,7 +668,13 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         </g>
         <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={RETRO_RIGHT.coolant} h={30} color={RETRO.cyan} align="end" />
         <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={RETRO_RIGHT.battery} h={30} color={RETRO.green} align="end" />
-        {onStart ? <polygon points={START_PLAY} fill={RETRO.cyan} filter="url(#ms-vfd)" /> : null}
+        {onStart ? (
+          <g className="ms-retro-flow" stroke={RETRO.cyan} fill="none" strokeWidth="7" filter="url(#ms-vfd)">
+            {[0, 1, 2].map((i) => (
+              <polyline key={i} points={startChevron(i)} />
+            ))}
+          </g>
+        ) : null}
         {eco >= 0.5 ? ecoLamp(true) : null}
         <g filter="url(#ms-vfd)">
           {Array.from({ length: Math.round(eco * ECO_SEGMENTS) }, (_, i) => (
