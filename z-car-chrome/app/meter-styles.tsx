@@ -598,6 +598,14 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         >
           <polygon points="0,-10 -8,10 0,5 8,10" />
         </svg>
+        {/* 北の印(地図はいつも北が上)。 */}
+        <svg className="ms-retro-north" viewBox="-14 -20 28 34" aria-hidden="true">
+          <polygon points="0,-19 -5,-11 5,-11" />
+          <circle cx="0" cy="2" r="10.5" />
+          <text x="0" y="6.5" textAnchor="middle">
+            N
+          </text>
+        </svg>
       </div>
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
