@@ -728,7 +728,7 @@ const CLASSIC = {
   plateInk: "#2b2118",
 };
 /**
- * 三連のメーター。左に回転計、真ん中に大きな速度計、右に時計。左右は少し小さく、少し高い所に置き、
+ * 三連のメーター。左に回転計、真ん中に大きな速度計、右に時計(曜日・日付だけ)。左右は少し小さく、少し高い所に置き、
  * 真ん中の金属の縁の後ろに少し隠れる。下の左右の板に、天気と、電圧・目的地・START。
  */
 const SX = 512;
@@ -986,13 +986,6 @@ const MINI = [
   { key: "temp", cx: TX + 32, cy: TY + 88, lo: "C", hi: "H" },
 ] as const;
 const MINI_R = 22;
-/** 時計の中の、世界の3つの時刻の小さな時計。 */
-const WORLD = [
-  { name: "CALIF.", x: CX - 52, y: CY + 52 },
-  { name: "RUSSIA", x: CX, y: CY + 66 },
-  { name: "CHINA", x: CX + 52, y: CY + 52 },
-];
-const WORLD_R = 18;
 /** 下の左右の板と、右の板の中の電圧・目的地・START。 */
 const PANELS = [
   { x: 16, y: 352, w: 268, h: 196 },
@@ -1042,7 +1035,7 @@ const ClassicFace = memo(function ClassicFace() {
           </g>
         );
       })}
-      {/* 右: 時計(中に曜日・日付と、世界の3つの時刻の小さな時計) */}
+      {/* 右: 時計(中に曜日と日付の小窓。上に LOCAL TIME、下に年月日) */}
       <Dial cx={CX} cy={CY} r={SIDE_R} ring={10} />
       {Array.from({ length: 60 }, (_, i) => {
         const major = i % 5 === 0;
@@ -1050,24 +1043,11 @@ const ClassicFace = memo(function ClassicFace() {
         const [x2, y2] = pol(CX, CY, major ? SIDE_R - 18 : SIDE_R - 10, i * 6);
         return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={major ? (i === 0 ? 4.6 : 3.2) : 1.1} />;
       })}
-      <text x={CX} y={CY - 60} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7" letterSpacing="1.8">
+      <text x={CX} y={CY - 52} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.2">
         LOCAL TIME · JST
       </text>
       <rect x={CX + 40} y={CY - 10} width="28" height="20" rx="2" fill="#f4ecdc" stroke="url(#ms-metal-soft)" />
       <rect x={CX - 68} y={CY - 10} width="28" height="20" rx="2" fill="#0b0b0b" stroke="url(#ms-metal-soft)" />
-      {WORLD.map((city) => (
-        <g key={city.name}>
-          <Dial cx={city.x} cy={city.y} r={WORLD_R} ring={2.5} />
-          {Array.from({ length: 12 }, (_, k) => {
-            const [x1, y1] = pol(city.x, city.y, WORLD_R - 2, k * 30);
-            const [x2, y2] = pol(city.x, city.y, k % 3 === 0 ? WORLD_R - 6 : WORLD_R - 4, k * 30);
-            return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={k % 3 === 0 ? 1.3 : 0.7} />;
-          })}
-          <text x={city.x} y={city.y + WORLD_R + 10} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="5.8" letterSpacing=".8">
-            {city.name}
-          </text>
-        </g>
-      ))}
       {/* 真ん中: 速度計(左右より手前。中に今日の距離と、平均・速さのドラム) */}
       <Dial cx={SX} cy={SY} r={SPEED_R} ring={14} />
       <Scale cx={SX} cy={SY} r={SPEED_R - 12} from={0} to={SPEED_MAX} major={20} mid={10} minor={2} label={20} labelR={156} font={22} />
@@ -1244,30 +1224,16 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
         ))}
         <Needle cx={TX} cy={TY} len={112} tail={20} width={6.5} deg={rpmDeg} />
         <Hub cx={TX} cy={TY} r={10} />
-        {/* 右: 時計と世界の時刻 */}
+        {/* 右: 時計 */}
         <text x={CX + 54} y={CY + 5} textAnchor="middle" fill="#1a1612" fontSize="13" fontWeight="700">
           {data.day}
         </text>
         <text x={CX - 54} y={CY + 5} textAnchor="middle" fill={CLASSIC.needle} fontSize="12" fontWeight="700" className="ms-ja">
           {WEEKDAYS[data.weekday]}
         </text>
-        <text x={CX} y={CY - 44} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2">
+        <text x={CX} y={CY + 62} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="9" letterSpacing="2.4">
           {`${data.year}.${pad2(data.month)}.${pad2(data.day)}`}
         </text>
-        {data.world.map((city, i) => {
-          const { h, m } = readHm(city.time);
-          const spot = WORLD[i] ?? WORLD[0];
-          return (
-            <g key={city.name}>
-              <line x1={spot.x} y1={spot.y} x2={spot.x} y2={spot.y - 9} stroke={CLASSIC.dialInk} strokeWidth="1.9" strokeLinecap="round" transform={`rotate(${((h % 12) + m / 60) * 30} ${spot.x} ${spot.y})`} />
-              <line x1={spot.x} y1={spot.y} x2={spot.x} y2={spot.y - 13.5} stroke={CLASSIC.dialInk} strokeWidth="1.2" strokeLinecap="round" transform={`rotate(${m * 6} ${spot.x} ${spot.y})`} />
-              <circle cx={spot.x} cy={spot.y} r="1.7" fill={CLASSIC.needle} />
-              <text x={spot.x} y={spot.y + WORLD_R + 19} textAnchor="middle" fill={CLASSIC.dialInk} fontSize="7.5" fontWeight="700">
-                {city.time}
-              </text>
-            </g>
-          );
-        })}
         <g filter="url(#ms-shadow)">
           <polygon points="-5,9 0,-72 5,9" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
           <polygon points="-3.8,11 0,-108 3.8,11" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
