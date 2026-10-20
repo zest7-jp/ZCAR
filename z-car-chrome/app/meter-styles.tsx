@@ -348,30 +348,40 @@ const label = (
   </text>
 );
 
+/**
+ * 真ん中の列は1つの枠。上の段に回転計・速さ・平均をまとめ(仕切りの線だけで分ける)、
+ * 下の段が緑の画面(地図)。GAUGE_L・GAUGE_R は上の段の中身の左右の端。
+ */
+const RETRO_UNIT = { x: 281, y: 12, w: 475, h: 533 };
+const GAUGE_L = 300;
+const GAUGE_R = 737;
+/** 回転計の棒の下の位置、速さ・平均の段の上の仕切り、速さと平均の間の仕切り。 */
+const TACHO_BOTTOM = 108;
+const GAUGE_ROW_TOP = 136;
+const GAUGE_SPLIT = 524;
+/** 速さの数字の高さ(地図を広く見せるため、少し小さめ)。 */
+const SPEED_DIGIT_H = 72;
+
 const TACHO_BARS = 32;
+const TACHO_PITCH = (GAUGE_R - GAUGE_L - 11) / (TACHO_BARS - 1);
 const tachoBar = (index: number) => {
   const rpm = (index + 1) * (RPM_MAX / TACHO_BARS);
-  const height = 16 + (index / (TACHO_BARS - 1)) * 52;
+  const height = 14 + (index / (TACHO_BARS - 1)) * 46;
   return {
     rpm,
-    x: r2(284 + index * 14.25),
-    y: r2(106 - height),
+    x: r2(GAUGE_L + index * TACHO_PITCH),
+    y: r2(TACHO_BOTTOM - height),
     height: r2(height),
     color: rpm > RPM_RED ? RETRO.red : rpm > 5000 ? RETRO.yellow : RETRO.green,
   };
 };
 const BAR_SEGMENTS = 18;
 /**
- * 緑の画面(地図)。回転計の下を全部使い、速さと平均は地図の上に重ねた札に出す。
+ * 緑の画面(地図)は、真ん中の枠の下の段。
  * 右の列の BATTERY より下は、エコ運転の表示と、Google マップの小さな画面(ナビ中に重ねて出す)を
  * 置く箱。DEST・START はその箱の中。
  */
-const RETRO_CRT = { x: 284, y: 136, w: 469, h: 406 };
-/** 地図の上に重ねる札: 左上に速さ、右上に平均(巡航速度・燃費)。回転計のすぐ下に来る。 */
-const RETRO_SPEED_PANEL = { x: 296, y: 148, w: 210, h: 110 };
-const RETRO_AVG_PANEL = { x: 590, y: 148, w: 151, h: 110 };
-/** 速さの数字の高さ(地図を広く見せるため、少し小さめ)。 */
-const SPEED_DIGIT_H = 72;
+const RETRO_CRT = { x: 284, y: 270, w: 469, h: 272 };
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
 const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
 /** DEST・START は箱の中に同じ大きさで縦に並べる(ナビ中は、Google マップの小さな画面がこの上に重なる)。 */
@@ -427,24 +437,6 @@ const retroKey = (key: typeof RETRO_DEST, color: string) => (
   </g>
 );
 
-/** 地図の上に重ねる札の、動かない所(下地と説明の文字)。地図より上に描く。 */
-const RetroMapOverlay = memo(function RetroMapOverlay() {
-  const speed = RETRO_SPEED_PANEL;
-  const avg = RETRO_AVG_PANEL;
-  return (
-    <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-      <rect x={speed.x} y={speed.y} width={speed.w} height={speed.h} rx="10" fill="#010403" fillOpacity=".8" stroke="#1f3a32" />
-      <rect x={avg.x} y={avg.y} width={avg.w} height={avg.h} rx="10" fill="#010403" fillOpacity=".8" stroke="#1f3a32" />
-      {label("speed", speed.x + 14, speed.y + 18, "SPEED")}
-      {label("kmh", r2(speed.x + 24 + segWidth("888", SPEED_DIGIT_H)), speed.y + 96, "km/h", { color: RETRO.cyan, size: 15, spacing: 0 })}
-      {label("cruise", avg.x + 14, avg.y + 18, "AVG CRUISE")}
-      {label("cruiseUnit", avg.x + avg.w - 12, avg.y + 47, "km/h", { anchor: "end", size: 9, spacing: 1 })}
-      {label("fuel", avg.x + 14, avg.y + 66, "AVG FUEL")}
-      {label("fuelUnit", avg.x + avg.w - 12, avg.y + 95, "km/L", { anchor: "end", size: 9, spacing: 1 })}
-    </svg>
-  );
-});
-
 /** 80年代のデジタルの、動かない絵(下地・仕切り・説明の文字・消えている棒)。 */
 const RetroFace = memo(function RetroFace() {
   const labels: ReactNode[] = [
@@ -454,7 +446,13 @@ const RetroFace = memo(function RetroFace() {
     label("world", 22, 363, "WORLD TIME"),
     label("today", 22, 488, "TODAY DISTANCE"),
     label("km", 222, 531, "km", { color: RETRO.green, size: 12, spacing: 0 }),
-    label("engine", 284, 26, "ENGINE ×1000 r/min"),
+    label("engine", GAUGE_L, 34, "ENGINE ×1000 r/min"),
+    label("speed", GAUGE_L, 156, "SPEED"),
+    label("kmh", r2(GAUGE_L + segWidth("888", SPEED_DIGIT_H) + 10), 236, "km/h", { color: RETRO.cyan, size: 15, spacing: 0 }),
+    label("cruise", GAUGE_SPLIT + 16, 156, "AVG CRUISE"),
+    label("cruiseUnit", GAUGE_R, 190, "km/h", { anchor: "end", size: 9, spacing: 1 }),
+    label("fuel", GAUGE_SPLIT + 16, 214, "AVG FUEL"),
+    label("fuelUnit", GAUGE_R, 248, "km/L", { anchor: "end", size: 9, spacing: 1 }),
     label("tank", 778, RETRO_RIGHT.fuelBar - 12, "FUEL"),
     label("e", 778, RETRO_RIGHT.fuelBar + 15, "E", { color: RETRO.soft, size: 10, spacing: 0 }),
     label("f", 998, RETRO_RIGHT.fuelBar + 15, "F", { color: RETRO.soft, size: 10, anchor: "end", spacing: 0 }),
@@ -470,7 +468,7 @@ const RetroFace = memo(function RetroFace() {
     label("ecoRpm", 1000, RETRO_ECO.lamp - 3, "≤2000 r/min", { color: RETRO.soft, size: 9, anchor: "end", spacing: 1 }),
   ];
   for (let k = 0; k <= 8; k += 1) {
-    labels.push(label(`n${k}`, r2(284 + k * 4 * 14.25 - (k === 8 ? 3 : 0)), 122, String(k), { color: k >= 7 ? RETRO.red : RETRO.soft, size: 10, anchor: "middle", spacing: 0 }));
+    labels.push(label(`n${k}`, r2(GAUGE_L + k * 4 * TACHO_PITCH - (k === 8 ? 3 : 0)), 124, String(k), { color: k >= 7 ? RETRO.red : RETRO.soft, size: 10, anchor: "middle", spacing: 0 }));
   }
   return (
     <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
@@ -492,6 +490,13 @@ const RetroFace = memo(function RetroFace() {
       </defs>
       <rect width={BOARD_W} height={BOARD_H} fill="#040506" />
       <rect width={BOARD_W} height={BOARD_H} fill="url(#ms-retro-sheen)" />
+      {/* 真ん中の1つの枠。上の段(回転計・速さ・平均)と下の段(地図)を細い線で分ける。 */}
+      <rect x={RETRO_UNIT.x} y={RETRO_UNIT.y} width={RETRO_UNIT.w} height={RETRO_UNIT.h} rx="20" fill="#080b0b" stroke="#2a3534" strokeWidth="2" />
+      <g stroke={RETRO.line} strokeWidth="1.2">
+        <line x1={GAUGE_L} y1={GAUGE_ROW_TOP} x2={GAUGE_R} y2={GAUGE_ROW_TOP} />
+        <line x1={GAUGE_SPLIT} y1={GAUGE_ROW_TOP + 12} x2={GAUGE_SPLIT} y2={RETRO_CRT.y - 18} />
+      </g>
+      <line x1={RETRO_CRT.x} y1={RETRO_CRT.y - 4} x2={RETRO_CRT.x + RETRO_CRT.w} y2={RETRO_CRT.y - 4} stroke="#2a3534" strokeWidth="1.5" />
       {/* 上の3本の線(80年代の車の飾りの線)。 */}
       <rect y="0" width={BOARD_W} height="2" fill={RETRO.amber} opacity=".9" />
       <rect y="3" width={BOARD_W} height="1.5" fill="#ff6b2b" opacity=".85" />
@@ -538,8 +543,6 @@ const RetroFace = memo(function RetroFace() {
       {Array.from({ length: ECO_SEGMENTS }, (_, i) => (
         <rect key={i} {...ecoSegment(i)} fill={RETRO.green} opacity=".1" />
       ))}
-      {/* 地図の画面の枠。 */}
-      <rect x={RETRO_CRT.x - 3} y={RETRO_CRT.y - 3} width={RETRO_CRT.w + 6} height={RETRO_CRT.h + 6} rx="20" fill="#0b0f0f" stroke="#2a3534" strokeWidth="2" />
       {/* 右下の縦長の箱(Google マップの小さな画面を置く所)。名前の札は上の線に切り込む。中に DEST・START。 */}
       <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
       <rect x={RETRO_MAP_BAY.x + 14} y={RETRO_MAP_BAY.y - 5} width="88" height="10" fill="#040506" />
@@ -597,7 +600,6 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         </svg>
         <b className="ms-retro-crt-label" aria-hidden="true">NAVI ▲N</b>
       </div>
-      <RetroMapOverlay />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
         <SevenSeg text={`${pad2(data.month)}-${pad2(data.day)}`} x={22} y={118} h={22} color={RETRO.amber} />
@@ -629,7 +631,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
           <SevenSeg key={city.name} text={city.time} x={248} y={374 + i * 30} h={18} color={RETRO.cyan} align="end" />
         ))}
         <SevenSeg text={Math.min(9999.9, data.todayKm).toFixed(1)} x={214} y={498} h={34} color={RETRO.green} align="end" />
-        <SevenSeg text={rpm === null ? "----" : String(Math.round(rpm))} x={740} y={14} h={16} color={RETRO.cyan} align="end" />
+        <SevenSeg text={rpm === null ? "----" : String(Math.round(rpm))} x={GAUGE_R} y={22} h={16} color={RETRO.cyan} align="end" />
         <g filter="url(#ms-vfd)">
           {Array.from({ length: TACHO_BARS }, (_, i) => {
             const bar = tachoBar(i);
@@ -640,24 +642,24 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         </g>
         <SevenSeg
           text={data.speed === null ? "---" : String(Math.round(data.speed)).padStart(3, " ")}
-          x={RETRO_SPEED_PANEL.x + 14}
-          y={RETRO_SPEED_PANEL.y + 26}
+          x={GAUGE_L}
+          y={166}
           h={SPEED_DIGIT_H}
           color={RETRO.cyan}
         />
         <SevenSeg
           text={data.avgCruise === null ? "--" : String(Math.round(data.avgCruise))}
-          x={RETRO_AVG_PANEL.x + RETRO_AVG_PANEL.w - 43}
-          y={RETRO_AVG_PANEL.y + 24}
-          h={24}
+          x={GAUGE_R - 31}
+          y={164}
+          h={26}
           color={RETRO.amber}
           align="end"
         />
         <SevenSeg
           text={data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)}
-          x={RETRO_AVG_PANEL.x + RETRO_AVG_PANEL.w - 43}
-          y={RETRO_AVG_PANEL.y + 72}
-          h={24}
+          x={GAUGE_R - 31}
+          y={222}
+          h={26}
           color={RETRO.amber}
           align="end"
         />
@@ -684,7 +686,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
       </svg>
       <i className="ms-retro-mesh" aria-hidden="true" />
       <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[RETRO_AVG_PANEL.x, RETRO_AVG_PANEL.y + 56, RETRO_AVG_PANEL.w, RETRO_AVG_PANEL.h - 56]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[GAUGE_SPLIT, 200, GAUGE_R - GAUGE_SPLIT + 12, 58]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
         box={[RETRO_START.x, RETRO_START.y, RETRO_START.w, RETRO_START.h]}
