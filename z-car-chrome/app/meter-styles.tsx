@@ -368,8 +368,10 @@ const BAR_SEGMENTS = 18;
  */
 const RETRO_CRT = { x: 284, y: 136, w: 469, h: 406 };
 /** 地図の上に重ねる札: 左下に速さ、右下に平均(巡航速度・燃費)。 */
-const RETRO_SPEED_PANEL = { x: 296, y: 402, w: 244, h: 128 };
-const RETRO_AVG_PANEL = { x: 590, y: 402, w: 151, h: 128 };
+const RETRO_SPEED_PANEL = { x: 296, y: 420, w: 210, h: 110 };
+const RETRO_AVG_PANEL = { x: 590, y: 420, w: 151, h: 110 };
+/** 速さの数字の高さ(地図を広く見せるため、少し小さめ)。 */
+const SPEED_DIGIT_H = 72;
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
 const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
 /** DEST・START は箱の中に同じ大きさで縦に並べる(ナビ中は、Google マップの小さな画面がこの上に重なる)。 */
@@ -445,12 +447,12 @@ const RetroMapOverlay = memo(function RetroMapOverlay() {
     <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <rect x={speed.x} y={speed.y} width={speed.w} height={speed.h} rx="10" fill="#010403" fillOpacity=".8" stroke="#1f3a32" />
       <rect x={avg.x} y={avg.y} width={avg.w} height={avg.h} rx="10" fill="#010403" fillOpacity=".8" stroke="#1f3a32" />
-      {label("speed", speed.x + 14, speed.y + 19, "SPEED")}
-      {label("kmh", speed.x + 186, speed.y + 114, "km/h", { color: RETRO.cyan, size: 16, spacing: 0 })}
-      {label("cruise", avg.x + 14, avg.y + 19, "AVG CRUISE")}
-      {label("cruiseUnit", avg.x + avg.w - 12, avg.y + 52, "km/h", { anchor: "end", size: 9, spacing: 1 })}
-      {label("fuel", avg.x + 14, avg.y + 75, "AVG FUEL")}
-      {label("fuelUnit", avg.x + avg.w - 12, avg.y + 108, "km/L", { anchor: "end", size: 9, spacing: 1 })}
+      {label("speed", speed.x + 14, speed.y + 18, "SPEED")}
+      {label("kmh", r2(speed.x + 24 + segWidth("888", SPEED_DIGIT_H)), speed.y + 96, "km/h", { color: RETRO.cyan, size: 15, spacing: 0 })}
+      {label("cruise", avg.x + 14, avg.y + 18, "AVG CRUISE")}
+      {label("cruiseUnit", avg.x + avg.w - 12, avg.y + 47, "km/h", { anchor: "end", size: 9, spacing: 1 })}
+      {label("fuel", avg.x + 14, avg.y + 66, "AVG FUEL")}
+      {label("fuelUnit", avg.x + avg.w - 12, avg.y + 95, "km/L", { anchor: "end", size: 9, spacing: 1 })}
     </svg>
   );
 });
@@ -649,23 +651,23 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         <SevenSeg
           text={data.speed === null ? "---" : String(Math.round(data.speed)).padStart(3, " ")}
           x={RETRO_SPEED_PANEL.x + 14}
-          y={RETRO_SPEED_PANEL.y + 28}
-          h={88}
+          y={RETRO_SPEED_PANEL.y + 26}
+          h={SPEED_DIGIT_H}
           color={RETRO.cyan}
         />
         <SevenSeg
           text={data.avgCruise === null ? "--" : String(Math.round(data.avgCruise))}
           x={RETRO_AVG_PANEL.x + RETRO_AVG_PANEL.w - 43}
-          y={RETRO_AVG_PANEL.y + 26}
-          h={26}
+          y={RETRO_AVG_PANEL.y + 24}
+          h={24}
           color={RETRO.amber}
           align="end"
         />
         <SevenSeg
           text={data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)}
           x={RETRO_AVG_PANEL.x + RETRO_AVG_PANEL.w - 43}
-          y={RETRO_AVG_PANEL.y + 82}
-          h={26}
+          y={RETRO_AVG_PANEL.y + 72}
+          h={24}
           color={RETRO.amber}
           align="end"
         />
@@ -686,7 +688,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
       </svg>
       <i className="ms-retro-mesh" aria-hidden="true" />
       <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[RETRO_AVG_PANEL.x, RETRO_AVG_PANEL.y + 64, RETRO_AVG_PANEL.w, RETRO_AVG_PANEL.h - 64]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[RETRO_AVG_PANEL.x, RETRO_AVG_PANEL.y + 56, RETRO_AVG_PANEL.w, RETRO_AVG_PANEL.h - 56]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
         box={[RETRO_START.x, RETRO_START.y, RETRO_START.w, RETRO_START.h]}
