@@ -7,7 +7,7 @@
 
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { WEEKDAY_ELEMENT_COLORS } from "./workday-marks";
-import { BAGUA_PATTERNS, type BaguaPattern, type MeterStyle } from "./settings-store";
+import { BAGUA_PANELS, BAGUA_PATTERNS, type BaguaPanel, type BaguaPattern, type MeterStyle } from "./settings-store";
 
 const BOARD_W = 1024;
 const BOARD_H = 566;
@@ -1472,6 +1472,10 @@ const rpmSegment = (i: number) => {
   return `M${ax} ${ay}A${B_RPM_R} ${B_RPM_R} 0 0 1 ${bx} ${by}`;
 };
 const B_RPM_HOT = Math.round((RPM_RED / RPM_MAX) * B_RPM_SEGS);
+/** 右上の「八卦の順と数」の札(遅い→速い。今の卦まで光る)。押すと羅盤と入れ替わる。 */
+const B_LEGEND_PANEL = { x: 788, y: 16, w: 220, h: 300 };
+const B_LEGEND = TRIGRAMS.map((tri, i) => ({ ...tri, x: 824 + (i % 4) * 50, y: 90 + Math.floor(i / 4) * 110 }));
+const B_LEGEND_LINE = { r: 0, gap: 9, t: 5, w: 30 };
 
 /**
  * 六十四卦の円図(先天の並び。上が南で、乾が上・坤が下)。
@@ -1695,7 +1699,7 @@ const B_GAUGES = [
 const B_GAUGE = { left: 36, width: 180, seal: 184 };
 
 /** 八卦の動かない絵: 下地・(パターンごとの)消えている線や輪・左右の札。 */
-const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }) {
+const BaguaFace = memo(function BaguaFace({ pattern, panel }: { pattern: BaguaPattern; panel: BaguaPanel }) {
   return (
     <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <defs>
@@ -1793,32 +1797,44 @@ const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }
           ))}
         </g>
       ))}
-      {/* 右上の羅盤(消えた形)。今の卦までの光と針は、動く絵で上に重ねる */}
-      <BrassPlate x={LUOPAN.x} y={LUOPAN.y} w={LUOPAN.w} h={LUOPAN.h} />
-      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="#0c0504" />
-      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="none" stroke={BAGUA.gold} strokeWidth="1.6" filter="url(#mb-glow)" />
-      {LP_BORDERS.map((r) => (
-        <circle key={r} cx={LUOPAN.cx} cy={LUOPAN.cy} r={r} fill="none" stroke={BAGUA.rule} strokeWidth=".8" />
-      ))}
-      {Array.from({ length: 8 }, (_, i) => {
-        const [x1, y1] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.pool + 2, 22.5 + i * 45);
-        const [x2, y2] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.outer, 22.5 + i * 45);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={BAGUA.rule} strokeWidth=".8" />;
-      })}
-      {TRIGRAMS.map((tri, v) => (
-        <LuopanSlot key={tri.name} v={v} lit={false} />
-      ))}
-      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.pool} fill="url(#mb-pool)" stroke={BAGUA.cyan} strokeWidth=".8" strokeOpacity=".7" />
-      {/* 天心十道(赤い糸) */}
-      <g stroke={BAGUA.red} strokeWidth="1" opacity=".75">
-        <line x1={LUOPAN.x} y1={LUOPAN.cy} x2={LUOPAN.x + LUOPAN.w} y2={LUOPAN.cy} />
-        <line x1={LUOPAN.cx} y1={LUOPAN.y} x2={LUOPAN.cx} y2={LUOPAN.y + LUOPAN.h} />
-      </g>
-      {/* 針の読みの札 */}
-      <rect x={B_READ.x} y={B_READ.y} width={B_READ.w} height={B_READ.h} rx="8" fill={BAGUA.panel} stroke={BAGUA.line} />
-      <text x={B_READ.x + 15} y={B_READ.y + 16} fill={BAGUA.dim} fontSize="9" fontWeight="700" letterSpacing="1">
-        針の指す卦
-      </text>
+      {panel === "luopan" ? (
+        <g>
+          {/* 右上の羅盤(消えた形)。今の卦までの光と針は、動く絵で上に重ねる */}
+          <BrassPlate x={LUOPAN.x} y={LUOPAN.y} w={LUOPAN.w} h={LUOPAN.h} />
+          <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="#0c0504" />
+          <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="none" stroke={BAGUA.gold} strokeWidth="1.6" filter="url(#mb-glow)" />
+          {LP_BORDERS.map((r) => (
+            <circle key={r} cx={LUOPAN.cx} cy={LUOPAN.cy} r={r} fill="none" stroke={BAGUA.rule} strokeWidth=".8" />
+          ))}
+          {Array.from({ length: 8 }, (_, i) => {
+            const [x1, y1] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.pool + 2, 22.5 + i * 45);
+            const [x2, y2] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.outer, 22.5 + i * 45);
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={BAGUA.rule} strokeWidth=".8" />;
+          })}
+          {TRIGRAMS.map((tri, v) => (
+            <LuopanSlot key={tri.name} v={v} lit={false} />
+          ))}
+          <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.pool} fill="url(#mb-pool)" stroke={BAGUA.cyan} strokeWidth=".8" strokeOpacity=".7" />
+          {/* 天心十道(赤い糸) */}
+          <g stroke={BAGUA.red} strokeWidth="1" opacity=".75">
+            <line x1={LUOPAN.x} y1={LUOPAN.cy} x2={LUOPAN.x + LUOPAN.w} y2={LUOPAN.cy} />
+            <line x1={LUOPAN.cx} y1={LUOPAN.y} x2={LUOPAN.cx} y2={LUOPAN.y + LUOPAN.h} />
+          </g>
+          {/* 針の読みの札 */}
+          <rect x={B_READ.x} y={B_READ.y} width={B_READ.w} height={B_READ.h} rx="8" fill={BAGUA.panel} stroke={BAGUA.line} />
+          <text x={B_READ.x + 15} y={B_READ.y + 16} fill={BAGUA.dim} fontSize="9" fontWeight="700" letterSpacing="1">
+            針の指す卦
+          </text>
+        </g>
+      ) : (
+        <g>
+          {/* 右上の「八卦の順と数」(遅い→速い。8進の1けた)。今の卦までの光は動く絵で */}
+          <BrassPlate x={B_LEGEND_PANEL.x} y={B_LEGEND_PANEL.y} w={B_LEGEND_PANEL.w} h={B_LEGEND_PANEL.h} />
+          <text x="808" y="46" fill={BAGUA.dim} fontSize="11" fontWeight="700" letterSpacing="1">
+            八卦の順と数(遅い → 速い)
+          </text>
+        </g>
+      )}
       {/* 南北の目盛り */}
       <text x={B_RULER.x} y={B_RULER.top - 7} textAnchor="middle" fill={BAGUA.gold} fontSize="11" fontWeight="700" className="mb-serif">
         南
@@ -1874,11 +1890,14 @@ type BaguaProps = ClusterProps & {
   pattern: BaguaPattern;
   /** 真ん中を押したとき(次のパターンにする)。 */
   onPattern: () => void;
-  /** パターンを変えた回数。0 より大きいと、名前の札を少し出す。 */
-  flash: number;
+  panel: BaguaPanel;
+  /** 右上の札を押したとき(八卦の順と数と羅盤を入れ替える)。 */
+  onPanel: () => void;
+  /** パターンか右上の札を変えた回数と、最後に変えた方。count が 0 より大きいと、名前の札を少し出す。 */
+  flash: { count: number; kind: "pattern" | "panel" };
 };
 
-export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern, flash }: BaguaProps) {
+export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern, panel, onPanel, flash }: BaguaProps) {
   const speed = Math.max(0, data.speed ?? 0);
   const litLines = Math.min(24, Math.floor((speed / SPEED_MAX) * 24));
   const band = Math.min(TRIGRAMS.length - 1, Math.floor(speed / B_BAND_KMH));
@@ -1886,7 +1905,7 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
   const litRpm = Math.min(B_RPM_SEGS, Math.round(((data.rpm ?? 0) / RPM_MAX) * B_RPM_SEGS));
   const hexNow = Math.min(63, Math.floor(speed / B_HEX_KMH));
   const hexagram = hexagramName(hexNow);
-  // 羅盤の針が指す卦: ネオン八卦は勢いの卦、円図は今の卦の下の卦(右半分を下から、そのあと左半分)。
+  // 右上で光らせる卦(羅盤では針が指す卦): ネオン八卦は勢いの卦、円図は今の卦の下の卦(右半分を下から、そのあと左半分)。
   const needle = pattern === "neon" ? band : hexNow >> 3;
   const needleTip = pol(LUOPAN.cx, LUOPAN.cy, 40, FUXI_DEG[needle]);
   const needleTail = pol(LUOPAN.cx, LUOPAN.cy, 34, FUXI_DEG[needle] + 180);
@@ -1904,6 +1923,7 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
     { value: data.voltage === null ? "—" : data.voltage.toFixed(1), unit: "V", ratio: data.voltage === null ? null : (data.voltage - 11.5) / 3 },
   ];
   const patternIndex = Math.max(0, BAGUA_PATTERNS.findIndex((item) => item.id === pattern));
+  const panelIndex = Math.max(0, BAGUA_PANELS.findIndex((item) => item.id === panel));
   const speedDigits = octalDigits(speed).length;
   const kind = data.weather ? weatherKind(data.weather.code) : null;
   const weatherTri = kind ? WEATHER_TRIGRAM[kind] : null;
@@ -1911,7 +1931,7 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
   const glow = "url(#mb-glow)";
   return (
     <Board className="ms-bagua">
-      <BaguaFace pattern={pattern} />
+      <BaguaFace pattern={pattern} panel={panel} />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         {pattern === "neon" ? (
           <g>
@@ -2075,28 +2095,52 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
             </g>
           );
         })}
-        {/* 右上の羅盤: 今の卦までが光り、針が今の卦を指す */}
-        <g data-needle={TRIGRAMS[needle].name}>
-          <path d={luopanSector(FUXI_DEG[needle] - 22.5, FUXI_DEG[needle] + 22.5)} fill={ELEMENT_COLORS[needle]} fillOpacity=".14" stroke={BAGUA.gold} strokeWidth="1.2" filter={glow} />
-          {TRIGRAMS.map((tri, v) => (v <= needle ? <LuopanSlot key={tri.name} v={v} lit /> : null))}
-          <polygon points={`${needleTip.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.red} filter={glow} />
-          <polygon points={`${needleTail.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.ink} opacity=".85" />
-          <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r="3.6" fill={BAGUA.gold} />
-        </g>
-        {/* 針の読み: 卦の名前・意味と五行・方位・数 */}
-        <text x={B_READ.x + 15} y={B_READ.y + 58} fill={ELEMENT_COLORS[needle]} fontSize="32" fontWeight="700" className="mb-serif" filter={glow}>
-          {TRIGRAMS[needle].name}
-        </text>
-        <text x={B_READ.x + 59} y={B_READ.y + 41} fill={BAGUA.ink} fontSize="13" fontWeight="700" className="mb-serif">
-          {`${TRIGRAMS[needle].mean} · ${TRIGRAMS[needle].el}`}
-        </text>
-        <text x={B_READ.x + 59} y={B_READ.y + 59} fill={BAGUA.dim} fontSize="11" fontWeight="700" className="mb-serif">
-          {`方位 ${TRIGRAMS[needle].dir}`}
-        </text>
-        <polygon points={octagonPoints(974, B_READ.y + 35, 22)} fill="none" stroke={ELEMENT_COLORS[needle]} strokeWidth="1.4" filter={glow} />
-        <text x="974" y={B_READ.y + 42} textAnchor="middle" fill={BAGUA.ink} fontSize="20" fontWeight="700">
-          {needle}
-        </text>
+        {panel === "luopan" ? (
+          <g>
+            {/* 右上の羅盤: 今の卦までが光り、針が今の卦を指す */}
+            <g data-needle={TRIGRAMS[needle].name}>
+              <path d={luopanSector(FUXI_DEG[needle] - 22.5, FUXI_DEG[needle] + 22.5)} fill={ELEMENT_COLORS[needle]} fillOpacity=".14" stroke={BAGUA.gold} strokeWidth="1.2" filter={glow} />
+              {TRIGRAMS.map((tri, v) => (v <= needle ? <LuopanSlot key={tri.name} v={v} lit /> : null))}
+              <polygon points={`${needleTip.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.red} filter={glow} />
+              <polygon points={`${needleTail.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.ink} opacity=".85" />
+              <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r="3.6" fill={BAGUA.gold} />
+            </g>
+            {/* 針の読み: 卦の名前・意味と五行・方位・数 */}
+            <text x={B_READ.x + 15} y={B_READ.y + 58} fill={ELEMENT_COLORS[needle]} fontSize="32" fontWeight="700" className="mb-serif" filter={glow}>
+              {TRIGRAMS[needle].name}
+            </text>
+            <text x={B_READ.x + 59} y={B_READ.y + 41} fill={BAGUA.ink} fontSize="13" fontWeight="700" className="mb-serif">
+              {`${TRIGRAMS[needle].mean} · ${TRIGRAMS[needle].el}`}
+            </text>
+            <text x={B_READ.x + 59} y={B_READ.y + 59} fill={BAGUA.dim} fontSize="11" fontWeight="700" className="mb-serif">
+              {`方位 ${TRIGRAMS[needle].dir}`}
+            </text>
+            <polygon points={octagonPoints(974, B_READ.y + 35, 22)} fill="none" stroke={ELEMENT_COLORS[needle]} strokeWidth="1.4" filter={glow} />
+            <text x="974" y={B_READ.y + 42} textAnchor="middle" fill={BAGUA.ink} fontSize="20" fontWeight="700">
+              {needle}
+            </text>
+          </g>
+        ) : (
+          <g data-legend={TRIGRAMS[needle].name}>
+            {/* 八卦の順と数: 五行の色分けのまま、今の卦までが光る。下に意味と数(8進の1けた) */}
+            {B_LEGEND.map((tri, i) => {
+              const on = i <= needle;
+              return (
+                <g key={tri.name}>
+                  <g fill={ELEMENT_COLORS[i]} opacity={on ? 1 : 0.32} filter={on ? glow : undefined}>
+                    {tri.lines.map((yang, k) => trigramLine(tri.x, tri.y, B_LEGEND_LINE, k, yang, String(k)))}
+                  </g>
+                  <text x={tri.x} y={tri.y + 40} textAnchor="middle" fill={on ? ELEMENT_COLORS[i] : BAGUA.dim} fontSize="15" fontWeight="700" className="mb-serif">
+                    {tri.name}
+                  </text>
+                  <text x={tri.x} y={tri.y + 58} textAnchor="middle" fill={BAGUA.dim} fontSize="10" fontWeight="700">
+                    {`${tri.mean} ${i}`}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        )}
         {/* 南北の目盛りの、今の速さの印 */}
         <polygon points={`${B_RULER.x + 10},${speedY} ${B_RULER.x + 19},${speedY - 5} ${B_RULER.x + 19},${speedY + 5}`} fill={BAGUA.red} filter={glow} />
         <text x={B_START.x + 18} y={B_START.y + 84} fill={BAGUA.ink} fontSize={dest.length <= 5 ? 26 : 19} fontWeight="700" className="ms-ja">
@@ -2104,12 +2148,13 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
         </text>
       </svg>
       <Hit box={[BX - B_CENTER, BY - B_CENTER, B_CENTER * 2, B_CENTER * 2]} label={`八卦のパターンを変える(今は ${BAGUA_PATTERNS[patternIndex].name})`} onPress={onPattern} />
-      {flash > 0 ? (
-        <span key={flash} className="gauge-design-flash" aria-live="polite">
+      <Hit box={[B_LEGEND_PANEL.x, B_LEGEND_PANEL.y, B_LEGEND_PANEL.w, B_LEGEND_PANEL.h]} label={`右上の札を変える(今は ${BAGUA_PANELS[panelIndex].name})`} onPress={onPanel} />
+      {flash.count > 0 ? (
+        <span key={flash.count} className="gauge-design-flash" aria-live="polite">
           <small>
-            PATTERN {patternIndex + 1}/{BAGUA_PATTERNS.length}
+            {flash.kind === "panel" ? `PANEL ${panelIndex + 1}/${BAGUA_PANELS.length}` : `PATTERN ${patternIndex + 1}/${BAGUA_PATTERNS.length}`}
           </small>
-          <b>{BAGUA_PATTERNS[patternIndex].name}</b>
+          <b>{flash.kind === "panel" ? BAGUA_PANELS[panelIndex].name : BAGUA_PATTERNS[patternIndex].name}</b>
         </span>
       ) : null}
       <Hit box={[B_FUEL_PANEL.x, B_FUEL_PANEL.y, B_FUEL_PANEL.w, B_FUEL_PANEL.h]} label="燃費の記録・確認を開く" onPress={onFuel} />

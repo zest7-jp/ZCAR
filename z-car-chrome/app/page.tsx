@@ -5,6 +5,7 @@ import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import { useParkingReport } from "./hooks/use-parking-report";
 import { useSharedSync } from "./hooks/use-shared-sync";
 import {
+  BAGUA_PANELS,
   BAGUA_PATTERNS,
   buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
@@ -418,7 +419,7 @@ export default function Home() {
   // メーターの真ん中を押して形を変えたとき、形の名前を少しだけ出す(数が変わるたびに出し直す)。
   const [designFlash, setDesignFlash] = useState(0);
   // 八卦のテーマで、真ん中を押してパターンを変えたとき(同じように名前を少し出す)。
-  const [baguaFlash, setBaguaFlash] = useState(0);
+  const [baguaFlash, setBaguaFlash] = useState<{ count: number; kind: "pattern" | "panel" }>({ count: 0, kind: "pattern" });
   const greenGmapRef = useRef<{
     setCenter: (point: { lat: number; lng: number }) => void;
     moveCamera: (camera: Record<string, unknown>) => void;
@@ -1662,7 +1663,14 @@ export default function Home() {
     const index = BAGUA_PATTERNS.findIndex((pattern) => pattern.id === settings.baguaPattern);
     const next = BAGUA_PATTERNS[(index + 1) % BAGUA_PATTERNS.length];
     setSettings((current) => ({ ...current, baguaPattern: next.id }));
-    setBaguaFlash((count) => count + 1);
+    setBaguaFlash((flash) => ({ count: flash.count + 1, kind: "pattern" }));
+  };
+  // 八卦のテーマ: 右上の札を押すと、「八卦の順と数」と羅盤を入れ替える(車だけに覚える)。
+  const cycleBaguaPanel = () => {
+    const index = BAGUA_PANELS.findIndex((panel) => panel.id === settings.baguaPanel);
+    const next = BAGUA_PANELS[(index + 1) % BAGUA_PANELS.length];
+    setSettings((current) => ({ ...current, baguaPanel: next.id }));
+    setBaguaFlash((flash) => ({ count: flash.count + 1, kind: "panel" }));
   };
   const gaugeSwitch = (
     <>
@@ -1859,6 +1867,8 @@ export default function Home() {
               onStart={startNavigation}
               pattern={settings.baguaPattern}
               onPattern={cycleBaguaPattern}
+              panel={settings.baguaPanel}
+              onPanel={cycleBaguaPanel}
               flash={baguaFlash}
             />
           </main>

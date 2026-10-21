@@ -343,6 +343,8 @@ export type Settings = {
   meterStyle: MeterStyle;
   /** 八卦のテーマの真ん中の形(メーターの真ん中を押して変える)。車だけに覚え、同期しない。 */
   baguaPattern: BaguaPattern;
+  /** 八卦のテーマの右上の札(右上を押して変える)。車だけに覚え、同期しない。 */
+  baguaPanel: BaguaPanel;
   /** 設定同期の合言葉。空なら同期しない。端末内だけに保存し、送信内容には含めない。 */
   syncKey: string;
   /** 車とつないだ時刻(0なら未接続)。端末ごとの値なので同期しない。 */
@@ -376,6 +378,7 @@ export const defaults: Settings = {
   meterDesign: "navi",
   meterStyle: "future",
   baguaPattern: "neon",
+  baguaPanel: "legend",
   syncKey: "",
   pairedAt: 0,
   shareToken: "",
@@ -714,6 +717,13 @@ export const BAGUA_PATTERNS: { id: BaguaPattern; name: string }[] = [
 ];
 const isBaguaPattern = (value: unknown): value is BaguaPattern =>
   BAGUA_PATTERNS.some((pattern) => pattern.id === value);
+/** 八卦のテーマの右上の札。legend は八卦の順と数(今の卦まで光る)、luopan は針が今の卦を指す羅盤。 */
+export type BaguaPanel = "legend" | "luopan";
+export const BAGUA_PANELS: { id: BaguaPanel; name: string }[] = [
+  { id: "legend", name: "八卦の順と数" },
+  { id: "luopan", name: "羅盤" },
+];
+const isBaguaPanel = (value: unknown): value is BaguaPanel => BAGUA_PANELS.some((panel) => panel.id === value);
 
 const isMeterStyle = (value: unknown): value is MeterStyle =>
   METER_STYLES.some((style) => style.id === value);
@@ -746,6 +756,7 @@ export const readSettings = (): Settings => {
         : defaults.meterDesign,
       meterStyle: isMeterStyle(stored.meterStyle) ? stored.meterStyle : defaults.meterStyle,
       baguaPattern: isBaguaPattern(stored.baguaPattern) ? stored.baguaPattern : defaults.baguaPattern,
+      baguaPanel: isBaguaPanel(stored.baguaPanel) ? stored.baguaPanel : defaults.baguaPanel,
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       shareToken: typeof stored.shareToken === "string" ? stored.shareToken : "",
