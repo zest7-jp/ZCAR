@@ -411,9 +411,13 @@ const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, bat
 /** 箱の上と左の空き: エコ運転のランプ(箱の上)と縦の棒(箱の左)。 */
 const RETRO_ECO = { x: 778, label: 282, lamp: 322, bar: { x: 786, y: 338, w: 32, h: 208 } };
 const ECO_SEGMENTS = 12;
-/** 回転数がこれ以下なら棒が全部点き、ECO_EMPTY_RPM 以上なら1つも点かない(真ん中の 2000 で ECO が光る)。 */
-const ECO_FULL_RPM = 1000;
-const ECO_EMPTY_RPM = 3000;
+/**
+ * この回転数以下で ECO が光る(軽自動車なので 2400)。棒は、そこから 1000 回転下で全部点き、
+ * 1000 回転上で1つも点かない(ちょうど ECO_RPM で半分)。
+ */
+const ECO_RPM = 2400;
+const ECO_FULL_RPM = ECO_RPM - 1000;
+const ECO_EMPTY_RPM = ECO_RPM + 1000;
 /** エコの度合い(0〜1)。走っていて回転数が低いほど大きい。止まっているとき(5 km/h 未満)は 0。 */
 const ecoLevel = (rpm: number | null, speed: number | null) =>
   rpm === null || speed === null || speed < 5 ? 0 : clamp01((ECO_EMPTY_RPM - rpm) / (ECO_EMPTY_RPM - ECO_FULL_RPM));
@@ -473,7 +477,7 @@ const RetroFace = memo(function RetroFace() {
     label("battery", 778, RETRO_RIGHT.battery - 8, "BATTERY"),
     label("voltUnit", 968, RETRO_RIGHT.battery + 29, "V", { color: RETRO.green, size: 12, spacing: 0 }),
     label("eco", RETRO_ECO.x, RETRO_ECO.label, "ECO DRIVE"),
-    label("ecoRpm", 1000, RETRO_ECO.lamp - 3, "≤2000 r/min", { color: RETRO.soft, size: 9, anchor: "end", spacing: 1 }),
+    label("ecoRpm", 1000, RETRO_ECO.lamp - 3, `≤${ECO_RPM} r/min`, { color: RETRO.soft, size: 9, anchor: "end", spacing: 1 }),
   ];
   for (let k = 0; k <= 8; k += 1) {
     labels.push(label(`n${k}`, r2(GAUGE_L + k * 4 * TACHO_PITCH - (k === 8 ? 3 : 0)), 124, String(k), { color: k >= 7 ? RETRO.red : RETRO.soft, size: 10, anchor: "middle", spacing: 0 }));
