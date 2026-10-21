@@ -3587,10 +3587,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .meter-theme-options > button small { color: #748078; font-size: 7px; letter-spacing: .11em; }
 .meter-theme-options > button em { color: #68ce80; font-size: 7px; font-style: normal; font-weight: 900; letter-spacing: .13em; }
 
-/* テーマ(近未来・80年代・本物の針・デイライト・八卦)。色の札より上に5つ並べる。 */
+/* テーマ(近未来・80年代・デイライト・八卦)。色の札より上に4つ並べる。 */
 .meter-style-options {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 15px;
 }
@@ -8369,10 +8369,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-design b { font-size: 11px; font-weight: 900; letter-spacing: .1em; }
 .zr-design small { color: var(--zr-muted); font-size: 10px; }
 
-/* スマホ: テーマの一覧(近未来・80年代・本物の針・デイライト・八卦の小さな見本) */
+/* スマホ: テーマの一覧(近未来・80年代・デイライト・八卦の小さな見本) */
 .zr-styles {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 .zr-style {
@@ -8398,7 +8398,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   border-radius: 9px;
   background: #000;
 }
-/* 5つ並ぶので、名前は1行に収まる大きさ(小さな iPhone でも「クラシック」が折り返さない) */
+/* 4つ並ぶ。名前は1行に収まる大きさ(小さな iPhone でも「デイライト」が折り返さない) */
 .zr-style b { font-size: clamp(8.5px, 2.5vw, 10px); font-weight: 900; letter-spacing: .02em; white-space: nowrap; }
 .zr-style small { color: var(--zr-muted); font-size: 9px; }
 .zr-style em {
@@ -8957,12 +8957,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* ------------------------------------------------------------------
-   80年代のデジタル・本物の針・デイライト・八卦のテーマ(app/meter-styles.tsx)。
+   80年代のデジタル・デイライト・八卦のテーマ(app/meter-styles.tsx)。
    1024x566 の板に描き、使える広さに合わせて拡大・縮小する。地図があるのは80年代だけ。
    近未来のテーマの色の決まり(8色の filter など)は、どれにもかからない。
    ------------------------------------------------------------------ */
 #app.meter-style-retro.is-fullscreen,
-#app.meter-style-classic.is-fullscreen,
 #app.meter-style-day.is-fullscreen,
 #app.meter-style-bagua.is-fullscreen {
   width: 100vw;
@@ -8972,11 +8971,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   gap: 0;
 }
 #app.meter-style-retro.is-fullscreen { background: #040506; }
-#app.meter-style-classic.is-fullscreen { background: #0c0a08; }
 #app.meter-style-day.is-fullscreen { background: #cfd2d5; }
 #app.meter-style-bagua.is-fullscreen { background: #030202; }
 #app.meter-style-retro .meter-status,
-#app.meter-style-classic .meter-status,
 #app.meter-style-day .meter-status,
 #app.meter-style-bagua .meter-status { margin: 0; }
 
@@ -9124,39 +9121,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 #app.meter-style-retro .meter-reload small span { color: #9c7a3e; }
 #app.meter-style-retro .meter-reload b { color: #ffb02e; }
 #app.meter-style-retro .meter-full-button { border-color: rgba(82, 255, 214, .4); color: #52ffd6; }
-
-/* --- 本物の針のメーター --- */
-.ms-classic text { font-family: "Helvetica Neue", Roboto, "Liberation Sans", Arial, sans-serif; }
-.ms-classic text.ms-serif { font-family: "Liberation Serif", "Noto Serif", Georgia, serif; }
-.ms-classic .ms-hit { border-radius: 12px; }
-.ms-classic .ms-hit:active { background: rgba(255, 177, 90, .12); }
-#app.meter-style-classic .meter-status {
-  background: linear-gradient(#1d1813, #0d0b09);
-  box-shadow: inset 0 -1px 0 #3b3128;
-}
-#app.meter-style-classic .meter-status-item i { width: 6px; height: 6px; border-radius: 50%; transform: none; background: #4a3d31; }
-#app.meter-style-classic .meter-status-item.is-ok i { background: #ffb15a; box-shadow: 0 0 7px rgba(255, 154, 60, .75); }
-#app.meter-style-classic .meter-status-item.is-warn i { background: #ffd79a; box-shadow: 0 0 6px rgba(255, 215, 154, .6); }
-#app.meter-style-classic .meter-status-item.is-off i { background: #3a3027; box-shadow: none; }
-#app.meter-style-classic .meter-status-item small { color: #8a7a64; }
-#app.meter-style-classic .meter-status-item small span { color: #a8977f; }
-#app.meter-style-classic .meter-status-item b { color: #d8ccb6; }
-#app.meter-style-classic .meter-status-item b span { color: #f1e7d4; }
-#app.meter-style-classic .meter-status-item.is-warn b,
-#app.meter-style-classic .meter-status-item.is-warn b span { color: #ffd79a; }
-#app.meter-style-classic .meter-status-item.is-off small,
-#app.meter-style-classic .meter-status-item.is-off small span,
-#app.meter-style-classic .meter-status-item.is-off b,
-#app.meter-style-classic .meter-status-item.is-off b span { color: #6b5d4c; }
-#app.meter-style-classic .meter-status-item + .meter-status-item::before { background: rgba(241, 231, 212, .12); }
-#app.meter-style-classic .meter-status-item.is-button:active,
-#app.meter-style-classic .meter-reload:active { background: rgba(255, 177, 90, .1); }
-#app.meter-style-classic .meter-status-detail { color: #6b5d4c; }
-#app.meter-style-classic .meter-reload,
-#app.meter-style-classic .meter-reload small,
-#app.meter-style-classic .meter-reload small span { color: #8a7a64; }
-#app.meter-style-classic .meter-reload b { color: #d8ccb6; }
-#app.meter-style-classic .meter-full-button { border-color: rgba(241, 231, 212, .35); color: #d8ccb6; }
 
 /* --- デイライト(昼間に見やすい白いメーター)。上の帯も白に黒い字 --- */
 .ms-day text { font-family: "Helvetica Neue", Roboto, "Liberation Sans", Arial, sans-serif; }

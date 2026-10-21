@@ -28,10 +28,11 @@ export type MeterDesign = "navi" | "orbit";
 
 /**
  * テーマ(画面全体の雰囲気)。future は今の近未来のメーター(上の色と形を選べる)、
- * retro は80年代のデジタル、classic は本物の針のメーター、day は昼間に見やすい白いメーター、
+ * retro は80年代のデジタル、day は昼間に見やすい白いメーター、
  * bagua は速さの勢いを八卦で表すネオンのメーター。中身は下の METER_STYLES、絵は app/meter-styles.tsx。
+ * (前にあった classic(本物の針のメーター)はやめた。保存されていたら近未来に戻す)
  */
-export type MeterStyle = "future" | "retro" | "classic" | "day" | "bagua";
+export type MeterStyle = "future" | "retro" | "day" | "bagua";
 
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
@@ -697,7 +698,6 @@ export type MeterStyleInfo = {
 export const METER_STYLES: MeterStyleInfo[] = [
   { id: "future", name: "FUTURE", caption: "近未来(色と形を選べる)", captionEn: "NEON COCKPIT", shortJa: "近未来", shortEn: "FUTURE" },
   { id: "retro", name: "DIGITAL 80s", caption: "80年代のデジタル", captionEn: "RETRO DIGITAL DASH", shortJa: "80年代", shortEn: "80s" },
-  { id: "classic", name: "CLASSIC", caption: "本物の針のメーター", captionEn: "ANALOG NEEDLE GAUGES", shortJa: "クラシック", shortEn: "CLASSIC" },
   { id: "day", name: "DAYLIGHT", caption: "昼間に見やすい白いメーター", captionEn: "WHITE DAY GAUGES", shortJa: "デイライト", shortEn: "DAYLIGHT" },
   { id: "bagua", name: "BAGUA", caption: "速さの勢いを八卦で表すネオン", captionEn: "NEON TRIGRAMS", shortJa: "八卦", shortEn: "BAGUA" },
 ];
