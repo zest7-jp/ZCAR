@@ -33,6 +33,7 @@ import {
 } from "./settings-store";
 import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
 import {
+  BaguaCluster,
   ClassicCluster,
   DayCluster,
   MeterStyleThumb,
@@ -926,7 +927,7 @@ export default function Home() {
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
   // 地図はメーター(近未来のどちらの形と、80年代のテーマに地図がある)を出しているときだけ作る。
-  // 地図の器はテーマ(近未来なら形)ごとに違う。本物の針・デイライトのテーマには地図を置かない。
+  // 地図の器はテーマ(近未来なら形)ごとに違う。本物の針・デイライト・八卦のテーマには地図を置かない。
   const meterStyleId = meterStyleInfo(settings.meterStyle).id;
   const mapHost = showFuel
     ? null
@@ -1663,7 +1664,7 @@ export default function Home() {
       <div
         id="app"
         className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}${
-          // 80年代・本物の針・デイライトのテーマでは、近未来の色の決まり(filter など)をかけない。
+          // 80年代・本物の針・デイライト・八卦のテーマでは、近未来の色の決まり(filter など)をかけない。
           // 燃費画面は今まで通り、近未来の色で出す。
           isFuture || showFuel
             ? `meter-theme-${activeTheme.id}${activeTheme.tinted ? ` meter-tinted zt-${activeTheme.id}` : ""}`
@@ -1830,6 +1831,16 @@ export default function Home() {
         {!showFuel && activeStyle.id === "day" ? (
           <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
             <DayCluster
+              data={clusterData}
+              onFuel={toggleFuelView}
+              onDest={openDestDialog}
+              onStart={startNavigation}
+            />
+          </main>
+        ) : null}
+        {!showFuel && activeStyle.id === "bagua" ? (
+          <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
+            <BaguaCluster
               data={clusterData}
               onFuel={toggleFuelView}
               onDest={openDestDialog}
