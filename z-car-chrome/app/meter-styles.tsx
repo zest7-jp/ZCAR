@@ -738,16 +738,17 @@ const CLASSIC = {
 };
 /**
  * 三連のメーター。左に回転計、真ん中に大きな速度計、右に時計(曜日・日付だけ)。左右は少し小さく、少し高い所に置き、
- * 真ん中の金属の縁の後ろに少し隠れる。下の左右の板に、天気と、電圧・目的地・START。
+ * 真ん中の金属の縁と重ならないように少しすき間をあける。それぞれの上に、縫い目入りの革のフード(日よけ)をかぶせる。
+ * 下の左右の板に、天気と、電圧・目的地・START。
  */
 const SX = 512;
 const SY = 283;
 const SPEED_R = 218;
-const TX = 170;
-const TY = 196;
-const CX = 854;
-const CY = 196;
-const SIDE_R = 130;
+const TX = 149;
+const TY = 188;
+const CX = 875;
+const CY = 188;
+const SIDE_R = 122;
 
 const ClassicDefs = () => (
   <defs>
@@ -805,15 +806,34 @@ const ClassicDefs = () => (
       <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" />
       <feColorMatrix type="matrix" values="0 0 0 0 .62  0 0 0 0 .5  0 0 0 0 .38  0 0 0 -1.2 .62" />
     </filter>
+    <linearGradient id="ms-hood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#57463a" />
+      <stop offset=".45" stopColor="#30261e" />
+      <stop offset="1" stopColor="#15110d" />
+    </linearGradient>
+    <filter id="ms-grain-in" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" />
+      <feColorMatrix type="matrix" values="0 0 0 0 .62  0 0 0 0 .5  0 0 0 0 .38  0 0 0 -1.2 .62" />
+      <feComposite in2="SourceGraphic" operator="in" />
+    </filter>
   </defs>
 );
 
-/** 金属の縁とクリーム色の文字盤(細い同心の輪の模様と、縁の内側の細い線)。 */
+/** 金属の縁(外側にギザギザ)とクリーム色の文字盤(細い同心の輪の模様と、縁の内側の細い線)。 */
 const Dial = ({ cx, cy, r, ring }: { cx: number; cy: number; r: number; ring: number }) => {
   const rings = Math.max(6, Math.round(r / 4));
+  const outer = r + ring;
+  const knurls = 2 * Math.round(outer * 0.8);
+  const knurl = (odd: number) =>
+    Array.from({ length: knurls / 2 }, (_, i) => {
+      const deg = ((2 * i + odd) * 360) / knurls;
+      return `M${pol(cx, cy, outer - 0.5, deg).join(" ")}L${pol(cx, cy, outer - ring * 0.42, deg).join(" ")}`;
+    }).join("");
   return (
     <g>
-      <circle cx={cx} cy={cy} r={r + ring} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
+      <circle cx={cx} cy={cy} r={outer} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
+      <path d={knurl(0)} stroke="#000" strokeOpacity=".4" strokeWidth="1.3" />
+      <path d={knurl(1)} stroke="#fff" strokeOpacity=".35" strokeWidth="1.3" />
       <circle cx={cx} cy={cy} r={r + 1.2} fill="#000" />
       <circle cx={cx} cy={cy} r={r} fill="url(#ms-cream)" />
       <g fill="none" stroke="#000" strokeOpacity=".045" strokeWidth={r2(Math.max(0.5, r / 260))}>
@@ -976,8 +996,8 @@ const ODO_X = SX - (ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap) / 2;
  */
 const TACHO_SWEEP = 240;
 const MINI = [
-  { key: "fuel", cx: TX, cy: TY + 86, lo: "E", hi: "F" },
-  { key: "temp", cx: CX, cy: CY + 86, lo: "C", hi: "H" },
+  { key: "fuel", cx: TX, cy: TY + 81, lo: "E", hi: "F" },
+  { key: "temp", cx: CX, cy: CY + 81, lo: "C", hi: "H" },
 ] as const;
 const MINI_R = 22;
 type MiniGauge = (typeof MINI)[number];
@@ -1009,6 +1029,107 @@ const PANELS = [
 const BATTERY_BOX = { x: 756, y: 366, w: 236, h: 36 };
 const DEST_BTN = { x: 756, y: 410, w: 236, h: 44 };
 const START_BTN = { x: 756, y: 462, w: 236, h: 72 };
+/** 3つのメーター(フードとガラスに使う)。span はフードの両はしの角度、thick はフードの真上の厚さ。 */
+const GAUGES = [
+  { cx: TX, cy: TY, r: SIDE_R, ring: 10, span: 56, thick: 20 },
+  { cx: CX, cy: CY, r: SIDE_R, ring: 10, span: 56, thick: 20 },
+  { cx: SX, cy: SY, r: SPEED_R, ring: 14, span: 46, thick: 26 },
+];
+type Gauge = (typeof GAUGES)[number];
+
+/**
+ * 上が厚く両はしが細くなる三日月の形。内側は半径 ri の円(メーターの縁に沿う)、外側は両はしと
+ * 「真上で厚さ t」の点を通る円(中心は oy、半径は ro)。span はメーターの中心から見た両はしの角度。
+ */
+const crescent = (cx: number, cy: number, ri: number, t: number, span: number) => {
+  const cos = Math.cos((span * Math.PI) / 180);
+  const shift = (-t * (2 * ri + t)) / (2 * (ri * (1 - cos) + t));
+  const ro = r2(shift + ri + t);
+  const [x0, y0] = pol(cx, cy, ri, -span);
+  const [x1, y1] = pol(cx, cy, ri, span);
+  const large = -ri * cos > shift ? 1 : 0;
+  return { x0, y0, x1, y1, ro, oy: cy + shift, large, d: `M${x0} ${y0}A${ri} ${ri} 0 0 1 ${x1} ${y1}A${ro} ${ro} 0 ${large} 0 ${x0} ${y0}Z` };
+};
+/** メーターの上にかぶさる革のフード(日よけ)。上の縁に光、真ん中に縫い目。 */
+const Hood = ({ g }: { g: Gauge }) => {
+  const ri = g.r + g.ring + 3;
+  const hood = crescent(g.cx, g.cy, ri, g.thick, g.span);
+  // 縫い目は厚さの半分の所を通る円の上。両はしの細い所は縫わない。
+  const mid = crescent(g.cx, g.cy, ri, g.thick / 2, g.span);
+  const tip = (Math.atan2(mid.x1 - g.cx, mid.oy - mid.y1) * 180) / Math.PI;
+  const [s0x, s0y] = pol(g.cx, mid.oy, mid.ro, -tip * 0.8);
+  const [s1x, s1y] = pol(g.cx, mid.oy, mid.ro, tip * 0.8);
+  return (
+    <g>
+      <path d={hood.d} fill="url(#ms-hood)" stroke="#0a0806" filter="url(#ms-shadow)" />
+      <path d={hood.d} filter="url(#ms-grain-in)" opacity=".22" />
+      <path d={`M${hood.x1} ${hood.y1}A${hood.ro} ${hood.ro} 0 ${hood.large} 0 ${hood.x0} ${hood.y0}`} fill="none" stroke="#ffe8cc" strokeOpacity=".28" strokeWidth="1.2" />
+      <path d={`M${s0x} ${s0y}A${mid.ro} ${mid.ro} 0 0 1 ${s1x} ${s1y}`} fill="none" stroke="#a88a66" strokeDasharray="4 3.5" opacity=".8" />
+    </g>
+  );
+};
+/** ガラスの映り込みの三日月(左上が一番太い)。文字盤と同じ大きさの円を、右下へ少しずらした円でくりぬく。 */
+const glarePath = (g: Gauge) => {
+  const a = r2(g.r * 0.975);
+  const shift = g.r * 0.2;
+  const u = Math.SQRT1_2;
+  const mx = g.cx + (shift / 2) * u;
+  const my = g.cy + (shift / 2) * u;
+  const h = Math.sqrt(a * a - (shift * shift) / 4) * u;
+  const [x1, y1, x2, y2] = [r2(mx - h), r2(my + h), r2(mx + h), r2(my - h)];
+  return `M${x1} ${y1}A${a} ${a} 0 1 1 ${x2} ${y2}A${a} ${a} 0 0 0 ${x1} ${y1}Z`;
+};
+/** 文字盤のガラス(針より上に描く)。上にフードの影、縁の内側の影、左上の映り込み。 */
+const ClassicGlass = memo(function ClassicGlass() {
+  return (
+    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+      <defs>
+        <linearGradient id="ms-hood-shade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#000" stopOpacity=".5" />
+          <stop offset=".3" stopColor="#000" stopOpacity=".14" />
+          <stop offset=".5" stopColor="#000" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id="ms-glass-edge" cx=".5" cy=".5" r=".5">
+          <stop offset=".8" stopColor="#000" stopOpacity="0" />
+          <stop offset=".94" stopColor="#000" stopOpacity=".1" />
+          <stop offset="1" stopColor="#000" stopOpacity=".32" />
+        </radialGradient>
+        <linearGradient id="ms-glare" x1="0" y1="0" x2=".8" y2=".8">
+          <stop offset="0" stopColor="#fff" stopOpacity=".62" />
+          <stop offset=".42" stopColor="#fff" stopOpacity=".2" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="ms-glare-line" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#fff" stopOpacity="0" />
+          <stop offset=".45" stopColor="#fff" stopOpacity=".6" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        {GAUGES.map((g, i) => (
+          <clipPath key={i} id={`ms-glass-clip-${i}`}>
+            <circle cx={g.cx} cy={g.cy} r={g.r} />
+          </clipPath>
+        ))}
+      </defs>
+      {GAUGES.map((g, i) => {
+        const line = r2(g.r * 0.9);
+        return (
+          <g key={i} clipPath={`url(#ms-glass-clip-${i})`}>
+            <rect x={g.cx - g.r} y={g.cy - g.r} width={g.r * 2} height={g.r * 2} fill="url(#ms-hood-shade)" />
+            <circle cx={g.cx} cy={g.cy} r={g.r} fill="url(#ms-glass-edge)" />
+            <path d={glarePath(g)} fill="url(#ms-glare)" />
+            <path
+              d={`M${pol(g.cx, g.cy, line, -78).join(" ")}A${line} ${line} 0 0 1 ${pol(g.cx, g.cy, line, -18).join(" ")}`}
+              fill="none"
+              stroke="url(#ms-glare-line)"
+              strokeWidth={r2(g.r / 70)}
+              strokeLinecap="round"
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+});
 
 /** 本物の針のメーターの、動かない絵。 */
 const ClassicFace = memo(function ClassicFace() {
@@ -1024,9 +1145,12 @@ const ClassicFace = memo(function ClassicFace() {
           <rect x={panel.x + 6} y={panel.y + 6} width={panel.w - 12} height={panel.h - 12} rx="11" fill="none" stroke={CLASSIC.stitch} strokeDasharray="4 3.5" opacity=".75" />
         </g>
       ))}
+      {GAUGES.map((g) => (
+        <Hood key={g.cx} g={g} />
+      ))}
       {/* 左: 回転計(中に回転数の窓と、燃料の小さなメーター) */}
       <Dial cx={TX} cy={TY} r={SIDE_R} ring={10} />
-      <Scale cx={TX} cy={TY} r={SIDE_R - 6} from={0} to={8} major={1} mid={0.5} minor={0.25} label={1} labelR={96} font={17} red={RPM_RED / 1000} sweep={TACHO_SWEEP} />
+      <Scale cx={TX} cy={TY} r={SIDE_R - 6} from={0} to={8} major={1} mid={0.5} minor={0.25} label={1} labelR={90} font={16} red={RPM_RED / 1000} sweep={TACHO_SWEEP} />
       <rect x={TX - 26} y={TY - 62} width="52" height="18" rx="3" fill="#050505" stroke="url(#ms-metal-soft)" />
       <text x={TX} y={TY - 30} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7" letterSpacing="1.6">
         ×1000 r/min
@@ -1046,7 +1170,7 @@ const ClassicFace = memo(function ClassicFace() {
       <MiniGaugeFace g={MINI[1]} />
       <rect x={CX + 40} y={CY - 10} width="28" height="20" rx="2" fill="#f4ecdc" stroke="url(#ms-metal-soft)" />
       <rect x={CX - 68} y={CY - 10} width="28" height="20" rx="2" fill="#0b0b0b" stroke="url(#ms-metal-soft)" />
-      {/* 真ん中: 速度計(左右より手前。中に今日の距離と、平均・速さのドラム) */}
+      {/* 真ん中: 速度計(中に今日の距離と、平均・速さのドラム) */}
       <Dial cx={SX} cy={SY} r={SPEED_R} ring={14} />
       <Scale cx={SX} cy={SY} r={SPEED_R - 12} from={0} to={SPEED_MAX} major={20} mid={10} minor={2} label={20} labelR={156} font={22} />
       <text x={SX} y={SY - 70} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="12" letterSpacing="3">
@@ -1220,7 +1344,7 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
             </text>
           </g>
         ))}
-        <Needle cx={TX} cy={TY} len={112} tail={20} width={6.5} deg={rpmDeg} />
+        <Needle cx={TX} cy={TY} len={105} tail={19} width={6.5} deg={rpmDeg} />
         <Hub cx={TX} cy={TY} r={10} />
         {/* 右: 時計 */}
         <text x={CX + 54} y={CY + 5} textAnchor="middle" fill="#1a1612" fontSize="13" fontWeight="700">
@@ -1233,10 +1357,10 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
           {`${data.year}.${pad2(data.month)}.${pad2(data.day)}`}
         </text>
         <g filter="url(#ms-shadow)">
-          <polygon points="-5,9 0,-72 5,9" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
-          <polygon points="-3.8,11 0,-108 3.8,11" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
+          <polygon points="-5,9 0,-68 5,9" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
+          <polygon points="-3.8,11 0,-101 3.8,11" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
           <g transform={`translate(${CX} ${CY}) rotate(${hands.second})`}>
-            <line x1="0" y1="20" x2="0" y2="-116" stroke={CLASSIC.needle} strokeWidth="1.5" />
+            <line x1="0" y1="20" x2="0" y2="-109" stroke={CLASSIC.needle} strokeWidth="1.5" />
             <circle r="3.6" fill={CLASSIC.needle} />
           </g>
         </g>
@@ -1289,6 +1413,7 @@ export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
           {dest}
         </text>
       </svg>
+      <ClassicGlass />
       <Hit box={[MINI[0].cx - MINI_R - 4, MINI[0].cy - MINI_R - 4, MINI_R * 2 + 8, MINI_R + 26]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[FUEL_DRUM.x, FUEL_DRUM.y, FUEL_DRUM.w, FUEL_DRUM.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[DEST_BTN.x, DEST_BTN.y, DEST_BTN.w, DEST_BTN.h]} label="目的地を選ぶ" onPress={onDest} />
@@ -1347,13 +1472,19 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
         })}
         <line x1="60" y1="38" x2={nx} y2={ny} stroke={CLASSIC.needle} strokeWidth="2" strokeLinecap="round" />
         <circle cx="60" cy="38" r="3.4" fill="url(#ms-thumb-metal)" />
-        <circle cx="19" cy="24" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="19" cy="24" r="10.5" fill="#efe5cf" />
-        <line x1="19" y1="24" x2="25" y2="20" stroke={CLASSIC.needle} strokeWidth="1.4" />
-        <circle cx="101" cy="24" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="101" cy="24" r="10.5" fill="#efe5cf" />
-        <line x1="101" y1="24" x2="101" y2="16" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
-        <line x1="101" y1="24" x2="106" y2="27" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
+        <circle cx="17" cy="22" r="12" fill="url(#ms-thumb-metal)" />
+        <circle cx="17" cy="22" r="10.5" fill="#efe5cf" />
+        <line x1="17" y1="22" x2="23" y2="18" stroke={CLASSIC.needle} strokeWidth="1.4" />
+        <circle cx="103" cy="22" r="12" fill="url(#ms-thumb-metal)" />
+        <circle cx="103" cy="22" r="10.5" fill="#efe5cf" />
+        <line x1="103" y1="22" x2="103" y2="14" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
+        <line x1="103" y1="22" x2="108" y2="25" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
+        {/* 革のフード */}
+        <g fill="none" stroke="#57463a" strokeLinecap="round">
+          <path d={`M${pol(60, 38, 34, -50).join(" ")}A34 34 0 0 1 ${pol(60, 38, 34, 50).join(" ")}`} strokeWidth="3" />
+          <path d={`M${pol(17, 22, 14.5, -55).join(" ")}A14.5 14.5 0 0 1 ${pol(17, 22, 14.5, 55).join(" ")}`} strokeWidth="2" />
+          <path d={`M${pol(103, 22, 14.5, -55).join(" ")}A14.5 14.5 0 0 1 ${pol(103, 22, 14.5, 55).join(" ")}`} strokeWidth="2" />
+        </g>
       </svg>
     );
   }
