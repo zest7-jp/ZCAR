@@ -1,6 +1,6 @@
 "use client";
 
-// 近未来のほかのテーマ(80年代のデジタル・デイライト)の、メーターの画面。
+// 近未来のほかのテーマ(80年代のデジタル・デイライト・ナイト HUD)の、メーターの画面。
 // どれも 1024x566 の板に描き、使える広さに合わせて拡大・縮小する(車載機ではほぼ等倍)。
 // 下から「動かない絵(SVG)」「地図」「動く針や数字(SVG)」「押せる所(ボタン)」の順に重ねる。
 // 地図(Google マップ)を作るのは app/page.tsx で、ここでは置き場所を用意するだけ。
@@ -54,6 +54,8 @@ export type ClusterData = {
   destLabel: string | null;
   /** 今週(月曜〜日曜)でシフトのある曜日(0 が日曜)。曜日の札に五行の色を付ける。 */
   workDays: number[];
+  /** 残りのガソリンの見積もり(L)。給油の記録がまだなく分からなければ null。 */
+  fuelLiters: number | null;
 };
 
 export type ClusterProps = {
@@ -1393,6 +1395,302 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 }
 
 // ------------------------------------------------------------------
+// ナイト HUD: 戦闘機のヘッドアップ表示のような、黒に光る緑の線。方位とガソリン残量をいちばん大きく出す。
+// 上に方位のテープ(車の向きに合わせて流れる)と方位の札、真ん中に大きな速さと回転の帯、
+// 左にガソリンのはしご(%・L・あと何km)、右に時計・一週間の帯(出勤日)・天気・水温・電圧、右下に DEST・START。
+// ------------------------------------------------------------------
+
+const HUD = {
+  green: "#59ffa6",
+  dim: "#22865a",
+  faint: "#0d3424",
+  amber: "#ffc24d",
+  red: "#ff5a4d",
+  bg: "#010604",
+  work: "#1e7a4f",
+};
+/** 方位のテープ(1度 = px。真ん中 cx が今の向き)。 */
+const HT = { x: 292, w: 440, y: 22, h: 58, px: 3, cx: 512 };
+const HUD_DIRS = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
+/** ガソリンのはしご(下から上へ cells こ)と、回転の帯(hot から赤)。 */
+const HL = { x: 40, y: 58, h: 372, cells: 20 };
+const HR = { x: 352, w: 320, y: 356, segs: 32, hot: 26 };
+/** 右下の DEST・START(80年代のテーマと同じ、Google マップの小窓が重なる所)と、ガソリンの押せる所。 */
+const H_DEST = { x: 834, y: 332, w: 174, h: 96 };
+const H_START = { x: 834, y: 440, w: 174, h: 108 };
+const H_FUEL = { x: 24, y: 22, w: 236, h: 424 };
+const normalDeg = (deg: number) => ((deg % 360) + 360) % 360;
+const hudDir = (deg: number) => HUD_DIRS[Math.round(normalDeg(deg) / 45) % 8];
+/** はしごの段の色(下の3段は赤、その上の3段は琥珀色)。 */
+const ladderColor = (i: number) => (i < 3 ? HUD.red : i < 6 ? HUD.amber : HUD.green);
+const ladderGlow = (i: number) => (i < 3 ? "url(#mh-r)" : i < 6 ? "url(#mh-y)" : "url(#mh-g)");
+const ladderY = (i: number) => r2(HL.y + HL.h - (i + 1) * (HL.h / HL.cells) + 2);
+
+/** 色つきの光(ぼかした形を、その色で塗って下に敷く)。 */
+const HudGlow = ({ id, color }: { id: string; color: string }) => (
+  <filter id={id} x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="2.2" result="b" />
+    <feFlood floodColor={color} floodOpacity=".85" />
+    <feComposite in2="b" operator="in" result="c" />
+    <feMerge>
+      <feMergeNode in="c" />
+      <feMergeNode in="SourceGraphic" />
+    </feMerge>
+  </filter>
+);
+
+/** ナイト HUD の動かない絵: 下地と格子・テープの枠と三角・方位の札の枠・消えている回転の帯とはしご・名前・DEST と START。 */
+const HudFace = memo(function HudFace() {
+  return (
+    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+      <defs>
+        <radialGradient id="mh-bg" cx=".5" cy=".5" r=".75">
+          <stop offset="0" stopColor="#03120b" />
+          <stop offset="1" stopColor={HUD.bg} />
+        </radialGradient>
+        <linearGradient id="mh-fade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor={HUD.bg} />
+          <stop offset=".16" stopColor={HUD.bg} stopOpacity="0" />
+          <stop offset=".84" stopColor={HUD.bg} stopOpacity="0" />
+          <stop offset="1" stopColor={HUD.bg} />
+        </linearGradient>
+        <clipPath id="mh-tape">
+          <rect x={HT.x} y={HT.y} width={HT.w} height={HT.h} />
+        </clipPath>
+        <HudGlow id="mh-g" color={HUD.green} />
+        <HudGlow id="mh-r" color={HUD.red} />
+        <HudGlow id="mh-y" color={HUD.amber} />
+      </defs>
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#mh-bg)" />
+      <g stroke={HUD.green} strokeOpacity=".035">
+        {Array.from({ length: 33 }, (_, i) => (
+          <line key={`x${i}`} x1={i * 32} y1="0" x2={i * 32} y2={BOARD_H} />
+        ))}
+        {Array.from({ length: 18 }, (_, i) => (
+          <line key={`y${i}`} x1="0" y1={i * 32} x2={BOARD_W} y2={i * 32} />
+        ))}
+      </g>
+      {/* 方位のテープの上の線と、真ん中の三角(今の向き)・方位の札の枠 */}
+      <line x1={HT.x} y1={HT.y} x2={HT.x + HT.w} y2={HT.y} stroke={HUD.green} strokeOpacity=".6" />
+      <polygon points={`${HT.cx},${HT.y - 4} ${HT.cx - 9},${HT.y - 18} ${HT.cx + 9},${HT.y - 18}`} fill={HUD.green} filter="url(#mh-g)" />
+      <rect x={HT.cx - 62} y={HT.y + 64} width="124" height="38" rx="4" fill={HUD.bg} stroke={HUD.green} strokeWidth="1.6" filter="url(#mh-g)" />
+      {/* 速さの単位と、回転の帯(消えている段)・目盛りの数 */}
+      <text x="512" y="326" textAnchor="middle" fill={HUD.dim} fontSize="15" fontWeight="700" letterSpacing="4">
+        km/h
+      </text>
+      {Array.from({ length: HR.segs }, (_, i) => (
+        <rect key={i} x={r2(HR.x + i * (HR.w / HR.segs))} y={HR.y} width={r2(HR.w / HR.segs - 2)} height="12" fill={i >= HR.hot ? "#3a0f0c" : HUD.faint} />
+      ))}
+      {Array.from({ length: 9 }, (_, k) => (
+        <text key={k} x={r2(HR.x + (k * HR.w) / 8)} y={HR.y + 30} textAnchor="middle" fill={k >= 7 ? HUD.red : HUD.dim} fontSize="10" fontWeight="700" className="mh-mono">
+          {k}
+        </text>
+      ))}
+      {/* 左: ガソリンのはしご(消えている段)と F・½・E */}
+      <text x="32" y="38" fill={HUD.dim} fontSize="13" fontWeight="700" letterSpacing="2" className="mh-jp">
+        ガソリン
+      </text>
+      {Array.from({ length: HL.cells }, (_, i) => (
+        <rect key={i} x={HL.x} y={ladderY(i)} width="44" height={r2(HL.h / HL.cells - 4)} fill={HUD.faint} />
+      ))}
+      <text x="98" y={HL.y + 12} fill={HUD.green} fontSize="14" fontWeight="700" className="mh-mono">
+        F
+      </text>
+      <text x="98" y={HL.y + HL.h / 2 + 5} fill={HUD.dim} fontSize="14" fontWeight="700" className="mh-mono">
+        ½
+      </text>
+      <text x="98" y={HL.y + HL.h} fill={HUD.red} fontSize="14" fontWeight="700" className="mh-mono">
+        E
+      </text>
+      <text x="130" y="268" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
+        あと
+      </text>
+      {/* 右: 水温と電圧の名前 */}
+      <text x="842" y="216" fill={HUD.dim} fontSize="12" fontWeight="700" className="mh-jp">
+        水温
+      </text>
+      <text x="842" y="252" fill={HUD.dim} fontSize="12" fontWeight="700" className="mh-jp">
+        電圧
+      </text>
+      {/* 右下: DEST と START */}
+      <rect x={H_DEST.x} y={H_DEST.y} width={H_DEST.w} height={H_DEST.h} rx="4" fill={HUD.bg} stroke={HUD.green} strokeWidth="1.6" filter="url(#mh-g)" />
+      <text x={H_DEST.x + 18} y={H_DEST.y + 30} fill={HUD.dim} fontSize="11" fontWeight="700" className="mh-jp">
+        目的地
+      </text>
+      <text x={H_DEST.x + 18} y={H_DEST.y + 72} fill={HUD.green} fontSize="26" fontWeight="700" letterSpacing="3" filter="url(#mh-g)">
+        DEST
+      </text>
+      <rect x={H_START.x} y={H_START.y} width={H_START.w} height={H_START.h} rx="4" fill={HUD.bg} stroke={HUD.amber} strokeWidth="1.6" filter="url(#mh-y)" />
+      <text x={H_START.x + 18} y={H_START.y + 30} fill={HUD.amber} fontSize="11" fontWeight="700" letterSpacing="3">
+        START
+      </text>
+    </svg>
+  );
+});
+
+export function HudCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
+  // 向きが分からないうちは、北を真ん中にしてテープを暗くする。
+  const known = data.heading !== null;
+  const heading = data.heading ?? 0;
+  // 見える窓は ±73°。大きく向きが変わってテープが流れている間も端が空かないよう、±180° 分を描いておく。
+  const first = Math.floor((heading - 180) / 5) * 5;
+  const ticks = Array.from({ length: 73 }, (_, i) => first + i * 5);
+  const litRpm = Math.min(HR.segs, Math.round(((data.rpm ?? 0) / RPM_MAX) * HR.segs));
+  const litFuel = Math.min(HL.cells, Math.round((clamp01(data.fuelPercent / 100) * HL.cells)));
+  const kind = data.weather ? weatherKind(data.weather.code) : null;
+  const dest = data.destLabel ?? "目的地なし";
+  const glow = "url(#mh-g)";
+  const weekWidth = (162 - 6 * 3) / 7;
+  return (
+    <Board className="ms-hud">
+      <HudFace />
+      <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+        {/* 方位のテープ: 目盛りを今の向きの分だけ左右に動かす(なめらかに流れる) */}
+        <g clipPath="url(#mh-tape)" opacity={known ? 1 : 0.35}>
+          <g className="mh-tape" style={{ transform: `translateX(${r2(-heading * HT.px)}px)` }}>
+            {ticks.map((d) => {
+              const x = r2(HT.cx + d * HT.px);
+              const deg = normalDeg(d);
+              const big = deg % 45 === 0;
+              const mid = deg % 15 === 0;
+              return (
+                <g key={d}>
+                  <line x1={x} y1={HT.y} x2={x} y2={HT.y + (big ? 18 : mid ? 12 : 7)} stroke={HUD.green} strokeWidth={big ? 2 : 1.2} opacity={big ? 1 : 0.7} />
+                  {big ? (
+                    <text x={x} y={HT.y + 44} textAnchor="middle" fill={deg === 0 ? HUD.red : HUD.green} fontSize="17" fontWeight="700" className="mh-jp" filter={deg === 0 ? "url(#mh-r)" : glow}>
+                      {HUD_DIRS[deg / 45]}
+                    </text>
+                  ) : mid ? (
+                    <text x={x} y={HT.y + 40} textAnchor="middle" fill={HUD.dim} fontSize="11" fontWeight="700" className="mh-mono">
+                      {deg}
+                    </text>
+                  ) : null}
+                </g>
+              );
+            })}
+          </g>
+          <rect x={HT.x} y={HT.y} width={HT.w} height={HT.h} fill="url(#mh-fade)" />
+        </g>
+        {/* 方位の札 */}
+        {known ? (
+          <g data-heading={Math.round(normalDeg(heading))}>
+            <text x={HT.cx - 8} y={HT.y + 92} textAnchor="end" fill={HUD.green} fontSize="22" fontWeight="700" className="mh-jp" filter={glow}>
+              {hudDir(heading)}
+            </text>
+            <text x={HT.cx + 2} y={HT.y + 92} fill={HUD.green} fontSize="22" fontWeight="700" className="mh-mono" filter={glow}>
+              {`${Math.round(normalDeg(heading))}°`}
+            </text>
+          </g>
+        ) : (
+          <text x={HT.cx} y={HT.y + 91} textAnchor="middle" fill={HUD.dim} fontSize="15" fontWeight="700" className="mh-jp">
+            方位を確認中
+          </text>
+        )}
+        {/* 速さ(まだ分からないうちの -- は暗くして、光らせない) */}
+        <text
+          x="512"
+          y="296"
+          textAnchor="middle"
+          fill={data.speed === null ? HUD.dim : HUD.green}
+          fontSize="150"
+          fontWeight="700"
+          className="mh-mono"
+          filter={data.speed === null ? undefined : glow}
+        >
+          {data.speed === null ? "--" : Math.round(data.speed)}
+        </text>
+        {/* 回転の帯(光っている段) */}
+        <g data-rpm-lit={litRpm}>
+          {Array.from({ length: litRpm }, (_, i) => (
+            <rect
+              key={i}
+              x={r2(HR.x + i * (HR.w / HR.segs))}
+              y={HR.y}
+              width={r2(HR.w / HR.segs - 2)}
+              height="12"
+              fill={i >= HR.hot ? HUD.red : HUD.green}
+              filter={i >= HR.hot ? "url(#mh-r)" : glow}
+            />
+          ))}
+        </g>
+        <text x="512" y={HR.y + 56} textAnchor="middle" fill={HUD.green} fontSize="13" fontWeight="700" className="mh-mono">
+          {data.rpm === null ? "— rpm" : `${Math.round(data.rpm)} rpm`}
+        </text>
+        {/* 左: ガソリンのはしご(光っている段)と、%・L・あと何km・平均・今日 */}
+        <g data-fuel-lit={litFuel}>
+          {Array.from({ length: litFuel }, (_, i) => (
+            <rect key={i} x={HL.x} y={ladderY(i)} width="44" height={r2(HL.h / HL.cells - 4)} fill={ladderColor(i)} filter={ladderGlow(i)} />
+          ))}
+        </g>
+        <text x="128" y="182" fill={HUD.green} fontSize="54" fontWeight="700" className="mh-mono" filter={glow}>
+          {Math.round(data.fuelPercent)}
+          <tspan fontSize="20" dx="4">
+            %
+          </tspan>
+        </text>
+        <text x="130" y="214" fill={HUD.green} fontSize="20" fontWeight="700" className="mh-mono">
+          {data.fuelLiters === null ? "— L" : `${data.fuelLiters.toFixed(1)} L`}
+        </text>
+        <text x="130" y="302" fill={HUD.green} fontSize="34" fontWeight="700" className="mh-mono" filter={glow}>
+          {Math.round(data.rangeKm)}
+          <tspan fontSize="14" dx="4">
+            km
+          </tspan>
+        </text>
+        <text x="130" y="342" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
+          {`平均 ${data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)} km/L`}
+        </text>
+        <text x="130" y="364" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
+          {`今日 ${data.todayKm.toFixed(1)} km`}
+        </text>
+        {/* 右: 時計・日付・一週間の帯(出勤日は塗る)・天気・水温・電圧 */}
+        <text x="1000" y="58" textAnchor="end" fill={HUD.green} fontSize="44" fontWeight="700" className="mh-mono" filter={glow}>
+          {data.clock}
+        </text>
+        <text x="1000" y="80" textAnchor="end" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
+          {`${data.month}/${data.day}(${WEEKDAYS[data.weekday]})`}
+        </text>
+        {WEEK_ORDER.map((dayIndex, i) => {
+          const work = data.workDays.includes(dayIndex);
+          const today = dayIndex === data.weekday;
+          const x = r2(838 + i * (weekWidth + 3));
+          return (
+            <g key={dayIndex} data-work={work ? "1" : undefined}>
+              <rect x={x} y="92" width={r2(weekWidth)} height="15" rx="3" fill={work ? HUD.work : HUD.faint} stroke={today ? HUD.green : "none"} strokeWidth="1.4" />
+              <text x={r2(x + weekWidth / 2)} y="103" textAnchor="middle" fill={work ? "#d9ffe9" : HUD.dim} fontSize="9" fontWeight="700" className="mh-jp">
+                {WEEKDAYS[dayIndex]}
+              </text>
+            </g>
+          );
+        })}
+        <text x="1000" y="152" textAnchor="end" fill={HUD.green} fontSize="14" fontWeight="700" className="mh-jp">
+          {data.weather ? `${Math.round(data.weather.temperature)}° ${kind ? WEATHER_JA[kind] : ""}` : "天気を読み込み中"}
+        </text>
+        <text x="1000" y="170" textAnchor="end" fill={HUD.dim} fontSize="11" fontWeight="700">
+          {forecastText(data.weather)}
+        </text>
+        <text x="1000" y="218" textAnchor="end" fill={HUD.green} fontSize="20" fontWeight="700" className="mh-mono">
+          {data.coolant === null ? "— °C" : `${Math.round(data.coolant)} °C`}
+        </text>
+        <text x="1000" y="254" textAnchor="end" fill={HUD.green} fontSize="20" fontWeight="700" className="mh-mono">
+          {data.voltage === null ? "— V" : `${data.voltage.toFixed(1)} V`}
+        </text>
+        <text x={H_START.x + 18} y={H_START.y + 80} fill={HUD.amber} fontSize={dest.length <= 5 ? 26 : 19} fontWeight="700" className="mh-jp" filter="url(#mh-y)">
+          {dest}
+        </text>
+      </svg>
+      <Hit box={[H_FUEL.x, H_FUEL.y, H_FUEL.w, H_FUEL.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[H_DEST.x, H_DEST.y, H_DEST.w, H_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
+      <Hit
+        box={[H_START.x, H_START.y, H_START.w, H_START.h]}
+        label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
+        onPress={onStart}
+      />
+    </Board>
+  );
+}
+
+// ------------------------------------------------------------------
 // テーマ選びに出す小さな見本の絵(車の THEME とスマホの THEME タブ)。
 // ------------------------------------------------------------------
 
@@ -1414,6 +1712,26 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
         </text>
         <rect x="88" y="34" width="24" height="26" rx="3" fill="#03200f" stroke="#2a3534" />
         <path d="M90 56 L110 38 M90 44 H110" stroke={RETRO.green} strokeWidth="1" opacity=".8" />
+      </svg>
+    );
+  }
+  if (style === "hud") {
+    return (
+      <svg viewBox="0 0 120 70" className="ms-thumb" aria-hidden="true">
+        <rect width="120" height="70" fill={HUD.bg} />
+        <line x1="34" y1="9" x2="86" y2="9" stroke={HUD.green} strokeOpacity=".6" />
+        {Array.from({ length: 11 }, (_, i) => (
+          <line key={i} x1={36 + i * 5} y1="9" x2={36 + i * 5} y2={i % 3 === 1 ? 15 : 12} stroke={HUD.green} strokeWidth=".8" />
+        ))}
+        <polygon points="60,8 57,3 63,3" fill={HUD.green} />
+        <text x="60" y="48" textAnchor="middle" fill={HUD.green} fontSize="26" fontWeight="700" fontFamily="monospace">
+          58
+        </text>
+        {Array.from({ length: 7 }, (_, i) => (
+          <rect key={i} x="8" y={58 - i * 7} width="10" height="5" fill={i < 4 ? (i < 1 ? HUD.red : HUD.green) : HUD.faint} />
+        ))}
+        <rect x="96" y="44" width="18" height="10" rx="1.5" fill="none" stroke={HUD.green} strokeWidth=".8" />
+        <rect x="96" y="57" width="18" height="10" rx="1.5" fill="none" stroke={HUD.amber} strokeWidth=".8" />
       </svg>
     );
   }

@@ -28,10 +28,11 @@ export type MeterDesign = "navi" | "orbit";
 
 /**
  * テーマ(画面全体の雰囲気)。future は今の近未来のメーター(上の色と形を選べる)、
- * retro は80年代のデジタル、day は昼間に見やすい白いメーター。中身は下の METER_STYLES、絵は app/meter-styles.tsx。
+ * retro は80年代のデジタル、day は昼間に見やすい白いメーター、hud は方位とガソリン残量が大きい光る緑の線。
+ * 中身は下の METER_STYLES、絵は app/meter-styles.tsx。
  * (前にあった classic(本物の針のメーター)と bagua(八卦)はやめた。保存されていたら近未来に戻す)
  */
-export type MeterStyle = "future" | "retro" | "day";
+export type MeterStyle = "future" | "retro" | "day" | "hud";
 
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
@@ -695,6 +696,7 @@ export const METER_STYLES: MeterStyleInfo[] = [
   { id: "future", name: "FUTURE", caption: "近未来(色と形を選べる)", captionEn: "NEON COCKPIT", shortJa: "近未来", shortEn: "FUTURE" },
   { id: "retro", name: "DIGITAL 80s", caption: "80年代のデジタル", captionEn: "RETRO DIGITAL DASH", shortJa: "80年代", shortEn: "80s" },
   { id: "day", name: "DAYLIGHT", caption: "昼間に見やすい白いメーター", captionEn: "WHITE DAY GAUGES", shortJa: "デイライト", shortEn: "DAYLIGHT" },
+  { id: "hud", name: "NIGHT HUD", caption: "方位とガソリン残量が大きい光る線", captionEn: "HEADING & FUEL HUD", shortJa: "ナイトHUD", shortEn: "HUD" },
 ];
 
 /** テーマの説明を引く。知らない名前なら近未来。 */
