@@ -9181,6 +9181,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .ms-hud .ms-hit:active { background: rgba(89, 255, 166, .12); }
 /* 方位のテープは、向きが変わるとなめらかに流れる */
 .mh-tape { transition: transform .6s linear; }
+/* 六つのメーターの輪: 光の先は1秒ごとに点滅。危ないとき(6000回転超え・燃料が少ない・水温が高い・電圧が低い)は速く点滅 */
+.mh-blink { animation: mh-blink 1s steps(1, end) infinite; }
+.mh-blink-fast { animation: mh-blink-fast .4s steps(1, end) infinite; }
+@keyframes mh-blink { 50% { opacity: .3; } }
+@keyframes mh-blink-fast { 50% { opacity: .2; } }
 #app.meter-style-hud .meter-status {
   background: #010805;
   box-shadow: inset 0 -1px 0 #0d3424;
@@ -9212,7 +9217,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .mh-tape,
   .ms-needle,
   .ms-retro-cursor { transition: none; }
-  .ms-retro-crt-wait { animation: none; }
+  .ms-retro-crt-wait,
+  .mh-blink,
+  .mh-blink-fast { animation: none; }
   .ms-retro-flow > polyline:nth-child(1) { animation: none; opacity: .35; }
   .ms-retro-flow > polyline:nth-child(2) { animation: none; opacity: .65; }
   .ms-retro-flow > polyline:nth-child(3) { animation: none; opacity: 1; }

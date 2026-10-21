@@ -1396,7 +1396,7 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 
 // ------------------------------------------------------------------
 // ナイト HUD: 戦闘機のヘッドアップ表示のような、黒に光る緑の線。方位とガソリン残量をいちばん大きく出す。
-// 上に方位のテープ(車の向きに合わせて流れる)と方位の札、真ん中に大きな速さと回転の帯、
+// 上に方位のテープ(車の向きに合わせて流れる)、真ん中に大きな速さと、それを囲む六つのメーターの輪(円図のような6重の輪)、
 // 左にガソリンのはしご(%・L・あと何km)、右に時計・一週間の帯(出勤日)・天気・水温・電圧、右下に DEST・START。
 // ------------------------------------------------------------------
 
@@ -1408,13 +1408,46 @@ const HUD = {
   red: "#ff5a4d",
   bg: "#010604",
   work: "#1e7a4f",
+  cyan: "#5ad1ff",
+  blue: "#4a8dff",
+  lime: "#c2ff5a",
+  white: "#e6fff0",
 };
 /** 方位のテープ(1度 = px。真ん中 cx が今の向き)。 */
 const HT = { x: 292, w: 440, y: 22, h: 58, px: 3, cx: 512 };
 const HUD_DIRS = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
-/** ガソリンのはしご(下から上へ cells こ)と、回転の帯(hot から赤)。 */
+/** ガソリンのはしご(下から上へ cells こ)。 */
 const HL = { x: 40, y: 58, h: 372, cells: 20 };
-const HR = { x: 352, w: 320, y: 356, segs: 32, hot: 26 };
+/**
+ * 真ん中の六つのメーターの輪(六十四卦の円図のように、6重の輪を細かく区切る)。外から 回転・速さ・燃料・水温・電圧・秒。
+ * どれも左下から右下までの 270° を 48 に区切り、今の値の所まで光らせる。光の先は1秒ごとに点滅する。
+ * 回転は 6000 から赤(超えると赤い所が速く点滅)。燃料が少ない・水温が高い・電圧が低いときは、その輪が速く点滅する。
+ */
+const HRING = { cx: 512, cy: 322, r: 234, pitch: 13, thick: 10, segs: 48, from: -135, step: 5.625, w: 4.4, hot: 36 };
+type HudRingKey = "rpm" | "speed" | "fuel" | "coolant" | "volt" | "sec";
+const HUD_RINGS: { key: HudRingKey; name: string; color: string; glow: string }[] = [
+  { key: "rpm", name: "回転", color: HUD.green, glow: "url(#mh-g)" },
+  { key: "speed", name: "速さ", color: HUD.cyan, glow: "url(#mh-c)" },
+  { key: "fuel", name: "燃料", color: HUD.amber, glow: "url(#mh-y)" },
+  { key: "coolant", name: "水温", color: HUD.blue, glow: "url(#mh-b)" },
+  { key: "volt", name: "電圧", color: HUD.lime, glow: "url(#mh-l)" },
+  { key: "sec", name: "秒", color: HUD.white, glow: "url(#mh-w)" },
+];
+/** 輪 k の i 番目の区切り(ドーナツの一切れ)の形。動かないので最初に作っておく。 */
+const HRING_PATHS = HUD_RINGS.map((_, k) => {
+  const rOut = HRING.r - k * HRING.pitch;
+  const rIn = rOut - HRING.thick;
+  return Array.from({ length: HRING.segs }, (_, i) => {
+    const a0 = HRING.from + i * HRING.step + (HRING.step - HRING.w) / 2;
+    const [x0, y0] = pol(HRING.cx, HRING.cy, rOut, a0);
+    const [x1, y1] = pol(HRING.cx, HRING.cy, rOut, a0 + HRING.w);
+    const [x2, y2] = pol(HRING.cx, HRING.cy, rIn, a0 + HRING.w);
+    const [x3, y3] = pol(HRING.cx, HRING.cy, rIn, a0);
+    return `M${x0} ${y0}A${rOut} ${rOut} 0 0 1 ${x1} ${y1}L${x2} ${y2}A${rIn} ${rIn} 0 0 0 ${x3} ${y3}Z`;
+  });
+});
+/** 輪の下のすき間に並べる、輪の名前と値の場所(3列×2行。色の札で輪と合わせる)。 */
+const hudLegend = (k: number) => ({ x: [404, 512, 620][k % 3], y: k < 3 ? 514 : 540 });
 /** 右下の DEST・START(80年代のテーマと同じ、Google マップの小窓が重なる所)と、ガソリンの押せる所。 */
 const H_DEST = { x: 834, y: 332, w: 174, h: 96 };
 const H_START = { x: 834, y: 440, w: 174, h: 108 };
@@ -1439,7 +1472,7 @@ const HudGlow = ({ id, color }: { id: string; color: string }) => (
   </filter>
 );
 
-/** ナイト HUD の動かない絵: 下地と格子・テープの枠と三角・方位の札の枠・消えている回転の帯とはしご・名前・DEST と START。 */
+/** ナイト HUD の動かない絵: 下地と格子・テープの枠と三角・方位の札の枠・消えている輪とはしご・名前・DEST と START。 */
 const HudFace = memo(function HudFace() {
   return (
     <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
@@ -1460,6 +1493,10 @@ const HudFace = memo(function HudFace() {
         <HudGlow id="mh-g" color={HUD.green} />
         <HudGlow id="mh-r" color={HUD.red} />
         <HudGlow id="mh-y" color={HUD.amber} />
+        <HudGlow id="mh-c" color={HUD.cyan} />
+        <HudGlow id="mh-b" color={HUD.blue} />
+        <HudGlow id="mh-l" color={HUD.lime} />
+        <HudGlow id="mh-w" color={HUD.white} />
       </defs>
       <rect width={BOARD_W} height={BOARD_H} fill="url(#mh-bg)" />
       <g stroke={HUD.green} strokeOpacity=".035">
@@ -1470,22 +1507,36 @@ const HudFace = memo(function HudFace() {
           <line key={`y${i}`} x1="0" y1={i * 32} x2={BOARD_W} y2={i * 32} />
         ))}
       </g>
-      {/* 方位のテープの上の線と、真ん中の三角(今の向き)・方位の札の枠 */}
+      {/* 方位のテープの上の線と、真ん中の三角(今の向き) */}
       <line x1={HT.x} y1={HT.y} x2={HT.x + HT.w} y2={HT.y} stroke={HUD.green} strokeOpacity=".6" />
       <polygon points={`${HT.cx},${HT.y - 4} ${HT.cx - 9},${HT.y - 18} ${HT.cx + 9},${HT.y - 18}`} fill={HUD.green} filter="url(#mh-g)" />
-      <rect x={HT.cx - 62} y={HT.y + 64} width="124" height="38" rx="4" fill={HUD.bg} stroke={HUD.green} strokeWidth="1.6" filter="url(#mh-g)" />
-      {/* 速さの単位と、回転の帯(消えている段)・目盛りの数 */}
-      <text x="512" y="326" textAnchor="middle" fill={HUD.dim} fontSize="15" fontWeight="700" letterSpacing="4">
+      {/* 六つのメーターの輪(消えている所。回転の 6000 からは赤)と、下のすき間の色の札と名前 */}
+      {HUD_RINGS.map((ring, k) => (
+        <g key={ring.key} fill={ring.color} opacity=".13">
+          {HRING_PATHS[k].map((d, i) => (ring.key === "rpm" && i >= HRING.hot ? null : <path key={i} d={d} />))}
+        </g>
+      ))}
+      <g fill={HUD.red} opacity=".22">
+        {HRING_PATHS[0].slice(HRING.hot).map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+      </g>
+      {HUD_RINGS.map((ring, k) => {
+        const { x, y } = hudLegend(k);
+        return (
+          <g key={ring.key}>
+            <rect x={x - 48} y={y - 9} width="9" height="9" rx="2" fill={ring.color} />
+            <text x={x - 34} y={y} fill={HUD.dim} fontSize="11" fontWeight="700" className="mh-jp">
+              {ring.name}
+            </text>
+          </g>
+        );
+      })}
+      {/* 輪の内側: 方位の札の枠と、速さの単位 */}
+      <rect x={HRING.cx - 55} y="186" width="110" height="32" rx="4" fill={HUD.bg} stroke={HUD.green} strokeWidth="1.6" filter="url(#mh-g)" />
+      <text x={HRING.cx} y="400" textAnchor="middle" fill={HUD.dim} fontSize="14" fontWeight="700" letterSpacing="4">
         km/h
       </text>
-      {Array.from({ length: HR.segs }, (_, i) => (
-        <rect key={i} x={r2(HR.x + i * (HR.w / HR.segs))} y={HR.y} width={r2(HR.w / HR.segs - 2)} height="12" fill={i >= HR.hot ? "#3a0f0c" : HUD.faint} />
-      ))}
-      {Array.from({ length: 9 }, (_, k) => (
-        <text key={k} x={r2(HR.x + (k * HR.w) / 8)} y={HR.y + 30} textAnchor="middle" fill={k >= 7 ? HUD.red : HUD.dim} fontSize="10" fontWeight="700" className="mh-mono">
-          {k}
-        </text>
-      ))}
       {/* 左: ガソリンのはしご(消えている段)と F・½・E */}
       <text x="32" y="38" fill={HUD.dim} fontSize="13" fontWeight="700" letterSpacing="2" className="mh-jp">
         ガソリン
@@ -1535,8 +1586,28 @@ export function HudCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
   // 見える窓は ±73°。大きく向きが変わってテープが流れている間も端が空かないよう、±180° 分を描いておく。
   const first = Math.floor((heading - 180) / 5) * 5;
   const ticks = Array.from({ length: 73 }, (_, i) => first + i * 5);
-  const litRpm = Math.min(HR.segs, Math.round(((data.rpm ?? 0) / RPM_MAX) * HR.segs));
   const litFuel = Math.min(HL.cells, Math.round((clamp01(data.fuelPercent / 100) * HL.cells)));
+  // 六つのメーターの輪の値(0〜1)・下に出す字・速く点滅させるか。
+  const { s: second } = useClockTime(data.clock);
+  const fuelKnown = data.fuelLiters !== null;
+  const rings: Record<HudRingKey, { v: number; text: string; warn: boolean }> = {
+    rpm: { v: (data.rpm ?? 0) / RPM_MAX, text: data.rpm === null ? "—" : String(Math.round(data.rpm)), warn: false },
+    speed: { v: (data.speed ?? 0) / 120, text: data.speed === null ? "—" : `${Math.round(data.speed)}km/h`, warn: false },
+    fuel: { v: data.fuelPercent / 100, text: fuelKnown ? `${Math.round(data.fuelPercent)}%` : "—", warn: fuelKnown && data.fuelPercent <= 15 },
+    coolant: {
+      v: data.coolant === null ? 0 : (data.coolant - 40) / 80,
+      text: data.coolant === null ? "—" : `${Math.round(data.coolant)}°C`,
+      warn: data.coolant !== null && data.coolant >= 105,
+    },
+    volt: {
+      v: data.voltage === null ? 0 : (data.voltage - 10) / 5,
+      text: data.voltage === null ? "—" : `${data.voltage.toFixed(1)}V`,
+      warn: data.voltage !== null && data.voltage < 11.8,
+    },
+    sec: { v: second / 60, text: pad2(second), warn: false },
+  };
+  // 6000 回転を超えたら、回転の輪の赤い所を速く点滅(シフトアップの合図)。
+  const shiftUp = (data.rpm ?? 0) >= 6000;
   const kind = data.weather ? weatherKind(data.weather.code) : null;
   const dest = data.destLabel ?? "目的地なし";
   const glow = "url(#mh-g)";
@@ -1571,50 +1642,76 @@ export function HudCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
           </g>
           <rect x={HT.x} y={HT.y} width={HT.w} height={HT.h} fill="url(#mh-fade)" />
         </g>
-        {/* 方位の札 */}
+        {/* 六つのメーターの輪(光っている所)。光の先は1秒ごとに点滅、危ないときは輪(回転は赤い所)ごと速く点滅 */}
+        {HUD_RINGS.map((ring, k) => {
+          const value = rings[ring.key];
+          const lit = Math.round(clamp01(value.v) * HRING.segs);
+          const hotFrom = ring.key === "rpm" ? HRING.hot : HRING.segs;
+          const tip = lit - 1;
+          const tipHot = tip >= hotFrom;
+          // 速く点滅している所に光の先があるときは、先も一緒に点滅させる(別に点滅すると揃わないため)。
+          const tipAlone = tip >= 0 && !value.warn && !(tipHot && shiftUp);
+          const until = (end: number) => (tipAlone && tip < end ? tip : end);
+          const cool = HRING_PATHS[k].slice(0, until(Math.min(lit, hotFrom)));
+          const hot = lit > hotFrom ? HRING_PATHS[k].slice(hotFrom, tipAlone && tipHot ? tip : lit) : [];
+          return (
+            <g key={ring.key} data-ring={ring.key} data-lit={lit}>
+              {cool.length ? (
+                <g fill={ring.color} filter={ring.glow} className={value.warn ? "mh-blink-fast" : undefined}>
+                  {cool.map((d, i) => (
+                    <path key={i} d={d} />
+                  ))}
+                </g>
+              ) : null}
+              {hot.length ? (
+                <g fill={HUD.red} filter="url(#mh-r)" className={shiftUp ? "mh-blink-fast" : undefined}>
+                  {hot.map((d, i) => (
+                    <path key={i} d={d} />
+                  ))}
+                </g>
+              ) : null}
+              {tipAlone ? (
+                <path className="mh-blink" d={HRING_PATHS[k][tip]} fill={tipHot ? HUD.red : ring.color} filter={tipHot ? "url(#mh-r)" : ring.glow} />
+              ) : null}
+            </g>
+          );
+        })}
+        {HUD_RINGS.map((ring, k) => {
+          const { x, y } = hudLegend(k);
+          const value = rings[ring.key];
+          return (
+            <text key={ring.key} x={x + 50} y={y} textAnchor="end" fill={value.warn ? HUD.red : ring.color} fontSize="13" fontWeight="700" className="mh-mono">
+              {value.text}
+            </text>
+          );
+        })}
+        {/* 輪の内側の方位の札 */}
         {known ? (
           <g data-heading={Math.round(normalDeg(heading))}>
-            <text x={HT.cx - 8} y={HT.y + 92} textAnchor="end" fill={HUD.green} fontSize="22" fontWeight="700" className="mh-jp" filter={glow}>
+            <text x={HRING.cx - 7} y="209" textAnchor="end" fill={HUD.green} fontSize="19" fontWeight="700" className="mh-jp" filter={glow}>
               {hudDir(heading)}
             </text>
-            <text x={HT.cx + 2} y={HT.y + 92} fill={HUD.green} fontSize="22" fontWeight="700" className="mh-mono" filter={glow}>
+            <text x={HRING.cx + 1} y="209" fill={HUD.green} fontSize="19" fontWeight="700" className="mh-mono" filter={glow}>
               {`${Math.round(normalDeg(heading))}°`}
             </text>
           </g>
         ) : (
-          <text x={HT.cx} y={HT.y + 91} textAnchor="middle" fill={HUD.dim} fontSize="15" fontWeight="700" className="mh-jp">
+          <text x={HRING.cx} y="207" textAnchor="middle" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
             方位を確認中
           </text>
         )}
         {/* 速さ(まだ分からないうちの -- は暗くして、光らせない) */}
         <text
-          x="512"
-          y="296"
+          x={HRING.cx}
+          y="372"
           textAnchor="middle"
           fill={data.speed === null ? HUD.dim : HUD.green}
-          fontSize="150"
+          fontSize="132"
           fontWeight="700"
           className="mh-mono"
           filter={data.speed === null ? undefined : glow}
         >
           {data.speed === null ? "--" : Math.round(data.speed)}
-        </text>
-        {/* 回転の帯(光っている段) */}
-        <g data-rpm-lit={litRpm}>
-          {Array.from({ length: litRpm }, (_, i) => (
-            <rect
-              key={i}
-              x={r2(HR.x + i * (HR.w / HR.segs))}
-              y={HR.y}
-              width={r2(HR.w / HR.segs - 2)}
-              height="12"
-              fill={i >= HR.hot ? HUD.red : HUD.green}
-              filter={i >= HR.hot ? "url(#mh-r)" : glow}
-            />
-          ))}
-        </g>
-        <text x="512" y={HR.y + 56} textAnchor="middle" fill={HUD.green} fontSize="13" fontWeight="700" className="mh-mono">
-          {data.rpm === null ? "— rpm" : `${Math.round(data.rpm)} rpm`}
         </text>
         {/* 左: ガソリンのはしご(光っている段)と、%・L・あと何km・平均・今日 */}
         <g data-fuel-lit={litFuel}>
@@ -1724,7 +1821,24 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
           <line key={i} x1={36 + i * 5} y1="9" x2={36 + i * 5} y2={i % 3 === 1 ? 15 : 12} stroke={HUD.green} strokeWidth=".8" />
         ))}
         <polygon points="60,8 57,3 63,3" fill={HUD.green} />
-        <text x="60" y="48" textAnchor="middle" fill={HUD.green} fontSize="26" fontWeight="700" fontFamily="monospace">
+        {[
+          { r: 23, color: HUD.green, v: 0.3 },
+          { r: 19.5, color: HUD.cyan, v: 0.48 },
+          { r: 16, color: HUD.amber, v: 0.78 },
+        ].map(({ r, color, v }) => {
+          const arc = (to: number) => {
+            const [x0, y0] = pol(60, 42, r, -135);
+            const [x1, y1] = pol(60, 42, r, -135 + 270 * to);
+            return `M${x0} ${y0}A${r} ${r} 0 ${270 * to > 180 ? 1 : 0} 1 ${x1} ${y1}`;
+          };
+          return (
+            <g key={r} fill="none" stroke={color} strokeWidth="2.6" strokeDasharray="2.2 1">
+              <path d={arc(1)} opacity=".18" />
+              <path d={arc(v)} />
+            </g>
+          );
+        })}
+        <text x="60" y="47" textAnchor="middle" fill={HUD.green} fontSize="15" fontWeight="700" fontFamily="monospace">
           58
         </text>
         {Array.from({ length: 7 }, (_, i) => (
