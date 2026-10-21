@@ -413,14 +413,19 @@ const RETRO_ECO = { x: 778, label: 282, lamp: 322, bar: { x: 786, y: 338, w: 32,
 const ECO_SEGMENTS = 12;
 /**
  * この回転数以下で ECO が光る(軽自動車なので 2400)。棒は、そこから 1000 回転下で全部点き、
- * 1000 回転上で1つも点かない(ちょうど ECO_RPM で半分)。
+ * ちょうど ECO_RPM で半分。軽自動車は加速でどうしても回るので、上側はゆるやかに減らし、
+ * 2000 回転上(4400)でやっと1つも点かなくなる。
  */
 const ECO_RPM = 2400;
 const ECO_FULL_RPM = ECO_RPM - 1000;
-const ECO_EMPTY_RPM = ECO_RPM + 1000;
+const ECO_EMPTY_RPM = ECO_RPM + 2000;
 /** エコの度合い(0〜1)。走っていて回転数が低いほど大きい。止まっているとき(5 km/h 未満)は 0。 */
-const ecoLevel = (rpm: number | null, speed: number | null) =>
-  rpm === null || speed === null || speed < 5 ? 0 : clamp01((ECO_EMPTY_RPM - rpm) / (ECO_EMPTY_RPM - ECO_FULL_RPM));
+const ecoLevel = (rpm: number | null, speed: number | null) => {
+  if (rpm === null || speed === null || speed < 5) return 0;
+  return rpm <= ECO_RPM
+    ? clamp01(0.5 + (0.5 * (ECO_RPM - rpm)) / (ECO_RPM - ECO_FULL_RPM))
+    : clamp01(0.5 - (0.5 * (rpm - ECO_RPM)) / (ECO_EMPTY_RPM - ECO_RPM));
+};
 /** 縦の棒の i 段目(下から)。 */
 const ecoSegment = (i: number) => {
   const pitch = RETRO_ECO.bar.h / ECO_SEGMENTS;
