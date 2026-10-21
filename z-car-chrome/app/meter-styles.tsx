@@ -6,7 +6,7 @@
 // 地図(Google マップ)を作るのは app/page.tsx で、ここでは置き場所を用意するだけ。
 
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import type { MeterStyle } from "./settings-store";
+import { BAGUA_PATTERNS, type BaguaPattern, type MeterStyle } from "./settings-store";
 
 const BOARD_W = 1024;
 const BOARD_H = 566;
@@ -1989,9 +1989,10 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 }
 
 // ------------------------------------------------------------------
-// 八卦: 速さの勢いを八卦で表すネオンのメーター。
-// 八角に並べた8つの卦(24本の線)が、止まっている坤(☷)から、速さに合わせて陽の線が増える順に
-// 乾(☰)まで光っていく。外の輪が回転、真ん中に大きな速さ。車両位置の八卦の印と同じ考え方。
+// 八卦: 速さの勢いを八卦で表すネオンのメーター。真ん中を押すと2つのパターンが入れ替わる。
+// ネオン八卦: 八角に並べた8つの卦(24本の線)が、止まっている坤(☷)から、速さに合わせて陽の線が増える順に
+//   乾(☰)まで光っていく。外の輪が回転、真ん中に大きな速さ。車両位置の八卦の印と同じ考え方。
+// 六十四卦の円図: 64の卦の輪が 2km/h ごとに光る。内の輪は先天の八卦(今の勢いの卦が光る)、真ん中は太極。
 // ------------------------------------------------------------------
 
 const BAGUA = {
@@ -2063,8 +2064,44 @@ const B_RPM_HOT = Math.round((RPM_RED / RPM_MAX) * B_RPM_SEGS);
 const B_LEGEND = TRIGRAMS.map((tri, i) => ({ ...tri, x: 824 + (i % 4) * 50, y: 90 + Math.floor(i / 4) * 110 }));
 const B_LEGEND_LINE = { r: 0, gap: 9, t: 5, w: 30 };
 
-/** 八卦の動かない絵: 下地・八角・消えている線と回転の輪・名前・左右の札。 */
-const BaguaFace = memo(function BaguaFace() {
+/** 六十四卦の円図: 64の卦(線6本。下の線ほど内)を、下から時計回りに並べる。 */
+const B_HEX = { r: 194, step: 7.2, t: 3.2, w: 15, yin: 6 };
+const B_HEX_KMH = 2;
+/** ここから上の卦は赤く光る(96km/h〜)。 */
+const B_HEX_HOT = 48;
+const hexagramDeg = (v: number) => r2(180 + (v * 360) / 64 + 360 / 128);
+/** 卦 v(0〜63。下の線が上の位)の6本の線を、真上に描く(回すのは外の g)。 */
+const hexagramLines = (v: number) =>
+  Array.from({ length: 6 }, (_, j) => {
+    const y = r2(BY - B_HEX.r - j * B_HEX.step - B_HEX.t / 2);
+    return (v >> (5 - j)) & 1 ? (
+      <rect key={j} x={BX - B_HEX.w / 2} y={y} width={B_HEX.w} height={B_HEX.t} rx=".6" />
+    ) : (
+      <g key={j}>
+        <rect x={BX - B_HEX.w / 2} y={y} width={B_HEX.yin} height={B_HEX.t} rx=".6" />
+        <rect x={BX + B_HEX.w / 2 - B_HEX.yin} y={y} width={B_HEX.yin} height={B_HEX.t} rx=".6" />
+      </g>
+    );
+  });
+/** 内の輪の八卦は先天の並び(乾が上、坤が下)。 */
+const XIANTIAN_DEG: Record<string, number> = { 乾: 0, 巽: 45, 坎: 90, 艮: 135, 坤: 180, 震: 225, 離: 270, 兌: 315 };
+const B_INNER_LINE = { r: 160, gap: 9, t: 6, w: 40 };
+const B_INNER_NAME_R = 128;
+/** 太極(陰陽)の印。 */
+const Taiji = ({ cx, cy, r }: { cx: number; cy: number; r: number }) => (
+  <g transform={`translate(${cx} ${cy}) rotate(30)`}>
+    <circle r={r} fill="#f3e2bb" />
+    <path d={`M0 ${-r}A${r} ${r} 0 0 1 0 ${r}A${r / 2} ${r / 2} 0 0 1 0 0A${r / 2} ${r / 2} 0 0 0 0 ${-r}Z`} fill="#120807" />
+    <circle cy={-r / 2} r={r2(r / 6)} fill="#120807" />
+    <circle cy={r / 2} r={r2(r / 6)} fill="#f3e2bb" />
+    <circle r={r} fill="none" stroke="#120807" strokeWidth={r2(r * 0.04)} />
+  </g>
+);
+/** 真ん中を押すと次のパターン。 */
+const B_CENTER = 110;
+
+/** 八卦の動かない絵: 下地・(パターンごとの)消えている線や輪・左右の札。 */
+const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }) {
   return (
     <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <defs>
@@ -2082,21 +2119,57 @@ const BaguaFace = memo(function BaguaFace() {
         </filter>
       </defs>
       <rect width={BOARD_W} height={BOARD_H} fill="url(#mb-bg)" />
-      <polygon points={octagonPoints(BX, BY, B_OCT_R)} fill="none" stroke={BAGUA.dim} strokeWidth="1.5" />
-      <polygon points={octagonPoints(BX, BY, B_OCT_R - 8)} fill="none" stroke={BAGUA.line} />
-      {Array.from({ length: B_RPM_SEGS }, (_, i) => (
-        <path key={i} d={rpmSegment(i)} fill="none" stroke={i >= B_RPM_HOT ? "#3a0d0a" : "#0b2a2e"} strokeWidth="10" />
-      ))}
-      <g fill={BAGUA.off}>
-        {TRIGRAMS.map((tri, i) => (
-          <g key={tri.name} transform={`rotate(${180 + i * 45} ${BX} ${BY})`}>
-            {tri.lines.map((yang, k) => trigramLine(BX, BY, B_LINE, k, yang, String(k)))}
+      {pattern === "neon" ? (
+        <g>
+          <polygon points={octagonPoints(BX, BY, B_OCT_R)} fill="none" stroke={BAGUA.dim} strokeWidth="1.5" />
+          <polygon points={octagonPoints(BX, BY, B_OCT_R - 8)} fill="none" stroke={BAGUA.line} />
+          {Array.from({ length: B_RPM_SEGS }, (_, i) => (
+            <path key={i} d={rpmSegment(i)} fill="none" stroke={i >= B_RPM_HOT ? "#3a0d0a" : "#0b2a2e"} strokeWidth="10" />
+          ))}
+          <g fill={BAGUA.off}>
+            {TRIGRAMS.map((tri, i) => (
+              <g key={tri.name} transform={`rotate(${180 + i * 45} ${BX} ${BY})`}>
+                {tri.lines.map((yang, k) => trigramLine(BX, BY, B_LINE, k, yang, String(k)))}
+              </g>
+            ))}
           </g>
-        ))}
-      </g>
-      <text x={BX} y={BY + 66} textAnchor="middle" fill={BAGUA.dim} fontSize="15" fontWeight="700" letterSpacing="3">
-        km/h
-      </text>
+          <text x={BX} y={BY + 66} textAnchor="middle" fill={BAGUA.dim} fontSize="15" fontWeight="700" letterSpacing="3">
+            km/h
+          </text>
+        </g>
+      ) : (
+        <g>
+          <circle cx={BX} cy={BY} r="244" fill="#080403" stroke={BAGUA.dim} strokeWidth="1.4" />
+          <circle cx={BX} cy={BY} r="186" fill="none" stroke={BAGUA.line} />
+          <circle cx={BX} cy={BY} r="112" fill="none" stroke={BAGUA.line} />
+          <g fill={BAGUA.off}>
+            {Array.from({ length: 64 }, (_, v) => (
+              <g key={v} transform={`rotate(${hexagramDeg(v)} ${BX} ${BY})`}>
+                {hexagramLines(v)}
+              </g>
+            ))}
+          </g>
+          <g fill="#4a3520">
+            {TRIGRAMS.map((tri) => (
+              <g key={tri.name} transform={`rotate(${XIANTIAN_DEG[tri.name]} ${BX} ${BY})`}>
+                {tri.lines.map((yang, k) => trigramLine(BX, BY, B_INNER_LINE, k, yang, String(k)))}
+              </g>
+            ))}
+          </g>
+          {TRIGRAMS.map((tri) => {
+            const [x, y] = pol(BX, BY, B_INNER_NAME_R, XIANTIAN_DEG[tri.name]);
+            return (
+              <text key={tri.name} x={x} y={y + 6} textAnchor="middle" fill={BAGUA.dim} fontSize="15" fontWeight="700" className="mb-serif">
+                {tri.name}
+              </text>
+            );
+          })}
+          <Taiji cx={BX} cy={BY - 12} r={46} />
+          <text x={BX} y={BY + 82} textAnchor="middle" fill={BAGUA.dim} fontSize="10" fontWeight="700" letterSpacing="3">
+            km/h
+          </text>
+        </g>
+      )}
       {/* 左の札(時計・天気・今日の距離)と、燃料・水温・電圧 */}
       <rect x="16" y="16" width="220" height="260" rx="12" fill={BAGUA.panel} stroke={BAGUA.line} />
       <line x1="36" y1="112" x2="216" y2="112" stroke={BAGUA.line} />
@@ -2130,52 +2203,97 @@ const BaguaFace = memo(function BaguaFace() {
   );
 });
 
-export function BaguaCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
+type BaguaProps = ClusterProps & {
+  pattern: BaguaPattern;
+  /** 真ん中を押したとき(次のパターンにする)。 */
+  onPattern: () => void;
+  /** パターンを変えた回数。0 より大きいと、名前の札を少し出す。 */
+  flash: number;
+};
+
+export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern, flash }: BaguaProps) {
   const speed = Math.max(0, data.speed ?? 0);
   const litLines = Math.min(24, Math.floor((speed / SPEED_MAX) * 24));
   const band = Math.min(TRIGRAMS.length - 1, Math.floor(speed / B_BAND_KMH));
   const now = TRIGRAMS[band];
   const litRpm = Math.min(B_RPM_SEGS, Math.round(((data.rpm ?? 0) / RPM_MAX) * B_RPM_SEGS));
+  const hexNow = Math.min(63, Math.floor(speed / B_HEX_KMH));
+  const patternIndex = Math.max(0, BAGUA_PATTERNS.findIndex((item) => item.id === pattern));
+  const speedText = data.speed === null ? "--" : String(Math.round(speed));
+  const rpmText = data.rpm === null ? "— r/min" : `${Math.round(data.rpm)} r/min`;
   const kind = data.weather ? weatherKind(data.weather.code) : null;
   const dest = data.destLabel ?? "目的地なし";
   const glow = "url(#mb-glow)";
   return (
     <Board className="ms-bagua">
-      <BaguaFace />
+      <BaguaFace pattern={pattern} />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-        {/* 回転の輪(光っている分だけ) */}
-        <g fill="none" strokeWidth="10" filter={glow}>
-          {Array.from({ length: litRpm }, (_, i) => (
-            <path key={i} d={rpmSegment(i)} stroke={i >= B_RPM_HOT ? BAGUA.red : BAGUA.cyan} />
-          ))}
-        </g>
-        {/* 八卦の線(速さの分だけ、坤から順に光る) */}
-        <g filter={glow}>
-          {B_LINES.filter((line) => line.index < litLines).map((line) => (
-            <g key={line.index} transform={`rotate(${line.deg} ${BX} ${BY})`} fill={line.tri >= B_HOT ? BAGUA.red : BAGUA.gold}>
-              {trigramLine(BX, BY, B_LINE, line.k, line.yang, "l")}
+        {pattern === "neon" ? (
+          <g>
+            {/* 回転の輪(光っている分だけ) */}
+            <g fill="none" strokeWidth="10" filter={glow}>
+              {Array.from({ length: litRpm }, (_, i) => (
+                <path key={i} d={rpmSegment(i)} stroke={i >= B_RPM_HOT ? BAGUA.red : BAGUA.cyan} />
+              ))}
             </g>
-          ))}
-        </g>
-        {TRIGRAMS.map((tri, i) => {
-          const [x, y] = pol(BX, BY, 140, 180 + i * 45);
-          const current = i === band;
-          return (
-            <text key={tri.name} x={x} y={y + 7} textAnchor="middle" fill={current ? BAGUA.gold : BAGUA.dim} fontSize="20" fontWeight="700" className="mb-serif" filter={current ? glow : undefined}>
-              {tri.name}
+            {/* 八卦の線(速さの分だけ、坤から順に光る) */}
+            <g filter={glow}>
+              {B_LINES.filter((line) => line.index < litLines).map((line) => (
+                <g key={line.index} transform={`rotate(${line.deg} ${BX} ${BY})`} fill={line.tri >= B_HOT ? BAGUA.red : BAGUA.gold}>
+                  {trigramLine(BX, BY, B_LINE, line.k, line.yang, "l")}
+                </g>
+              ))}
+            </g>
+            {TRIGRAMS.map((tri, i) => {
+              const [x, y] = pol(BX, BY, 140, 180 + i * 45);
+              const current = i === band;
+              return (
+                <text key={tri.name} x={x} y={y + 7} textAnchor="middle" fill={current ? BAGUA.gold : BAGUA.dim} fontSize="20" fontWeight="700" className="mb-serif" filter={current ? glow : undefined}>
+                  {tri.name}
+                </text>
+              );
+            })}
+            {/* 真ん中: 今の卦・大きな速さ・回転数 */}
+            <text x={BX} y={BY - 64} textAnchor="middle" fill={BAGUA.gold} fontSize="18" fontWeight="700" letterSpacing="4" className="mb-serif" filter={glow}>
+              {`${now.name}・${now.mean}`}
             </text>
-          );
-        })}
-        {/* 真ん中: 今の卦・大きな速さ・回転数 */}
-        <text x={BX} y={BY - 64} textAnchor="middle" fill={BAGUA.gold} fontSize="18" fontWeight="700" letterSpacing="4" className="mb-serif" filter={glow}>
-          {`${now.name}・${now.mean}`}
-        </text>
-        <text x={BX} y={BY + 38} textAnchor="middle" fill={BAGUA.ink} fontSize="120" fontWeight="700" fontStyle="italic" filter={glow}>
-          {data.speed === null ? "--" : Math.round(speed)}
-        </text>
-        <text x={BX} y={BY + 96} textAnchor="middle" fill={BAGUA.cyan} fontSize="13" fontWeight="700" letterSpacing="2">
-          {data.rpm === null ? "— r/min" : `${Math.round(data.rpm)} r/min`}
-        </text>
+            <text x={BX} y={BY + 38} textAnchor="middle" fill={BAGUA.ink} fontSize="120" fontWeight="700" fontStyle="italic" filter={glow}>
+              {speedText}
+            </text>
+            <text x={BX} y={BY + 96} textAnchor="middle" fill={BAGUA.cyan} fontSize="13" fontWeight="700" letterSpacing="2">
+              {rpmText}
+            </text>
+          </g>
+        ) : (
+          <g>
+            {/* 64の卦(速さの分だけ、下から時計回りに光る。今の卦は白っぽく) */}
+            <g filter={glow}>
+              {Array.from({ length: hexNow + 1 }, (_, v) => (
+                <g key={v} transform={`rotate(${hexagramDeg(v)} ${BX} ${BY})`} fill={v === hexNow ? "#fff1c9" : v >= B_HEX_HOT ? BAGUA.red : BAGUA.gold}>
+                  {hexagramLines(v)}
+                </g>
+              ))}
+            </g>
+            {/* 内の輪: 今の勢いの卦が光る */}
+            <g fill={band >= B_HOT ? BAGUA.red : BAGUA.gold} filter={glow} transform={`rotate(${XIANTIAN_DEG[now.name]} ${BX} ${BY})`}>
+              {now.lines.map((yang, k) => trigramLine(BX, BY, B_INNER_LINE, k, yang, String(k)))}
+            </g>
+            {(() => {
+              const [x, y] = pol(BX, BY, B_INNER_NAME_R, XIANTIAN_DEG[now.name]);
+              return (
+                <text x={x} y={y + 6} textAnchor="middle" fill={BAGUA.gold} fontSize="15" fontWeight="700" className="mb-serif" filter={glow}>
+                  {now.name}
+                </text>
+              );
+            })()}
+            <text x={BX} y={BY + 64} textAnchor="middle" fill={BAGUA.ink} fontSize="30" fontWeight="700" fontStyle="italic" filter={glow}>
+              {speedText}
+            </text>
+            <text x={BX} y={BY + 100} textAnchor="middle" fill={BAGUA.cyan} fontSize="11" fontWeight="700" letterSpacing="1.5">
+              {rpmText}
+            </text>
+          </g>
+        )}
         {/* 左の札 */}
         <text x="36" y="66" fill={BAGUA.ink} fontSize="44" fontWeight="700">
           {data.clock}
@@ -2237,6 +2355,15 @@ export function BaguaCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
           {dest}
         </text>
       </svg>
+      <Hit box={[BX - B_CENTER, BY - B_CENTER, B_CENTER * 2, B_CENTER * 2]} label={`八卦のパターンを変える(今は ${BAGUA_PATTERNS[patternIndex].name})`} onPress={onPattern} />
+      {flash > 0 ? (
+        <span key={flash} className="gauge-design-flash" aria-live="polite">
+          <small>
+            PATTERN {patternIndex + 1}/{BAGUA_PATTERNS.length}
+          </small>
+          <b>{BAGUA_PATTERNS[patternIndex].name}</b>
+        </span>
+      ) : null}
       <Hit box={[B_FUEL_PANEL.x, B_FUEL_PANEL.y, B_FUEL_PANEL.w, B_FUEL_PANEL.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[B_DEST.x, B_DEST.y, B_DEST.w, B_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit

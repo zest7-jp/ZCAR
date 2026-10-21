@@ -9196,6 +9196,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .ms-bagua text { font-family: "Helvetica Neue", Roboto, "Liberation Sans", Arial, sans-serif; }
 .ms-bagua text.mb-serif { font-family: "Noto Serif CJK JP", "Noto Serif JP", "Hiragino Mincho ProN", "IPAPMincho", "Liberation Serif", serif; }
 .ms-bagua .ms-hit { border-radius: 12px; }
+/* 真ん中を押してパターンを変えたときの名前の札(近未来の形の札と同じ動き、金の色) */
+.ms-bagua .gauge-design-flash {
+  border-color: rgba(255, 201, 74, .55);
+  background: rgba(10, 5, 3, .92);
+  box-shadow: 0 0 18px rgba(255, 201, 74, .25);
+}
+.ms-bagua .gauge-design-flash small { color: #c9a35a; }
+.ms-bagua .gauge-design-flash b { color: #ffe9c2; }
 .ms-bagua .ms-hit:active { background: rgba(255, 201, 74, .12); }
 #app.meter-style-bagua .meter-status {
   background: #070303;

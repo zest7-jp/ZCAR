@@ -340,6 +340,8 @@ export type Settings = {
   meterDesign: MeterDesign;
   /** テーマ(画面全体の雰囲気)。色と形は、近未来のテーマのときに使う。 */
   meterStyle: MeterStyle;
+  /** 八卦のテーマの真ん中の形(メーターの真ん中を押して変える)。車だけに覚え、同期しない。 */
+  baguaPattern: BaguaPattern;
   /** 設定同期の合言葉。空なら同期しない。端末内だけに保存し、送信内容には含めない。 */
   syncKey: string;
   /** 車とつないだ時刻(0なら未接続)。端末ごとの値なので同期しない。 */
@@ -372,6 +374,7 @@ export const defaults: Settings = {
   meterTheme: "green",
   meterDesign: "navi",
   meterStyle: "future",
+  baguaPattern: "neon",
   syncKey: "",
   pairedAt: 0,
   shareToken: "",
@@ -703,6 +706,15 @@ export const METER_STYLES: MeterStyleInfo[] = [
 export const meterStyleInfo = (id: string): MeterStyleInfo =>
   METER_STYLES.find((style) => style.id === id) ?? METER_STYLES[0];
 
+/** 八卦のテーマの真ん中の形。neon は八角のネオン八卦、circle は六十四卦の円図。 */
+export type BaguaPattern = "neon" | "circle";
+export const BAGUA_PATTERNS: { id: BaguaPattern; name: string }[] = [
+  { id: "neon", name: "ネオン八卦" },
+  { id: "circle", name: "六十四卦の円図" },
+];
+const isBaguaPattern = (value: unknown): value is BaguaPattern =>
+  BAGUA_PATTERNS.some((pattern) => pattern.id === value);
+
 const isMeterStyle = (value: unknown): value is MeterStyle =>
   METER_STYLES.some((style) => style.id === value);
 
@@ -733,6 +745,7 @@ export const readSettings = (): Settings => {
         ? stored.meterDesign
         : defaults.meterDesign,
       meterStyle: isMeterStyle(stored.meterStyle) ? stored.meterStyle : defaults.meterStyle,
+      baguaPattern: isBaguaPattern(stored.baguaPattern) ? stored.baguaPattern : defaults.baguaPattern,
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       shareToken: typeof stored.shareToken === "string" ? stored.shareToken : "",

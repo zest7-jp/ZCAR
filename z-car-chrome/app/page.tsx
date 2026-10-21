@@ -5,6 +5,7 @@ import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import { useParkingReport } from "./hooks/use-parking-report";
 import { useSharedSync } from "./hooks/use-shared-sync";
 import {
+  BAGUA_PATTERNS,
   buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
   defaults,
@@ -411,6 +412,8 @@ export default function Home() {
   const [greenMapReady, setGreenMapReady] = useState(false);
   // メーターの真ん中を押して形を変えたとき、形の名前を少しだけ出す(数が変わるたびに出し直す)。
   const [designFlash, setDesignFlash] = useState(0);
+  // 八卦のテーマで、真ん中を押してパターンを変えたとき(同じように名前を少し出す)。
+  const [baguaFlash, setBaguaFlash] = useState(0);
   const greenGmapRef = useRef<{
     setCenter: (point: { lat: number; lng: number }) => void;
     moveCamera: (camera: Record<string, unknown>) => void;
@@ -1642,6 +1645,13 @@ export default function Home() {
     setSettings((current) => ({ ...current, meterDesign: next.id }));
     setDesignFlash((count) => count + 1);
   };
+  // 八卦のテーマ: メーターの真ん中を押すと、次のパターンにする(車だけに覚える)。
+  const cycleBaguaPattern = () => {
+    const index = BAGUA_PATTERNS.findIndex((pattern) => pattern.id === settings.baguaPattern);
+    const next = BAGUA_PATTERNS[(index + 1) % BAGUA_PATTERNS.length];
+    setSettings((current) => ({ ...current, baguaPattern: next.id }));
+    setBaguaFlash((count) => count + 1);
+  };
   const gaugeSwitch = (
     <>
       <button
@@ -1845,6 +1855,9 @@ export default function Home() {
               onFuel={toggleFuelView}
               onDest={openDestDialog}
               onStart={startNavigation}
+              pattern={settings.baguaPattern}
+              onPattern={cycleBaguaPattern}
+              flash={baguaFlash}
             />
           </main>
         ) : null}
