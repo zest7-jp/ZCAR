@@ -33,19 +33,22 @@ if(!/iPhone|iPod/.test(ua)&&longEdge>=${PHONE_LONG_EDGE_MAX})return;
 location.replace(b+"/settings/")
 }catch(e){}})();`;
 
+const ICON_VERSION = 2;
+
 export const metadata: Metadata = {
   title: "Z CAR",
   description: "PORMIDO G10向け Zポータル・カーナビホーム",
-  manifest: `${basePath}/manifest.webmanifest`,
+  // アイコンの絵を変えたら ICON_VERSION を上げる(車や iPhone に貯まった古い絵を使わせないため)。
+  manifest: `${basePath}/manifest.webmanifest?v=${ICON_VERSION}`,
   icons: {
     icon: [
-      { url: `${basePath}/favicon.svg`, type: "image/svg+xml" },
-      { url: `${basePath}/icon-192.png`, sizes: "192x192", type: "image/png" },
+      { url: `${basePath}/favicon.svg?v=${ICON_VERSION}`, type: "image/svg+xml" },
+      { url: `${basePath}/icon-192.png?v=${ICON_VERSION}`, sizes: "192x192", type: "image/png" },
     ],
-    shortcut: `${basePath}/favicon.svg`,
-    // iPhoneでホーム画面に追加したときのアイコン(メーター風)。
+    shortcut: `${basePath}/favicon.svg?v=${ICON_VERSION}`,
+    // iPhoneでホーム画面に追加したときのアイコン(近未来の、光る水色のメーターと Z)。
     apple: [
-      { url: `${basePath}/apple-touch-icon.png`, sizes: "180x180", type: "image/png" },
+      { url: `${basePath}/apple-touch-icon.png?v=${ICON_VERSION}`, sizes: "180x180", type: "image/png" },
     ],
   },
   // ホーム画面に並んだときの名前。

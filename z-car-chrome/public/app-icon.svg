@@ -1,31 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Z CAR">
-  <!-- 設定の歯車の中にメーターを入れたアイコン。面と太い線だけで、小さくても形が残る。 -->
+  <!-- 近未来のテーマと同じ雰囲気の、光る水色の円弧(メーター)と Z。文字は使わず形だけで描く。
+       ここから apple-touch-icon.png(180)・icon-192.png・icon-512.png を書き出す。 -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0e1a1f"/>
-      <stop offset="1" stop-color="#05090b"/>
+    <radialGradient id="bg" cx=".5" cy=".42" r=".78">
+      <stop offset="0" stop-color="#0f3038"/><stop offset=".55" stop-color="#061419"/><stop offset="1" stop-color="#020507"/>
+    </radialGradient>
+    <linearGradient id="lit" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1aa9ff"/><stop offset=".55" stop-color="#27e3ff"/><stop offset="1" stop-color="#6dffd9"/>
     </linearGradient>
+    <linearGradient id="zfill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#b9fbff"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-
-  <!-- 歯車 -->
-  <g fill="#3ddfe6">
-    <g>
-      <rect x="225" y="34" width="62" height="56" rx="12"/>
-      <rect x="225" y="34" width="62" height="56" rx="12" transform="rotate(45 256 256)"/>
-      <rect x="225" y="34" width="62" height="56" rx="12" transform="rotate(90 256 256)"/>
-      <rect x="225" y="34" width="62" height="56" rx="12" transform="rotate(135 256 256)"/>
-      <rect x="225" y="34" width="62" height="56" rx="12" transform="rotate(180 256 256)"/>
-      <rect x="225" y="34" width="62" height="56" rx="12" transform="rotate(225 256 256)"/>
-      <rect x="225" y="34" width="62" height="56" rx="12" transform="rotate(270 256 256)"/>
-      <rect x="225" y="34" width="62" height="56" rx="12" transform="rotate(315 256 256)"/>
-    </g>
-    <circle cx="256" cy="256" r="182"/>
-  </g>
-  <circle cx="256" cy="256" r="138" fill="#0a1216"/>
-
-  <!-- メーター -->
-  <path d="M173 304A96 96 0 1 1 339 304" fill="none" stroke="#7ff2f8" stroke-width="17" stroke-linecap="round"/>
-  <path d="M256 256l50-72" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round"/>
-  <circle cx="256" cy="256" r="15" fill="#ffffff"/>
+  <!-- メーターの円弧(暗い溝と、7割まで光る所)・目盛り・先の光る点 -->
+  <path d="M134.38 389.62 A172 172 0 1 1 377.62 389.62" fill="none" stroke="#0e3842" stroke-width="30" stroke-linecap="round"/>
+  <path d="M134.38 389.62 A172 172 0 1 1 404.96 182" fill="none" stroke="url(#lit)" stroke-width="30" stroke-linecap="round" filter="url(#glow)"/>
+  <line x1="155.59" y1="368.41" x2="165.49" y2="358.51" stroke="#7ff2f8" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round"/><line x1="116.73" y1="295.7" x2="130.46" y2="292.97" stroke="#7ff2f8" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round"/><line x1="124.81" y1="213.66" x2="137.74" y2="219.02" stroke="#7ff2f8" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round"/><line x1="177.11" y1="149.93" x2="184.89" y2="161.57" stroke="#7ff2f8" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round"/><line x1="256" y1="126" x2="256" y2="140" stroke="#7ff2f8" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round"/><line x1="334.89" y1="149.93" x2="327.11" y2="161.57" stroke="#7ff2f8" stroke-opacity="0.8" stroke-width="6" stroke-linecap="round"/><line x1="387.19" y1="213.66" x2="374.26" y2="219.02" stroke="#7ff2f8" stroke-opacity="0.3" stroke-width="6" stroke-linecap="round"/><line x1="395.27" y1="295.7" x2="381.54" y2="292.97" stroke="#7ff2f8" stroke-opacity="0.3" stroke-width="6" stroke-linecap="round"/><line x1="356.41" y1="368.41" x2="346.51" y2="358.51" stroke="#7ff2f8" stroke-opacity="0.3" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="404.96" cy="182" r="20" fill="#eaffff" filter="url(#soft)"/>
+  <path d="M201.6 196 L351.6 196 L345.84 232 L237.56 320 L331.76 320 L326 356 L176 356 L181.76 320 L290.04 232 L195.84 232 Z" fill="url(#zfill)" filter="url(#soft)"/>
 </svg>
