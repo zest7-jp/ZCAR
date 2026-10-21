@@ -2064,39 +2064,75 @@ const B_RPM_HOT = Math.round((RPM_RED / RPM_MAX) * B_RPM_SEGS);
 const B_LEGEND = TRIGRAMS.map((tri, i) => ({ ...tri, x: 824 + (i % 4) * 50, y: 90 + Math.floor(i / 4) * 110 }));
 const B_LEGEND_LINE = { r: 0, gap: 9, t: 5, w: 30 };
 
-/** 六十四卦の円図: 64の卦(線6本。下の線ほど内)を、下から時計回りに並べる。 */
-const B_HEX = { r: 194, step: 7.2, t: 3.2, w: 15, yin: 6 };
+/**
+ * 六十四卦の円図(先天の並び。上が南で、乾が上・坤が下)。
+ * 右半分は下から上へ 坤(0)〜姤(31)、左半分は下から上へ 復(32)〜乾(63)。
+ * 卦の数 v は、1本目(下の線)がいちばん上の位(下の卦×8+上の卦。卦は坤0〜乾7)。
+ * 6重の輪は、内側が1本目、外側が6本目。内の3本は下の卦の色、外の3本は上の卦の色(五行)。
+ */
+const HEX_SPAN = 360 / 64;
+const HEX_RING = { inner: 150, step: 15, width: 11 };
+const HEX_IN = HEX_RING.inner - HEX_RING.width / 2 - 1.5;
+const HEX_OUT = HEX_RING.inner + 5 * HEX_RING.step + HEX_RING.width / 2 + 1.5;
+const HEX_LABEL_R = 252;
+/** 2km/h ごとに次の卦(0〜126km/h)。 */
 const B_HEX_KMH = 2;
-/** ここから上の卦は赤く光る(96km/h〜)。 */
-const B_HEX_HOT = 48;
-const hexagramDeg = (v: number) => r2(180 + (v * 360) / 64 + 360 / 128);
-/** 卦 v(0〜63。下の線が上の位)の6本の線を、真上に描く(回すのは外の g)。 */
-const hexagramLines = (v: number) =>
-  Array.from({ length: 6 }, (_, j) => {
-    const y = r2(BY - B_HEX.r - j * B_HEX.step - B_HEX.t / 2);
-    return (v >> (5 - j)) & 1 ? (
-      <rect key={j} x={BX - B_HEX.w / 2} y={y} width={B_HEX.w} height={B_HEX.t} rx=".6" />
-    ) : (
-      <g key={j}>
-        <rect x={BX - B_HEX.w / 2} y={y} width={B_HEX.yin} height={B_HEX.t} rx=".6" />
-        <rect x={BX + B_HEX.w / 2 - B_HEX.yin} y={y} width={B_HEX.yin} height={B_HEX.t} rx=".6" />
-      </g>
-    );
-  });
-/** 内の輪の八卦は先天の並び(乾が上、坤が下)。 */
-const XIANTIAN_DEG: Record<string, number> = { 乾: 0, 巽: 45, 坎: 90, 艮: 135, 坤: 180, 震: 225, 離: 270, 兌: 315 };
-const B_INNER_LINE = { r: 160, gap: 9, t: 6, w: 40 };
-const B_INNER_NAME_R = 128;
-/** 太極(陰陽)の印。 */
-const Taiji = ({ cx, cy, r }: { cx: number; cy: number; r: number }) => (
-  <g transform={`translate(${cx} ${cy}) rotate(30)`}>
-    <circle r={r} fill="#f3e2bb" />
-    <path d={`M0 ${-r}A${r} ${r} 0 0 1 0 ${r}A${r / 2} ${r / 2} 0 0 1 0 0A${r / 2} ${r / 2} 0 0 0 0 ${-r}Z`} fill="#120807" />
-    <circle cy={-r / 2} r={r2(r / 6)} fill="#120807" />
-    <circle cy={r / 2} r={r2(r / 6)} fill="#f3e2bb" />
-    <circle r={r} fill="none" stroke="#120807" strokeWidth={r2(r * 0.04)} />
-  </g>
-);
+/** 五行の色(TRIGRAMS と同じ順): 土(坤・艮)・水(坎)・木(巽・震)・火(離)・金(兌・乾)。 */
+const ELEMENT_COLORS = ["#c9a26b", "#c9a26b", "#4aa6ef", "#5ec46e", "#5ec46e", "#ef6a5e", "#f5c04a", "#f5c04a"];
+/** 六十四卦の名前。「上の卦・下の卦」で引く。 */
+const HEXAGRAM_NAMES: Record<string, string> = {
+  乾乾: "乾", 坤坤: "坤", 坎震: "屯", 艮坎: "蒙", 坎乾: "需", 乾坎: "訟", 坤坎: "師", 坎坤: "比",
+  巽乾: "小畜", 乾兌: "履", 坤乾: "泰", 乾坤: "否", 乾離: "同人", 離乾: "大有", 坤艮: "謙", 震坤: "豫",
+  兌震: "随", 艮巽: "蠱", 坤兌: "臨", 巽坤: "観", 離震: "噬嗑", 艮離: "賁", 艮坤: "剥", 坤震: "復",
+  乾震: "无妄", 艮乾: "大畜", 艮震: "頤", 兌巽: "大過", 坎坎: "坎", 離離: "離", 兌艮: "咸", 震巽: "恒",
+  乾艮: "遯", 震乾: "大壮", 離坤: "晋", 坤離: "明夷", 巽離: "家人", 離兌: "睽", 坎艮: "蹇", 震坎: "解",
+  艮兌: "損", 巽震: "益", 兌乾: "夬", 乾巽: "姤", 兌坤: "萃", 坤巽: "升", 兌坎: "困", 坎巽: "井",
+  兌離: "革", 離巽: "鼎", 震震: "震", 艮艮: "艮", 巽艮: "漸", 震兌: "帰妹", 震離: "豊", 離艮: "旅",
+  巽巽: "巽", 兌兌: "兌", 巽坎: "渙", 坎兌: "節", 巽兌: "中孚", 震艮: "小過", 坎離: "既済", 離坎: "未済",
+};
+/** 卦 v の名前(鼎)・長い名前(火風鼎)・線の並び(1本目から6本目。011101)。 */
+const hexagramName = (v: number) => {
+  const lower = TRIGRAMS[v >> 3];
+  const upper = TRIGRAMS[v & 7];
+  const short = HEXAGRAM_NAMES[`${upper.name}${lower.name}`];
+  return {
+    short,
+    long: upper === lower ? `${upper.name}為${upper.mean}` : `${upper.mean}${lower.mean}${short}`,
+    lines: Array.from({ length: 6 }, (_, j) => (v >> (5 - j)) & 1).join(""),
+  };
+};
+/** 卦 v の真ん中の角度(12時が0、時計回り)。 */
+const hexagramAngle = (v: number) => (v < 32 ? 180 - (v + 0.5) * HEX_SPAN : 180 + (v - 31.5) * HEX_SPAN);
+/** 下の卦の名前を置く角度(その卦が下の8つの卦の真ん中)。 */
+const lowerLabelAngle = (lower: number) => hexagramAngle(lower * 8 + 3.5);
+/** 輪の上の弧(d0 から d1 へ時計回り)。 */
+const ringArc = (r: number, d0: number, d1: number) => {
+  const [ax, ay] = pol(BX, BY, r, d0);
+  const [bx, by] = pol(BX, BY, r, d1);
+  return `M${ax} ${ay}A${r} ${r} 0 0 1 ${bx} ${by}`;
+};
+/** 卦 v の j 本目(0 が1本目)の線の弧。陰は真ん中を切った2つ。 */
+const hexagramLinePath = (v: number, j: number) => {
+  const a = hexagramAngle(v);
+  const r = HEX_RING.inner + j * HEX_RING.step;
+  const half = HEX_SPAN / 2 - 0.36;
+  return (v >> (5 - j)) & 1 ? ringArc(r, a - half, a + half) : ringArc(r, a - half, a - 0.55) + ringArc(r, a + 0.55, a + half);
+};
+/** 輪の扇形(d0 から d1 へ時計回り。90度ずつに分けて描く)。 */
+const ringSector = (d0: number, d1: number): string => {
+  if (d1 - d0 > 90) return ringSector(d0, d0 + 90) + ringSector(d0 + 90, d1);
+  const [a1, b1] = pol(BX, BY, HEX_OUT, d0);
+  const [a2, b2] = pol(BX, BY, HEX_OUT, d1);
+  const [a3, b3] = pol(BX, BY, HEX_IN, d1);
+  const [a4, b4] = pol(BX, BY, HEX_IN, d0);
+  return `M${a1} ${b1}A${HEX_OUT} ${HEX_OUT} 0 0 1 ${a2} ${b2}L${a3} ${b3}A${HEX_IN} ${HEX_IN} 0 0 0 ${a4} ${b4}Z`;
+};
+/** まだ届いていない卦の所(暗くする)。右半分を下から上へ、そのあと左半分を下から上へ光らせる。 */
+const hexagramDimPath = (now: number) => {
+  if (now < 31) return ringSector(0, 180 - (now + 1) * HEX_SPAN) + ringSector(180, 360);
+  if (now < 63) return ringSector(180 + (now - 31) * HEX_SPAN, 360);
+  return "";
+};
 /** 真ん中を押すと次のパターン。 */
 const B_CENTER = 110;
 
@@ -2139,35 +2175,31 @@ const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }
         </g>
       ) : (
         <g>
-          <circle cx={BX} cy={BY} r="244" fill="#080403" stroke={BAGUA.dim} strokeWidth="1.4" />
-          <circle cx={BX} cy={BY} r="186" fill="none" stroke={BAGUA.line} />
-          <circle cx={BX} cy={BY} r="112" fill="none" stroke={BAGUA.line} />
-          <g fill={BAGUA.off}>
+          <circle cx={BX} cy={BY} r={HEX_OUT + 5} fill="#080403" stroke={BAGUA.line} />
+          <circle cx={BX} cy={BY} r={HEX_IN - 5} fill="none" stroke={BAGUA.line} />
+          {/* 下の卦が変わる8つの区切り */}
+          {Array.from({ length: 8 }, (_, i) => {
+            const [x1, y1] = pol(BX, BY, HEX_IN - 9, i * 45);
+            const [x2, y2] = pol(BX, BY, HEX_OUT + 9, i * 45);
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={BAGUA.line} />;
+          })}
+          <g fill="none" strokeWidth={HEX_RING.width}>
             {Array.from({ length: 64 }, (_, v) => (
-              <g key={v} transform={`rotate(${hexagramDeg(v)} ${BX} ${BY})`}>
-                {hexagramLines(v)}
+              <g key={v}>
+                {Array.from({ length: 6 }, (_, j) => (
+                  <path key={j} d={hexagramLinePath(v, j)} stroke={ELEMENT_COLORS[j < 3 ? v >> 3 : v & 7]} />
+                ))}
               </g>
             ))}
           </g>
-          <g fill="#4a3520">
-            {TRIGRAMS.map((tri) => (
-              <g key={tri.name} transform={`rotate(${XIANTIAN_DEG[tri.name]} ${BX} ${BY})`}>
-                {tri.lines.map((yang, k) => trigramLine(BX, BY, B_INNER_LINE, k, yang, String(k)))}
-              </g>
-            ))}
-          </g>
-          {TRIGRAMS.map((tri) => {
-            const [x, y] = pol(BX, BY, B_INNER_NAME_R, XIANTIAN_DEG[tri.name]);
+          {TRIGRAMS.map((tri, i) => {
+            const [x, y] = pol(BX, BY, HEX_LABEL_R, lowerLabelAngle(i));
             return (
-              <text key={tri.name} x={x} y={y + 6} textAnchor="middle" fill={BAGUA.dim} fontSize="15" fontWeight="700" className="mb-serif">
+              <text key={tri.name} x={x} y={y + 7} textAnchor="middle" fill={ELEMENT_COLORS[i]} opacity=".75" fontSize="19" fontWeight="700" className="mb-serif">
                 {tri.name}
               </text>
             );
           })}
-          <Taiji cx={BX} cy={BY - 12} r={46} />
-          <text x={BX} y={BY + 82} textAnchor="middle" fill={BAGUA.dim} fontSize="10" fontWeight="700" letterSpacing="3">
-            km/h
-          </text>
         </g>
       )}
       {/* 左の札(時計・天気・今日の距離)と、燃料・水温・電圧 */}
@@ -2218,6 +2250,9 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
   const now = TRIGRAMS[band];
   const litRpm = Math.min(B_RPM_SEGS, Math.round(((data.rpm ?? 0) / RPM_MAX) * B_RPM_SEGS));
   const hexNow = Math.min(63, Math.floor(speed / B_HEX_KMH));
+  const hexagram = hexagramName(hexNow);
+  // 右の札で光らせる卦: ネオン八卦は勢いの卦、円図は今の卦の下の卦(右半分を下から、そのあと左半分)。
+  const legendNow = pattern === "neon" ? band : hexNow >> 3;
   const patternIndex = Math.max(0, BAGUA_PATTERNS.findIndex((item) => item.id === pattern));
   const speedText = data.speed === null ? "--" : String(Math.round(speed));
   const rpmText = data.rpm === null ? "— r/min" : `${Math.round(data.rpm)} r/min`;
@@ -2266,30 +2301,41 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
           </g>
         ) : (
           <g>
-            {/* 64の卦(速さの分だけ、下から時計回りに光る。今の卦は白っぽく) */}
-            <g filter={glow}>
-              {Array.from({ length: hexNow + 1 }, (_, v) => (
-                <g key={v} transform={`rotate(${hexagramDeg(v)} ${BX} ${BY})`} fill={v === hexNow ? "#fff1c9" : v >= B_HEX_HOT ? BAGUA.red : BAGUA.gold}>
-                  {hexagramLines(v)}
-                </g>
-              ))}
-            </g>
-            {/* 内の輪: 今の勢いの卦が光る */}
-            <g fill={band >= B_HOT ? BAGUA.red : BAGUA.gold} filter={glow} transform={`rotate(${XIANTIAN_DEG[now.name]} ${BX} ${BY})`}>
-              {now.lines.map((yang, k) => trigramLine(BX, BY, B_INNER_LINE, k, yang, String(k)))}
-            </g>
+            {/* まだ届いていない卦を暗くし、今の卦に枠を付ける */}
+            <path d={hexagramDimPath(hexNow)} fill="#030202" opacity=".72" />
+            <path
+              d={ringSector(hexagramAngle(hexNow) - HEX_SPAN / 2, hexagramAngle(hexNow) + HEX_SPAN / 2)}
+              fill="none"
+              stroke="#ff4d3d"
+              strokeWidth="2.2"
+              filter={glow}
+            />
             {(() => {
-              const [x, y] = pol(BX, BY, B_INNER_NAME_R, XIANTIAN_DEG[now.name]);
+              const lower = hexNow >> 3;
+              const [x, y] = pol(BX, BY, HEX_LABEL_R, lowerLabelAngle(lower));
               return (
-                <text x={x} y={y + 6} textAnchor="middle" fill={BAGUA.gold} fontSize="15" fontWeight="700" className="mb-serif" filter={glow}>
-                  {now.name}
+                <text x={x} y={y + 7} textAnchor="middle" fill={ELEMENT_COLORS[lower]} fontSize="19" fontWeight="700" className="mb-serif" filter={glow}>
+                  {TRIGRAMS[lower].name}
                 </text>
               );
             })()}
-            <text x={BX} y={BY + 64} textAnchor="middle" fill={BAGUA.ink} fontSize="30" fontWeight="700" fontStyle="italic" filter={glow}>
-              {speedText}
+            {/* 真ん中: 今の卦の名前・線の並び(1本目から)・速さ */}
+            <text x={BX} y={BY - 34} textAnchor="middle" fill={BAGUA.ink} fontSize="46" fontWeight="700" className="mb-serif" filter={glow}>
+              {hexagram.short}
             </text>
-            <text x={BX} y={BY + 100} textAnchor="middle" fill={BAGUA.cyan} fontSize="11" fontWeight="700" letterSpacing="1.5">
+            <text x={BX} y={BY - 6} textAnchor="middle" fill={BAGUA.dim} fontSize="13" fontWeight="700" letterSpacing="2" className="mb-serif">
+              {hexagram.long}
+            </text>
+            <text x={BX} y={BY + 16} textAnchor="middle" fill={BAGUA.dim} fontSize="13" fontWeight="700" letterSpacing="3">
+              {hexagram.lines}
+            </text>
+            <text x={BX} y={BY + 66} textAnchor="middle" fill={BAGUA.ink} fontSize="34" fontWeight="700" fontStyle="italic" filter={glow}>
+              {speedText}
+              <tspan fontSize="12" fontStyle="normal" fill={BAGUA.dim} dx="5">
+                km/h
+              </tspan>
+            </text>
+            <text x={BX} y={BY + 90} textAnchor="middle" fill={BAGUA.cyan} fontSize="11" fontWeight="700" letterSpacing="1.5">
               {rpmText}
             </text>
           </g>
@@ -2336,7 +2382,7 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
         </text>
         {/* 右の札: 今の卦までが光る */}
         {B_LEGEND.map((tri, i) => {
-          const on = i <= band;
+          const on = i <= legendNow;
           return (
             <g key={tri.name}>
               <g fill={on ? (i >= B_HOT ? BAGUA.red : BAGUA.gold) : BAGUA.off} filter={on ? glow : undefined}>
