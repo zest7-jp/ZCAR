@@ -1992,7 +1992,8 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 // 八卦: 速さの勢いを八卦で表すネオンのメーター。真ん中を押すと2つのパターンが入れ替わる。
 // ネオン八卦: 八角に並べた8つの卦(24本の線)が、止まっている坤(☷)から、速さに合わせて陽の線が増える順に
 //   乾(☰)まで光っていく。外の輪が回転、真ん中に大きな速さ。車両位置の八卦の印と同じ考え方。
-// 六十四卦の円図: 64の卦の輪が 2km/h ごとに光る。内の輪は先天の八卦(今の勢いの卦が光る)、真ん中は太極。
+// 六十四卦の円図: 先天の並びの64の卦(五行の色分け)。2km/h ごとに次の卦に枠が動き、真ん中に今の卦。
+// どちらも真ん中の速さと回転数は、数字の代わりに8進の卦で出す(坤0〜乾7。58km/h は 乾7・坎2)。
 // ------------------------------------------------------------------
 
 const BAGUA = {
@@ -2090,17 +2091,15 @@ const HEXAGRAM_NAMES: Record<string, string> = {
   兌離: "革", 離巽: "鼎", 震震: "震", 艮艮: "艮", 巽艮: "漸", 震兌: "帰妹", 震離: "豊", 離艮: "旅",
   巽巽: "巽", 兌兌: "兌", 巽坎: "渙", 坎兌: "節", 巽兌: "中孚", 震艮: "小過", 坎離: "既済", 離坎: "未済",
 };
-/** 卦 v の名前(鼎)・長い名前(火風鼎)・線の並び(1本目から6本目。011101)。 */
+/** 卦 v の名前(鼎)と長い名前(火風鼎)。 */
 const hexagramName = (v: number) => {
   const lower = TRIGRAMS[v >> 3];
   const upper = TRIGRAMS[v & 7];
   const short = HEXAGRAM_NAMES[`${upper.name}${lower.name}`];
-  return {
-    short,
-    long: upper === lower ? `${upper.name}為${upper.mean}` : `${upper.mean}${lower.mean}${short}`,
-    lines: Array.from({ length: 6 }, (_, j) => (v >> (5 - j)) & 1).join(""),
-  };
+  return { short, long: upper === lower ? `${upper.name}為${upper.mean}` : `${upper.mean}${lower.mean}${short}` };
 };
+/** 卦 v の j 本目(0 が1本目・下の線)が陽なら 1。 */
+const hexagramLine = (v: number, j: number) => (v >> (5 - j)) & 1;
 /** 卦 v の真ん中の角度(12時が0、時計回り)。 */
 const hexagramAngle = (v: number) => (v < 32 ? 180 - (v + 0.5) * HEX_SPAN : 180 + (v - 31.5) * HEX_SPAN);
 /** 下の卦の名前を置く角度(その卦が下の8つの卦の真ん中)。 */
@@ -2116,7 +2115,7 @@ const hexagramLinePath = (v: number, j: number) => {
   const a = hexagramAngle(v);
   const r = HEX_RING.inner + j * HEX_RING.step;
   const half = HEX_SPAN / 2 - 0.36;
-  return (v >> (5 - j)) & 1 ? ringArc(r, a - half, a + half) : ringArc(r, a - half, a - 0.55) + ringArc(r, a + 0.55, a + half);
+  return hexagramLine(v, j) ? ringArc(r, a - half, a + half) : ringArc(r, a - half, a - 0.55) + ringArc(r, a + 0.55, a + half);
 };
 /** 輪の扇形(d0 から d1 へ時計回り。90度ずつに分けて描く)。 */
 const ringSector = (d0: number, d1: number): string => {
@@ -2127,11 +2126,86 @@ const ringSector = (d0: number, d1: number): string => {
   const [a4, b4] = pol(BX, BY, HEX_IN, d0);
   return `M${a1} ${b1}A${HEX_OUT} ${HEX_OUT} 0 0 1 ${a2} ${b2}L${a3} ${b3}A${HEX_IN} ${HEX_IN} 0 0 0 ${a4} ${b4}Z`;
 };
-/** まだ届いていない卦の所(暗くする)。右半分を下から上へ、そのあと左半分を下から上へ光らせる。 */
-const hexagramDimPath = (now: number) => {
-  if (now < 31) return ringSector(0, 180 - (now + 1) * HEX_SPAN) + ringSector(180, 360);
-  if (now < 63) return ringSector(180 + (now - 31) * HEX_SPAN, 360);
-  return "";
+type LineSize = { r: number; gap: number; t: number; w: number };
+/** 数の8進のけた(58 → [7, 2])。 */
+const octalDigits = (value: number) => Math.max(0, Math.round(value)).toString(8).split("").map(Number);
+/** 8進の卦の並びの幅。 */
+const octalWidth = (digits: number[], line: LineSize, space: number) => digits.length * line.w + (digits.length - 1) * space;
+/**
+ * 数を、数字の代わりに8進の卦で描く(1けたが1つの卦。坤0・艮1・坎2・巽3・震4・離5・兌6・乾7)。
+ * 色は五行。消えている線もうっすら見せる(7セグメントの消えている所と同じ)。names を決めると、下に卦の名前。
+ */
+const TrigramNumber = ({ value, cx, cy, line, space, names, glow }: { value: number; cx: number; cy: number; line: LineSize; space: number; names?: number; glow?: string }) => {
+  const digits = octalDigits(value);
+  const total = octalWidth(digits, line, space);
+  return (
+    <g data-octal={digits.join("")}>
+      {digits.map((digit, i) => {
+        const x = r2(cx - total / 2 + i * (line.w + space) + line.w / 2);
+        const tri = TRIGRAMS[digit];
+        return (
+          <g key={i}>
+            <g fill={ELEMENT_COLORS[digit]} opacity=".1">
+              {[1, 1, 1].map((yang, k) => trigramLine(x, cy, line, k, yang, String(k)))}
+            </g>
+            <g fill={ELEMENT_COLORS[digit]} filter={glow}>
+              {tri.lines.map((yang, k) => trigramLine(x, cy, line, k, yang, String(k)))}
+            </g>
+            {names ? (
+              <text x={x} y={r2(cy + line.gap + line.t / 2 + names + 4)} textAnchor="middle" fill={ELEMENT_COLORS[digit]} fontSize={names} fontWeight="700" className="mb-serif">
+                {tri.name}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+    </g>
+  );
+};
+/** 回転数(100回転ごと)を小さな8進の卦で出し、右に「×100 r/min」。 */
+const RpmTrigrams = ({ rpm, cy, line, glow }: { rpm: number | null; cy: number; line: LineSize; glow: string }) => {
+  if (rpm === null) {
+    return (
+      <text x={BX} y={cy + 4} textAnchor="middle" fill={BAGUA.cyan} fontSize="11" fontWeight="700">
+        — r/min
+      </text>
+    );
+  }
+  const space = 7;
+  const width = octalWidth(octalDigits(rpm / 100), line, space);
+  const label = 58;
+  const left = BX - (width + 8 + label) / 2;
+  return (
+    <g>
+      <TrigramNumber value={rpm / 100} cx={r2(left + width / 2)} cy={cy} line={line} space={space} glow={glow} />
+      <text x={r2(left + width + 8)} y={cy + 4} fill={BAGUA.cyan} fontSize="10" fontWeight="700" letterSpacing=".5">
+        ×100 r/min
+      </text>
+    </g>
+  );
+};
+/** 卦 v を6本の線の絵で(下が1本目)。内の3本は下の卦、外の3本は上の卦の色。 */
+const HexagramGlyph = ({ v, cx, cy }: { v: number; cx: number; cy: number }) => {
+  const w = 64;
+  const t = 6;
+  const step = 10;
+  const half = r2(w * 0.39);
+  return (
+    <g data-lines={Array.from({ length: 6 }, (_, j) => hexagramLine(v, j)).join("")}>
+      {Array.from({ length: 6 }, (_, j) => {
+        const y = r2(cy + 2.5 * step - j * step - t / 2);
+        const color = ELEMENT_COLORS[j < 3 ? v >> 3 : v & 7];
+        return hexagramLine(v, j) ? (
+          <rect key={j} x={cx - w / 2} y={y} width={w} height={t} rx="1.2" fill={color} />
+        ) : (
+          <g key={j} fill={color}>
+            <rect x={cx - w / 2} y={y} width={half} height={t} rx="1.2" />
+            <rect x={r2(cx + w / 2 - half)} y={y} width={half} height={t} rx="1.2" />
+          </g>
+        );
+      })}
+    </g>
+  );
 };
 /** 真ん中を押すと次のパターン。 */
 const B_CENTER = 110;
@@ -2169,7 +2243,7 @@ const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }
               </g>
             ))}
           </g>
-          <text x={BX} y={BY + 66} textAnchor="middle" fill={BAGUA.dim} fontSize="15" fontWeight="700" letterSpacing="3">
+          <text x={BX} y={BY + 82} textAnchor="middle" fill={BAGUA.dim} fontSize="13" fontWeight="700" letterSpacing="3">
             km/h
           </text>
         </g>
@@ -2215,10 +2289,10 @@ const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }
           {label}
         </text>
       ))}
-      {/* 右の札: 八卦の順(遅い→速い) */}
+      {/* 右の札: 八卦の順と数(遅い→速い。8進の1けた) */}
       <rect x="788" y="16" width="220" height="300" rx="12" fill={BAGUA.panel} stroke={BAGUA.line} />
       <text x="808" y="46" fill={BAGUA.dim} fontSize="11" fontWeight="700" letterSpacing="1">
-        八卦の順(遅い → 速い)
+        八卦の順と数(遅い → 速い)
       </text>
       <rect x={B_DEST.x} y={B_DEST.y} width={B_DEST.w} height={B_DEST.h} rx="12" fill={BAGUA.panel} stroke={BAGUA.gold} strokeWidth="1.6" />
       <text x={B_DEST.x + 18} y={B_DEST.y + 32} fill={BAGUA.dim} fontSize="12" fontWeight="700">
@@ -2254,8 +2328,7 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
   // 右の札で光らせる卦: ネオン八卦は勢いの卦、円図は今の卦の下の卦(右半分を下から、そのあと左半分)。
   const legendNow = pattern === "neon" ? band : hexNow >> 3;
   const patternIndex = Math.max(0, BAGUA_PATTERNS.findIndex((item) => item.id === pattern));
-  const speedText = data.speed === null ? "--" : String(Math.round(speed));
-  const rpmText = data.rpm === null ? "— r/min" : `${Math.round(data.rpm)} r/min`;
+  const speedDigits = octalDigits(speed).length;
   const kind = data.weather ? weatherKind(data.weather.code) : null;
   const dest = data.destLabel ?? "目的地なし";
   const glow = "url(#mb-glow)";
@@ -2292,17 +2365,26 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
             <text x={BX} y={BY - 64} textAnchor="middle" fill={BAGUA.gold} fontSize="18" fontWeight="700" letterSpacing="4" className="mb-serif" filter={glow}>
               {`${now.name}・${now.mean}`}
             </text>
-            <text x={BX} y={BY + 38} textAnchor="middle" fill={BAGUA.ink} fontSize="120" fontWeight="700" fontStyle="italic" filter={glow}>
-              {speedText}
-            </text>
-            <text x={BX} y={BY + 96} textAnchor="middle" fill={BAGUA.cyan} fontSize="13" fontWeight="700" letterSpacing="2">
-              {rpmText}
-            </text>
+            {data.speed === null ? (
+              <text x={BX} y={BY + 16} textAnchor="middle" fill={BAGUA.dim} fontSize="40" fontWeight="700">
+                --
+              </text>
+            ) : (
+              <TrigramNumber
+                value={speed}
+                cx={BX}
+                cy={BY + 2}
+                line={speedDigits <= 2 ? { r: 0, gap: 28, t: 18, w: 96 } : { r: 0, gap: 22, t: 14, w: 64 }}
+                space={speedDigits <= 2 ? 26 : 16}
+                names={13}
+                glow={glow}
+              />
+            )}
+            <RpmTrigrams rpm={data.rpm} cy={BY + 104} line={{ r: 0, gap: 6, t: 4, w: 22 }} glow={glow} />
           </g>
         ) : (
           <g>
-            {/* まだ届いていない卦を暗くし、今の卦に枠を付ける */}
-            <path d={hexagramDimPath(hexNow)} fill="#030202" opacity=".72" />
+            {/* 今の卦に枠を付ける(五行の色分けはそのまま) */}
             <path
               d={ringSector(hexagramAngle(hexNow) - HEX_SPAN / 2, hexagramAngle(hexNow) + HEX_SPAN / 2)}
               fill="none"
@@ -2319,25 +2401,25 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
                 </text>
               );
             })()}
-            {/* 真ん中: 今の卦の名前・線の並び(1本目から)・速さ */}
-            <text x={BX} y={BY - 34} textAnchor="middle" fill={BAGUA.ink} fontSize="46" fontWeight="700" className="mb-serif" filter={glow}>
+            {/* 真ん中: 今の卦の絵(6本の線)と名前、速さ・回転数の8進の卦 */}
+            <HexagramGlyph v={hexNow} cx={BX} cy={BY - 80} />
+            <text x={BX} y={BY - 20} textAnchor="middle" fill={BAGUA.ink} fontSize="30" fontWeight="700" className="mb-serif" filter={glow}>
               {hexagram.short}
             </text>
-            <text x={BX} y={BY - 6} textAnchor="middle" fill={BAGUA.dim} fontSize="13" fontWeight="700" letterSpacing="2" className="mb-serif">
+            <text x={BX} y={BY + 1} textAnchor="middle" fill={BAGUA.dim} fontSize="12" fontWeight="700" letterSpacing="2" className="mb-serif">
               {hexagram.long}
             </text>
-            <text x={BX} y={BY + 16} textAnchor="middle" fill={BAGUA.dim} fontSize="13" fontWeight="700" letterSpacing="3">
-              {hexagram.lines}
+            {data.speed === null ? (
+              <text x={BX} y={BY + 46} textAnchor="middle" fill={BAGUA.dim} fontSize="24" fontWeight="700">
+                --
+              </text>
+            ) : (
+              <TrigramNumber value={speed} cx={BX} cy={BY + 36} line={{ r: 0, gap: 12, t: 7, w: 44 }} space={14} names={10} glow={glow} />
+            )}
+            <text x={BX} y={BY + 82} textAnchor="middle" fill={BAGUA.dim} fontSize="9" fontWeight="700" letterSpacing="2">
+              km/h
             </text>
-            <text x={BX} y={BY + 66} textAnchor="middle" fill={BAGUA.ink} fontSize="34" fontWeight="700" fontStyle="italic" filter={glow}>
-              {speedText}
-              <tspan fontSize="12" fontStyle="normal" fill={BAGUA.dim} dx="5">
-                km/h
-              </tspan>
-            </text>
-            <text x={BX} y={BY + 90} textAnchor="middle" fill={BAGUA.cyan} fontSize="11" fontWeight="700" letterSpacing="1.5">
-              {rpmText}
-            </text>
+            <RpmTrigrams rpm={data.rpm} cy={BY + 102} line={{ r: 0, gap: 5.5, t: 4, w: 20 }} glow={glow} />
           </g>
         )}
         {/* 左の札 */}
@@ -2380,19 +2462,19 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
             V
           </tspan>
         </text>
-        {/* 右の札: 今の卦までが光る */}
+        {/* 右の札: 五行の色分けのまま、今の卦までが光る。下に意味と数(8進の1けた) */}
         {B_LEGEND.map((tri, i) => {
           const on = i <= legendNow;
           return (
             <g key={tri.name}>
-              <g fill={on ? (i >= B_HOT ? BAGUA.red : BAGUA.gold) : BAGUA.off} filter={on ? glow : undefined}>
+              <g fill={ELEMENT_COLORS[i]} opacity={on ? 1 : 0.32} filter={on ? glow : undefined}>
                 {tri.lines.map((yang, k) => trigramLine(tri.x, tri.y, B_LEGEND_LINE, k, yang, String(k)))}
               </g>
-              <text x={tri.x} y={tri.y + 40} textAnchor="middle" fill={on ? BAGUA.ink : BAGUA.dim} fontSize="15" fontWeight="700" className="mb-serif">
+              <text x={tri.x} y={tri.y + 40} textAnchor="middle" fill={on ? ELEMENT_COLORS[i] : BAGUA.dim} fontSize="15" fontWeight="700" className="mb-serif">
                 {tri.name}
               </text>
               <text x={tri.x} y={tri.y + 58} textAnchor="middle" fill={BAGUA.dim} fontSize="10" fontWeight="700">
-                {tri.mean}
+                {`${tri.mean} ${i}`}
               </text>
             </g>
           );
