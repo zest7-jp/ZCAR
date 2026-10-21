@@ -41,6 +41,17 @@ import {
   type ClusterData,
 } from "./meter-styles";
 import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
+import {
+  nextShift,
+  parseShiftFeed,
+  SHIFT_REFRESH_MS,
+  SHIFT_URL,
+  shiftDayLabel,
+  shiftWeek,
+  shortDate,
+  weekdayJa,
+  type ShiftFeed,
+} from "./shifts";
 import { readCoords } from "./place-import";
 import { StarMark } from "./star-mark";
 
@@ -160,6 +171,19 @@ const minutesFromHm = (value: string | null | undefined) => {
   if (!value || !/^\d{2}:\d{2}/.test(value)) return null;
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
+};
+
+/** Zポータルの更新時刻(ISO の形)を、日本時間の「10/22 01:30」に。読めなければそのまま。 */
+const formatShiftUpdated = (value: string) => {
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return value;
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(time);
 };
 
 const japanDateKey = (date = new Date()) => {
@@ -356,6 +380,10 @@ export default function Home() {
   const [destEditKey, setDestEditKey] = useState<string | null>(null);
   const [destDraft, setDestDraft] = useState({ label: "", destination: "" });
   const themeDialog = useRef<HTMLDialogElement>(null);
+  // Zポータルの確定シフト(上の帯に次のシフト、押すと1週間の画面)。
+  const shiftDialog = useRef<HTMLDialogElement>(null);
+  const [shiftFeed, setShiftFeed] = useState<ShiftFeed | null>(null);
+  const [shiftStatus, setShiftStatus] = useState<"loading" | "ready" | "error">("loading");
   // スマホとつなぐためのQR(燃費画面から開く)。
   const pairingDialog = useRef<HTMLDialogElement>(null);
   const pairingTimerRef = useRef<number | null>(null);
@@ -787,6 +815,36 @@ export default function Home() {
     );
   }, []);
 
+  // Zポータルのシフトを読む。開いたとき・30分ごと・画面に戻ったとき。
+  // 読めなかったときは前に読めた分をそのまま出す(一度も読めていなければ「取得できません」)。
+  useEffect(() => {
+    let active = true;
+    const loadShifts = async () => {
+      try {
+        const response = await fetch(SHIFT_URL, { cache: "no-store" });
+        if (!response.ok) throw new Error("shift request failed");
+        const feed = parseShiftFeed(await response.json());
+        if (!feed) throw new Error("invalid shift data");
+        if (!active) return;
+        setShiftFeed(feed);
+        setShiftStatus("ready");
+      } catch {
+        if (active) setShiftStatus((current) => (current === "ready" ? current : "error"));
+      }
+    };
+    void loadShifts();
+    const timer = window.setInterval(loadShifts, SHIFT_REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadShifts();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
 
   useEffect(() => {
     if (!weatherLocationKey || weatherLatitude === null || weatherLongitude === null) return;
@@ -954,6 +1012,7 @@ export default function Home() {
 
   const hour = new Date().getHours();
   const today = japanDateKey();
+  const upcomingShift = shiftFeed ? nextShift(shiftFeed, today, clock) : null;
   const routeMinutesRemaining = routeEta
     ? Math.max(0, Math.ceil((routeEta.arrivalAt - Date.now()) / 60_000))
     : null;
@@ -1132,12 +1191,35 @@ export default function Home() {
       tone: "ok",
       pressLabel: "メーターのテーマと色を選ぶ",
     },
+    {
+      // Zポータルの次のシフト(今日のシフトは終わるまで今日)。押すと1週間のシフト。
+      key: "shift",
+      nameJa: "シフト",
+      nameEn: "SHIFT",
+      stateJa: shiftFeed
+        ? upcomingShift
+          ? shiftDayLabel(upcomingShift.date, today)
+          : "予定なし"
+        : shiftStatus === "loading"
+          ? "確認中"
+          : "取得できません",
+      stateEn: shiftFeed
+        ? upcomingShift
+          ? `${upcomingShift.startTime}-${upcomingShift.endTime}`
+          : "NO SHIFT"
+        : shiftStatus === "loading"
+          ? "LOADING"
+          : "NO DATA",
+      tone: shiftFeed ? "ok" : shiftStatus === "loading" ? "warn" : "off",
+      pressLabel: "1週間のシフトを見る",
+    },
   ];
 
   /** 上のステータスバーの項目を押したとき。OBD2 はつなぐ、色は選ぶ画面を開く。 */
   const pressStatusItem = (key: string) => {
     if (key === "obd") void connectObd();
     if (key === "theme") themeDialog.current?.showModal();
+    if (key === "shift") shiftDialog.current?.showModal();
   };
 
   const cancelFuelReset = () => {
@@ -1666,7 +1748,7 @@ export default function Home() {
               {obdConnectionLabel}
               {obdErrorMessage ? ` · ${obdErrorMessage}` : ""}
             </span>
-            {/* OBD2 とメーターの色は押せる(OBD2 はつなぐ、色は選ぶ画面を開く)。 */}
+            {/* OBD2・メーターの色・シフトは押せる(OBD2 はつなぐ、色は選ぶ画面、シフトは1週間の画面を開く)。 */}
             {meterStatusItems.map((item) => {
               const content = (
                 <>
@@ -1701,23 +1783,25 @@ export default function Home() {
             })}
             {/* アプリとして入れるとブラウザの更新ボタンが無いので、帯の右端に置く。
                 押すと読み込み直す(新しい版が公開されていれば入れ替わる)。下段は今の版の時刻。 */}
-            <button
-              type="button"
-              className="meter-reload"
-              onClick={() => window.location.reload()}
-              aria-label="読み込み直す(新しい版があれば入れ替わる)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
-                <path d="M19.5 3.6v4.6h-4.6" />
-              </svg>
-              <span className="meter-status-text">
-                <small>
-                  更新<span>RELOAD</span>
-                </small>
-                {BUILD_STAMP ? <b>{BUILD_STAMP}</b> : null}
-              </span>
-            </button>
+            <span className="meter-status-end">
+              <button
+                type="button"
+                className="meter-reload"
+                onClick={() => window.location.reload()}
+                aria-label="読み込み直す(新しい版があれば入れ替わる)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+                  <path d="M19.5 3.6v4.6h-4.6" />
+                </svg>
+                <span className="meter-status-text">
+                  <small>
+                    更新<span>RELOAD</span>
+                  </small>
+                  {BUILD_STAMP ? <b>{BUILD_STAMP}</b> : null}
+                </span>
+              </button>
+            </span>
           </header>
         )}
 
@@ -2250,6 +2334,52 @@ export default function Home() {
               );
             })}
           </div>
+        </div>
+      </dialog>
+
+      {/* Zポータルの1週間のシフト(上の帯の「シフト」を押すと開く)。 */}
+      <dialog ref={shiftDialog} className="theme-dialog-shell">
+        <div className="dialog-card meter-theme-dialog shift-dialog">
+          <header>
+            <span>
+              <small>Z PORTAL{shiftFeed?.displayName ? ` · ${shiftFeed.displayName}` : ""}</small>
+              <h2>SHIFT</h2>
+            </span>
+            <button type="button" onClick={() => shiftDialog.current?.close()} aria-label="シフトを閉じる">
+              CLOSE
+            </button>
+          </header>
+          {shiftFeed ? (
+            <ol className="shift-week">
+              {shiftWeek(shiftFeed, today).map((day) => (
+                <li key={day.date} className={`${day.shifts.length ? "is-work" : ""}${day.date === today ? " is-today" : ""}`}>
+                  <span className="shift-day">
+                    <b>{shortDate(day.date)}</b>
+                    <small>{day.date === today ? "今日" : weekdayJa(day.date)}</small>
+                  </span>
+                  {day.shifts.length ? (
+                    <span className="shift-list">
+                      {day.shifts.map((shift) => (
+                        <span key={shift.id} className="shift-item">
+                          <b>
+                            {shift.startTime}〜{shift.endTime}
+                          </b>
+                          <small>{[shift.storeName, shift.workType].filter(Boolean).join(" · ")}</small>
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="shift-off">休み</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="shift-empty">
+              {shiftStatus === "loading" ? "シフトを確認しています" : "シフトを取得できません。ネットにつながると読み直します。"}
+            </p>
+          )}
+          {shiftFeed?.updatedAt ? <p className="shift-updated">Zポータルの更新 {formatShiftUpdated(shiftFeed.updatedAt)}</p> : null}
         </div>
       </dialog>
 
