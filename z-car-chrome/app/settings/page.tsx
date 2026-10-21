@@ -613,7 +613,7 @@ export default function PhoneSettingsPage() {
     </form>
   );
 
-  // --- テーマ(近未来・80年代・本物の針) ---
+  // --- テーマ(近未来・80年代・デイライト・八卦) ---
   const activeStyle = meterStyleInfo(draft.meterStyle);
   const isFuture = activeStyle.id === "future";
   const chooseStyle = (id: MeterStyle) => {

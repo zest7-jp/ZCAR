@@ -28,10 +28,11 @@ export type MeterDesign = "navi" | "orbit";
 
 /**
  * テーマ(画面全体の雰囲気)。future は今の近未来のメーター(上の色と形を選べる)、
- * retro は80年代のデジタル、classic は本物の針のメーター、day は昼間に見やすい白いメーター。
- * 中身は下の METER_STYLES、絵は app/meter-styles.tsx。
+ * retro は80年代のデジタル、day は昼間に見やすい白いメーター、
+ * bagua は速さの勢いを八卦で表すネオンのメーター。中身は下の METER_STYLES、絵は app/meter-styles.tsx。
+ * (前にあった classic(本物の針のメーター)はやめた。保存されていたら近未来に戻す)
  */
-export type MeterStyle = "future" | "retro" | "classic" | "day";
+export type MeterStyle = "future" | "retro" | "day" | "bagua";
 
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
@@ -340,6 +341,8 @@ export type Settings = {
   meterDesign: MeterDesign;
   /** テーマ(画面全体の雰囲気)。色と形は、近未来のテーマのときに使う。 */
   meterStyle: MeterStyle;
+  /** 八卦のテーマの真ん中の形(メーターの真ん中を押して変える)。車だけに覚え、同期しない。 */
+  baguaPattern: BaguaPattern;
   /** 設定同期の合言葉。空なら同期しない。端末内だけに保存し、送信内容には含めない。 */
   syncKey: string;
   /** 車とつないだ時刻(0なら未接続)。端末ごとの値なので同期しない。 */
@@ -372,6 +375,7 @@ export const defaults: Settings = {
   meterTheme: "green",
   meterDesign: "navi",
   meterStyle: "future",
+  baguaPattern: "neon",
   syncKey: "",
   pairedAt: 0,
   shareToken: "",
@@ -694,13 +698,22 @@ export type MeterStyleInfo = {
 export const METER_STYLES: MeterStyleInfo[] = [
   { id: "future", name: "FUTURE", caption: "近未来(色と形を選べる)", captionEn: "NEON COCKPIT", shortJa: "近未来", shortEn: "FUTURE" },
   { id: "retro", name: "DIGITAL 80s", caption: "80年代のデジタル", captionEn: "RETRO DIGITAL DASH", shortJa: "80年代", shortEn: "80s" },
-  { id: "classic", name: "CLASSIC", caption: "本物の針のメーター", captionEn: "ANALOG NEEDLE GAUGES", shortJa: "クラシック", shortEn: "CLASSIC" },
   { id: "day", name: "DAYLIGHT", caption: "昼間に見やすい白いメーター", captionEn: "WHITE DAY GAUGES", shortJa: "デイライト", shortEn: "DAYLIGHT" },
+  { id: "bagua", name: "BAGUA", caption: "速さの勢いを八卦で表すネオン", captionEn: "NEON TRIGRAMS", shortJa: "八卦", shortEn: "BAGUA" },
 ];
 
 /** テーマの説明を引く。知らない名前なら近未来。 */
 export const meterStyleInfo = (id: string): MeterStyleInfo =>
   METER_STYLES.find((style) => style.id === id) ?? METER_STYLES[0];
+
+/** 八卦のテーマの真ん中の形。neon は八角のネオン八卦、circle は六十四卦の円図。 */
+export type BaguaPattern = "neon" | "circle";
+export const BAGUA_PATTERNS: { id: BaguaPattern; name: string }[] = [
+  { id: "neon", name: "ネオン八卦" },
+  { id: "circle", name: "六十四卦の円図" },
+];
+const isBaguaPattern = (value: unknown): value is BaguaPattern =>
+  BAGUA_PATTERNS.some((pattern) => pattern.id === value);
 
 const isMeterStyle = (value: unknown): value is MeterStyle =>
   METER_STYLES.some((style) => style.id === value);
@@ -732,6 +745,7 @@ export const readSettings = (): Settings => {
         ? stored.meterDesign
         : defaults.meterDesign,
       meterStyle: isMeterStyle(stored.meterStyle) ? stored.meterStyle : defaults.meterStyle,
+      baguaPattern: isBaguaPattern(stored.baguaPattern) ? stored.baguaPattern : defaults.baguaPattern,
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       shareToken: typeof stored.shareToken === "string" ? stored.shareToken : "",

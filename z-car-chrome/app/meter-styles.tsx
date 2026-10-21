@@ -1,19 +1,19 @@
 "use client";
 
-// 近未来のほかのテーマ(80年代のデジタル・本物の針・デイライト)の、メーターの画面。
+// 近未来のほかのテーマ(80年代のデジタル・デイライト・八卦)の、メーターの画面。
 // どれも 1024x566 の板に描き、使える広さに合わせて拡大・縮小する(車載機ではほぼ等倍)。
 // 下から「動かない絵(SVG)」「地図」「動く針や数字(SVG)」「押せる所(ボタン)」の順に重ねる。
 // 地図(Google マップ)を作るのは app/page.tsx で、ここでは置き場所を用意するだけ。
 
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import type { MeterStyle } from "./settings-store";
+import { BAGUA_PATTERNS, type BaguaPattern, type MeterStyle } from "./settings-store";
 
 const BOARD_W = 1024;
 const BOARD_H = 566;
 const RPM_MAX = 8000;
 /** ここから上の回転は赤くする(近未来のメーターと同じ)。 */
 const RPM_RED = 6500;
-/** 本物の針の速度計の目盛りの上限(km/h)。 */
+/** 速度計の目盛りの上限(km/h)。 */
 const SPEED_MAX = 140;
 
 /** 天気(Open-Meteo の天気の番号)と、3時間・6時間後。 */
@@ -72,7 +72,6 @@ type MapProps = {
 /**
  * 80年代のテーマの地図の色(Google マップの styles)と寄り。
  * 昔の車の緑の画面: 黒い下地に緑の道。文字は町の名前だけ。
- * (本物の針のテーマには地図を置かない)
  */
 export const RETRO_MAP_LOOK: { zoom: number; background: string; styles: Record<string, unknown>[] } = {
   zoom: 13,
@@ -725,25 +724,11 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
 }
 
 // ------------------------------------------------------------------
-// 本物の針のメーター: 金属の縁のクリーム色の文字盤(ヴィンテージ)と、本物のように動く針。
+// 三連メーターの並び(デイライトで使う): 左に回転計、真ん中に大きな速度計、右に時計、下の左右に板。
 // ------------------------------------------------------------------
-
-const CLASSIC = {
-  ink: "#f1e7d4",
-  muted: "#a8977f",
-  needle: "#ff6a24",
-  stitch: "#6d5843",
-  red: "#c53a22",
-  /** クリーム色の文字盤とボタンの上の、文字・目盛り・針の色。 */
-  dialInk: "#1d1813",
-  dialMuted: "#7a6853",
-  dialRed: "#c0321c",
-  plateInk: "#2b2118",
-};
 /**
- * 三連のメーター。左に回転計、真ん中に大きな速度計、右に時計(曜日・日付だけ)。左右は少し小さく、少し高い所に置き、
- * 真ん中の金属の縁と重ならないように少しすき間をあける。それぞれの上に、縫い目入りの革のフード(日よけ)をかぶせる。
- * 下の左右の板に、天気と、電圧・目的地・START。
+ * 三連のメーター。左に回転計、真ん中に大きな速度計、右に時計。左右は少し小さく、少し高い所に置き、
+ * 真ん中の縁と重ならないように少しすき間をあける。下の左右の板に、天気と、電圧・目的地・START。
  */
 const SX = 512;
 const SY = 283;
@@ -753,102 +738,6 @@ const TY = 188;
 const CX = 875;
 const CY = 188;
 const SIDE_R = 122;
-
-const ClassicDefs = () => (
-  <defs>
-    <linearGradient id="ms-metal" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stopColor="#fdfdfd" />
-      <stop offset=".2" stopColor="#8e8e8e" />
-      <stop offset=".46" stopColor="#f2f2f2" />
-      <stop offset=".72" stopColor="#555" />
-      <stop offset="1" stopColor="#d6d6d6" />
-    </linearGradient>
-    <linearGradient id="ms-metal-soft" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#d9d9d9" />
-      <stop offset=".5" stopColor="#7a7a7a" />
-      <stop offset="1" stopColor="#c4c4c4" />
-    </linearGradient>
-    <radialGradient id="ms-cream" cx=".5" cy=".4" r=".7">
-      <stop offset="0" stopColor="#f8f1e2" />
-      <stop offset=".7" stopColor="#eae0c9" />
-      <stop offset="1" stopColor="#cdbd9e" />
-    </radialGradient>
-    <linearGradient id="ms-ivory" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#f6eedc" />
-      <stop offset="1" stopColor="#d5c7aa" />
-    </linearGradient>
-    <radialGradient id="ms-leather" cx=".5" cy=".45" r=".75">
-      <stop offset="0" stopColor="#231c15" />
-      <stop offset=".7" stopColor="#110d0a" />
-      <stop offset="1" stopColor="#070605" />
-    </radialGradient>
-    <linearGradient id="ms-panel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#1b1611" />
-      <stop offset="1" stopColor="#110e0b" />
-    </linearGradient>
-    <linearGradient id="ms-needle" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stopColor="#c8400c" />
-      <stop offset=".5" stopColor="#ff7a36" />
-      <stop offset="1" stopColor="#c8400c" />
-    </linearGradient>
-    <linearGradient id="ms-drum" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#000" />
-      <stop offset=".25" stopColor="#2a2a2a" />
-      <stop offset=".5" stopColor="#3a3a3a" />
-      <stop offset=".75" stopColor="#2a2a2a" />
-      <stop offset="1" stopColor="#000" />
-    </linearGradient>
-    <linearGradient id="ms-drum-light" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#8a8173" />
-      <stop offset=".5" stopColor="#f3ecdf" />
-      <stop offset="1" stopColor="#8a8173" />
-    </linearGradient>
-    <filter id="ms-shadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="1.5" dy="3" stdDeviation="2.4" floodColor="#000" floodOpacity=".75" />
-    </filter>
-    <filter id="ms-grain" x="0" y="0" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" />
-      <feColorMatrix type="matrix" values="0 0 0 0 .62  0 0 0 0 .5  0 0 0 0 .38  0 0 0 -1.2 .62" />
-    </filter>
-    <linearGradient id="ms-hood" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#57463a" />
-      <stop offset=".45" stopColor="#30261e" />
-      <stop offset="1" stopColor="#15110d" />
-    </linearGradient>
-    <filter id="ms-grain-in" x="0" y="0" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" />
-      <feColorMatrix type="matrix" values="0 0 0 0 .62  0 0 0 0 .5  0 0 0 0 .38  0 0 0 -1.2 .62" />
-      <feComposite in2="SourceGraphic" operator="in" />
-    </filter>
-  </defs>
-);
-
-/** 金属の縁(外側にギザギザ)とクリーム色の文字盤(細い同心の輪の模様と、縁の内側の細い線)。 */
-const Dial = ({ cx, cy, r, ring }: { cx: number; cy: number; r: number; ring: number }) => {
-  const rings = Math.max(6, Math.round(r / 4));
-  const outer = r + ring;
-  const knurls = 2 * Math.round(outer * 0.8);
-  const knurl = (odd: number) =>
-    Array.from({ length: knurls / 2 }, (_, i) => {
-      const deg = ((2 * i + odd) * 360) / knurls;
-      return `M${pol(cx, cy, outer - 0.5, deg).join(" ")}L${pol(cx, cy, outer - ring * 0.42, deg).join(" ")}`;
-    }).join("");
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={outer} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
-      <path d={knurl(0)} stroke="#000" strokeOpacity=".4" strokeWidth="1.3" />
-      <path d={knurl(1)} stroke="#fff" strokeOpacity=".35" strokeWidth="1.3" />
-      <circle cx={cx} cy={cy} r={r + 1.2} fill="#000" />
-      <circle cx={cx} cy={cy} r={r} fill="url(#ms-cream)" />
-      <g fill="none" stroke="#000" strokeOpacity=".045" strokeWidth={r2(Math.max(0.5, r / 260))}>
-        {Array.from({ length: rings }, (_, i) => (
-          <circle key={i} cx={cx} cy={cy} r={r2((r * (i + 1)) / rings)} />
-        ))}
-      </g>
-      <circle cx={cx} cy={cy} r={r2(r * 0.97)} fill="none" stroke={CLASSIC.dialInk} strokeOpacity=".55" strokeWidth={r2(Math.max(0.8, r / 140))} />
-    </g>
-  );
-};
 
 type ScaleOptions = {
   cx: number;
@@ -872,128 +761,7 @@ const scaleAngle = (o: Pick<ScaleOptions, "from" | "to" | "sweep">, value: numbe
   return -sweep / 2 + (sweep * (Math.max(o.from, Math.min(o.to, value)) - o.from)) / (o.to - o.from);
 };
 const near = (value: number, step: number) => Math.abs(value / step - Math.round(value / step)) < 1e-6;
-/** 目盛りと数字。red から上は赤。 */
-const Scale = (o: ScaleOptions) => {
-  const ticks: ReactNode[] = [];
-  const steps = Math.round((o.to - o.from) / o.minor);
-  for (let i = 0; i <= steps; i += 1) {
-    const v = o.from + i * o.minor;
-    const major = near(v, o.major);
-    const mid = near(v, o.mid);
-    const len = major ? o.r * 0.1 : mid ? o.r * 0.065 : o.r * 0.04;
-    const [x1, y1] = pol(o.cx, o.cy, o.r, scaleAngle(o, v));
-    const [x2, y2] = pol(o.cx, o.cy, o.r - len, scaleAngle(o, v));
-    ticks.push(
-      <line
-        key={`t${i}`}
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke={o.red !== undefined && v >= o.red ? CLASSIC.dialRed : CLASSIC.dialInk}
-        strokeWidth={r2(major ? o.r * 0.018 : mid ? o.r * 0.011 : o.r * 0.007)}
-      />,
-    );
-  }
-  const labels = Math.round((o.to - o.from) / o.label);
-  for (let i = 0; i <= labels; i += 1) {
-    const v = o.from + i * o.label;
-    const [x, y] = pol(o.cx, o.cy, o.labelR, scaleAngle(o, v));
-    ticks.push(
-      <text
-        key={`l${i}`}
-        x={x}
-        y={r2(y + o.font * 0.36)}
-        textAnchor="middle"
-        fill={o.red !== undefined && v >= o.red ? CLASSIC.dialRed : CLASSIC.dialInk}
-        fontSize={o.font}
-        fontWeight="700"
-        letterSpacing="-.5"
-      >
-        {v}
-      </text>,
-    );
-  }
-  let red: ReactNode = null;
-  if (o.red !== undefined) {
-    const [x0, y0] = pol(o.cx, o.cy, o.r - 3, scaleAngle(o, o.red));
-    const [x1, y1] = pol(o.cx, o.cy, o.r - 3, scaleAngle(o, o.to));
-    red = <path d={`M${x0} ${y0} A${o.r - 3} ${o.r - 3} 0 0 1 ${x1} ${y1}`} fill="none" stroke={CLASSIC.red} strokeWidth="5" />;
-  }
-  return (
-    <g>
-      {red}
-      {ticks}
-    </g>
-  );
-};
 
-const Hub = ({ cx, cy, r }: { cx: number; cy: number; r: number }) => (
-  <g>
-    <circle cx={cx} cy={cy} r={r} fill="url(#ms-metal)" filter="url(#ms-shadow)" />
-    <circle cx={cx} cy={cy} r={r2(r * 0.42)} fill="#111" />
-  </g>
-);
-
-/** 針(先が細い)。角度が変わると、少しの時間をかけて動く。 */
-const Needle = ({ cx, cy, len, tail, width, deg }: { cx: number; cy: number; len: number; tail: number; width: number; deg: number }) => (
-  <g className="ms-needle" style={{ transform: `rotate(${r2(deg)}deg)`, transformOrigin: `${cx}px ${cy}px` }}>
-    <g filter="url(#ms-shadow)">
-      <polygon
-        points={`${r2(cx - width / 2)},${cy + tail} ${r2(cx - width * 0.18)},${cy - len} ${r2(cx + width * 0.18)},${cy - len} ${r2(cx + width / 2)},${cy + tail}`}
-        fill="url(#ms-needle)"
-      />
-      <line x1={cx} y1={cy + tail - 2} x2={cx} y2={cy - len + 3} stroke="#ffd2b0" strokeWidth={r2(width * 0.14)} opacity=".7" />
-    </g>
-  </g>
-);
-
-/** 速度計の下の、平均燃費の回るドラム(3つ。最後の白いドラムが小数)。 */
-const FUEL_DRUM = { x: SX - 37, y: SY + 132, w: 74, h: 40 };
-const VDRUM = { w: 15, gap: 2, h: 22 };
-const VDRUM_X = FUEL_DRUM.x + (FUEL_DRUM.w - (VDRUM.w * 3 + VDRUM.gap * 2)) / 2;
-const VDRUM_Y = FUEL_DRUM.y + 16;
-
-/** 燃費のドラムの枠と、上の説明(動かない所)。 */
-const FuelDrumFace = () => (
-  <g>
-    <text x={FUEL_DRUM.x + FUEL_DRUM.w / 2} y={FUEL_DRUM.y + 10} textAnchor="middle" fill={CLASSIC.plateInk} fontSize="7" fontWeight="700" letterSpacing="1">
-      AVG FUEL km/L
-    </text>
-    <rect x={VDRUM_X - 3} y={VDRUM_Y - 3} width={VDRUM.w * 3 + VDRUM.gap * 2 + 6} height={VDRUM.h + 6} rx="3" fill="#141210" stroke="url(#ms-metal)" strokeWidth="1.8" />
-    {[0, 1, 2].map((j) => (
-      <rect key={j} x={VDRUM_X + j * (VDRUM.w + VDRUM.gap)} y={VDRUM_Y} width={VDRUM.w} height={VDRUM.h} rx="1.5" fill={j === 2 ? "url(#ms-drum-light)" : "url(#ms-drum)"} />
-    ))}
-    <circle cx={VDRUM_X + 2 * (VDRUM.w + VDRUM.gap) - VDRUM.gap / 2} cy={VDRUM_Y + VDRUM.h - 3} r="1.3" fill={CLASSIC.ink} />
-  </g>
-);
-
-/** 燃費のドラムの数字(動く所)。値がないときは「---」。 */
-const FuelDrumDigits = ({ value }: { value: string | null }) => (
-  <g>
-    {(value === null ? "---" : value.replace(".", ""))
-      .padStart(3, " ")
-      .slice(-3)
-      .split("")
-      .map((digit, j) => (
-        <text
-          key={j}
-          x={VDRUM_X + j * (VDRUM.w + VDRUM.gap) + VDRUM.w / 2}
-          y={VDRUM_Y + 16}
-          textAnchor="middle"
-          fill={j === 2 ? "#1a1612" : CLASSIC.ink}
-          fontSize="14"
-          fontWeight="700"
-        >
-          {digit}
-        </text>
-      ))}
-  </g>
-);
-
-/** 今日の距離(速度計の中の、回るドラム5つ)。 */
-const ODO = { drums: 5, w: 16, gap: 2, h: 24, y: SY + 64 };
-const ODO_X = SX - (ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap) / 2;
 /**
  * 小さなメーター: 燃料は回転計の下、水温は時計の下(どちらも真ん中)。
  * 回転計の目盛りは少し狭く(240度)して、下に燃料のメーターの場所をとる。
@@ -1005,26 +773,6 @@ const MINI = [
 ] as const;
 const MINI_R = 22;
 type MiniGauge = (typeof MINI)[number];
-/** 小さなメーターの目盛りと E・F(C・H)の文字(動かない所)。空に近い側・熱い側は赤。 */
-const MiniGaugeFace = ({ g }: { g: MiniGauge }) => {
-  const [lx, ly] = pol(g.cx, g.cy, MINI_R + 5, -60);
-  const [hx, hy] = pol(g.cx, g.cy, MINI_R + 5, 60);
-  return (
-    <g>
-      {Array.from({ length: 5 }, (_, i) => {
-        const [x1, y1] = pol(g.cx, g.cy, MINI_R, -60 + i * 30);
-        const [x2, y2] = pol(g.cx, g.cy, i % 2 === 0 ? MINI_R - 6 : MINI_R - 4, -60 + i * 30);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={i % 2 === 0 ? 1.6 : 0.9} />;
-      })}
-      <text x={lx} y={ly + 3} textAnchor="middle" fill={g.key === "fuel" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
-        {g.lo}
-      </text>
-      <text x={hx} y={hy + 3} textAnchor="middle" fill={g.key === "temp" ? CLASSIC.dialRed : CLASSIC.dialInk} fontSize="8" fontWeight="700">
-        {g.hi}
-      </text>
-    </g>
-  );
-};
 /** 下の左右の板と、右の板の中の電圧・目的地・START。 */
 const PANELS = [
   { x: 16, y: 352, w: 268, h: 196 },
@@ -1033,45 +781,14 @@ const PANELS = [
 const BATTERY_BOX = { x: 756, y: 366, w: 236, h: 36 };
 const DEST_BTN = { x: 756, y: 410, w: 236, h: 44 };
 const START_BTN = { x: 756, y: 462, w: 236, h: 72 };
-/** 3つのメーター(フードとガラスに使う)。span はフードの両はしの角度、thick はフードの真上の厚さ。 */
+/** 3つのメーター(縁とガラスに使う)。ring は縁の太さ。 */
 const GAUGES = [
-  { cx: TX, cy: TY, r: SIDE_R, ring: 10, span: 56, thick: 20 },
-  { cx: CX, cy: CY, r: SIDE_R, ring: 10, span: 56, thick: 20 },
-  { cx: SX, cy: SY, r: SPEED_R, ring: 14, span: 46, thick: 26 },
+  { cx: TX, cy: TY, r: SIDE_R, ring: 10 },
+  { cx: CX, cy: CY, r: SIDE_R, ring: 10 },
+  { cx: SX, cy: SY, r: SPEED_R, ring: 14 },
 ];
 type Gauge = (typeof GAUGES)[number];
 
-/**
- * 上が厚く両はしが細くなる三日月の形。内側は半径 ri の円(メーターの縁に沿う)、外側は両はしと
- * 「真上で厚さ t」の点を通る円(中心は oy、半径は ro)。span はメーターの中心から見た両はしの角度。
- */
-const crescent = (cx: number, cy: number, ri: number, t: number, span: number) => {
-  const cos = Math.cos((span * Math.PI) / 180);
-  const shift = (-t * (2 * ri + t)) / (2 * (ri * (1 - cos) + t));
-  const ro = r2(shift + ri + t);
-  const [x0, y0] = pol(cx, cy, ri, -span);
-  const [x1, y1] = pol(cx, cy, ri, span);
-  const large = -ri * cos > shift ? 1 : 0;
-  return { x0, y0, x1, y1, ro, oy: cy + shift, large, d: `M${x0} ${y0}A${ri} ${ri} 0 0 1 ${x1} ${y1}A${ro} ${ro} 0 ${large} 0 ${x0} ${y0}Z` };
-};
-/** メーターの上にかぶさる革のフード(日よけ)。上の縁に光、真ん中に縫い目。 */
-const Hood = ({ g }: { g: Gauge }) => {
-  const ri = g.r + g.ring + 3;
-  const hood = crescent(g.cx, g.cy, ri, g.thick, g.span);
-  // 縫い目は厚さの半分の所を通る円の上。両はしの細い所は縫わない。
-  const mid = crescent(g.cx, g.cy, ri, g.thick / 2, g.span);
-  const tip = (Math.atan2(mid.x1 - g.cx, mid.oy - mid.y1) * 180) / Math.PI;
-  const [s0x, s0y] = pol(g.cx, mid.oy, mid.ro, -tip * 0.8);
-  const [s1x, s1y] = pol(g.cx, mid.oy, mid.ro, tip * 0.8);
-  return (
-    <g>
-      <path d={hood.d} fill="url(#ms-hood)" stroke="#0a0806" filter="url(#ms-shadow)" />
-      <path d={hood.d} filter="url(#ms-grain-in)" opacity=".22" />
-      <path d={`M${hood.x1} ${hood.y1}A${hood.ro} ${hood.ro} 0 ${hood.large} 0 ${hood.x0} ${hood.y0}`} fill="none" stroke="#ffe8cc" strokeOpacity=".28" strokeWidth="1.2" />
-      <path d={`M${s0x} ${s0y}A${mid.ro} ${mid.ro} 0 0 1 ${s1x} ${s1y}`} fill="none" stroke="#a88a66" strokeDasharray="4 3.5" opacity=".8" />
-    </g>
-  );
-};
 /** ガラスの映り込みの三日月(左上が一番太い)。文字盤と同じ大きさの円を、右下へ少しずらした円でくりぬく。 */
 const glarePath = (g: Gauge) => {
   const a = r2(g.r * 0.975);
@@ -1082,208 +799,6 @@ const glarePath = (g: Gauge) => {
   const h = Math.sqrt(a * a - (shift * shift) / 4) * u;
   const [x1, y1, x2, y2] = [r2(mx - h), r2(my + h), r2(mx + h), r2(my - h)];
   return `M${x1} ${y1}A${a} ${a} 0 1 1 ${x2} ${y2}A${a} ${a} 0 0 0 ${x1} ${y1}Z`;
-};
-/** 文字盤のガラス(針より上に描く)。上にフードの影、縁の内側の影、左上の映り込み。 */
-const ClassicGlass = memo(function ClassicGlass() {
-  return (
-    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-      <defs>
-        <linearGradient id="ms-hood-shade" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#000" stopOpacity=".5" />
-          <stop offset=".3" stopColor="#000" stopOpacity=".14" />
-          <stop offset=".5" stopColor="#000" stopOpacity="0" />
-        </linearGradient>
-        <radialGradient id="ms-glass-edge" cx=".5" cy=".5" r=".5">
-          <stop offset=".8" stopColor="#000" stopOpacity="0" />
-          <stop offset=".94" stopColor="#000" stopOpacity=".1" />
-          <stop offset="1" stopColor="#000" stopOpacity=".32" />
-        </radialGradient>
-        <linearGradient id="ms-glare" x1="0" y1="0" x2=".8" y2=".8">
-          <stop offset="0" stopColor="#fff" stopOpacity=".62" />
-          <stop offset=".42" stopColor="#fff" stopOpacity=".2" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="ms-glare-line" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#fff" stopOpacity="0" />
-          <stop offset=".45" stopColor="#fff" stopOpacity=".6" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
-        {GAUGES.map((g, i) => (
-          <clipPath key={i} id={`ms-glass-clip-${i}`}>
-            <circle cx={g.cx} cy={g.cy} r={g.r} />
-          </clipPath>
-        ))}
-      </defs>
-      {GAUGES.map((g, i) => {
-        const line = r2(g.r * 0.9);
-        return (
-          <g key={i} clipPath={`url(#ms-glass-clip-${i})`}>
-            <rect x={g.cx - g.r} y={g.cy - g.r} width={g.r * 2} height={g.r * 2} fill="url(#ms-hood-shade)" />
-            <circle cx={g.cx} cy={g.cy} r={g.r} fill="url(#ms-glass-edge)" />
-            <path d={glarePath(g)} fill="url(#ms-glare)" />
-            <path
-              d={`M${pol(g.cx, g.cy, line, -78).join(" ")}A${line} ${line} 0 0 1 ${pol(g.cx, g.cy, line, -18).join(" ")}`}
-              fill="none"
-              stroke="url(#ms-glare-line)"
-              strokeWidth={r2(g.r / 70)}
-              strokeLinecap="round"
-            />
-          </g>
-        );
-      })}
-    </svg>
-  );
-});
-
-/** 本物の針のメーターの、動かない絵。 */
-const ClassicFace = memo(function ClassicFace() {
-  return (
-    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-      <ClassicDefs />
-      <rect width={BOARD_W} height={BOARD_H} fill="url(#ms-leather)" />
-      <rect width={BOARD_W} height={BOARD_H} filter="url(#ms-grain)" opacity=".16" />
-      {/* 下の左右の板(縫い目入り) */}
-      {PANELS.map((panel) => (
-        <g key={panel.x}>
-          <rect x={panel.x} y={panel.y} width={panel.w} height={panel.h} rx="16" fill="url(#ms-panel)" stroke="#2e261d" filter="url(#ms-shadow)" />
-          <rect x={panel.x + 6} y={panel.y + 6} width={panel.w - 12} height={panel.h - 12} rx="11" fill="none" stroke={CLASSIC.stitch} strokeDasharray="4 3.5" opacity=".75" />
-        </g>
-      ))}
-      {GAUGES.map((g) => (
-        <Hood key={g.cx} g={g} />
-      ))}
-      {/* 左: 回転計(中に回転数の窓と、燃料の小さなメーター) */}
-      <Dial cx={TX} cy={TY} r={SIDE_R} ring={10} />
-      <Scale cx={TX} cy={TY} r={SIDE_R - 6} from={0} to={8} major={1} mid={0.5} minor={0.25} label={1} labelR={90} font={16} red={RPM_RED / 1000} sweep={TACHO_SWEEP} />
-      <rect x={TX - 26} y={TY - 62} width="52" height="18" rx="3" fill="#050505" stroke="url(#ms-metal-soft)" />
-      <text x={TX} y={TY - 30} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7" letterSpacing="1.6">
-        ×1000 r/min
-      </text>
-      <MiniGaugeFace g={MINI[0]} />
-      {/* 右: 時計(中に曜日と日付の小窓、上に LOCAL TIME と年月日、下に水温の小さなメーター) */}
-      <Dial cx={CX} cy={CY} r={SIDE_R} ring={10} />
-      {Array.from({ length: 60 }, (_, i) => {
-        const major = i % 5 === 0;
-        const [x1, y1] = pol(CX, CY, SIDE_R - 4, i * 6);
-        const [x2, y2] = pol(CX, CY, major ? SIDE_R - 18 : SIDE_R - 10, i * 6);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={major ? (i === 0 ? 4.6 : 3.2) : 1.1} />;
-      })}
-      <text x={CX} y={CY - 58} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.2">
-        LOCAL TIME · JST
-      </text>
-      <MiniGaugeFace g={MINI[1]} />
-      <rect x={CX + 40} y={CY - 10} width="28" height="20" rx="2" fill="#f4ecdc" stroke="url(#ms-metal-soft)" />
-      <rect x={CX - 68} y={CY - 10} width="28" height="20" rx="2" fill="#0b0b0b" stroke="url(#ms-metal-soft)" />
-      {/* 真ん中: 速度計(中に今日の距離と、平均・速さのドラム) */}
-      <Dial cx={SX} cy={SY} r={SPEED_R} ring={14} />
-      <Scale cx={SX} cy={SY} r={SPEED_R - 12} from={0} to={SPEED_MAX} major={20} mid={10} minor={2} label={20} labelR={156} font={22} />
-      <text x={SX} y={SY - 70} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="12" letterSpacing="3">
-        km/h
-      </text>
-      <text x={SX} y={SY + 50} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="15" fontStyle="italic" fontWeight="700" letterSpacing="3" className="ms-serif" opacity=".8">
-        Z CAR
-      </text>
-      <rect x={ODO_X - 4} y={ODO.y - 4} width={ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap + 8} height={ODO.h + 8} rx="4" fill="#141210" stroke="url(#ms-metal)" strokeWidth="1.8" />
-      {Array.from({ length: ODO.drums }, (_, i) => (
-        <rect key={i} x={ODO_X + i * (ODO.w + ODO.gap)} y={ODO.y} width={ODO.w} height={ODO.h} rx="1.5" fill={i === ODO.drums - 1 ? "url(#ms-drum-light)" : "url(#ms-drum)"} />
-      ))}
-      <text x={ODO_X - 10} y={ODO.y + 16} textAnchor="end" fill={CLASSIC.plateInk} fontSize="7" fontWeight="700" letterSpacing="1">
-        TODAY
-      </text>
-      <text x={ODO_X + ODO.drums * ODO.w + (ODO.drums - 1) * ODO.gap + 10} y={ODO.y + 16} fill={CLASSIC.plateInk} fontSize="8" fontWeight="700">
-        km
-      </text>
-      <FuelDrumFace />
-      {/* 左下の板: 天気と日の出・日の入り */}
-      <text x="150" y="388" fill={CLASSIC.muted} fontSize="7.5" letterSpacing="1.6">
-        OUTSIDE
-      </text>
-      <line x1="34" y1="448" x2="266" y2="448" stroke="#3a3027" />
-      <g fill="none" stroke={CLASSIC.muted} strokeWidth="1.2">
-        <path d="M36 496 h20 M40 492 a6 6 0 0 1 12 0" />
-        <path d="M46 484 v3 M38 487 l2 2 M54 487 l-2 2" />
-        <path d="M168 496 h20 M172 492 a6 6 0 0 1 12 0" />
-      </g>
-      <line x1="102" y1="493" x2="162" y2="493" stroke={CLASSIC.stitch} strokeDasharray="2 3" />
-      {/* 右下の板: 電圧・目的地・START(金属の縁の、ねじ留めのクリーム色の板) */}
-      <rect x={BATTERY_BOX.x} y={BATTERY_BOX.y} width={BATTERY_BOX.w} height={BATTERY_BOX.h} rx="10" fill="#0b0a09" stroke="url(#ms-metal-soft)" strokeWidth="1.6" />
-      <text x={BATTERY_BOX.x + 16} y={BATTERY_BOX.y + 22} fill={CLASSIC.muted} fontSize="8" letterSpacing="2">
-        BATTERY
-      </text>
-      {[DEST_BTN, START_BTN].map((b) => (
-        <g key={b.y}>
-          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="12" fill="url(#ms-metal)" filter="url(#ms-shadow)" />
-          <rect x={b.x + 3} y={b.y + 3} width={b.w - 6} height={b.h - 6} rx="9" fill="url(#ms-ivory)" />
-          {[
-            [b.x + 11, b.y + 11],
-            [b.x + b.w - 11, b.y + 11],
-            [b.x + 11, b.y + b.h - 11],
-            [b.x + b.w - 11, b.y + b.h - 11],
-          ].map(([sx, sy]) => (
-            <g key={`${sx}-${sy}`}>
-              <circle cx={sx} cy={sy} r="3" fill="url(#ms-metal-soft)" stroke="#6d5f4c" strokeWidth=".6" />
-              <line x1={sx - 2} y1={sy - 1} x2={sx + 2} y2={sy + 1} stroke="#4a3f33" strokeWidth=".8" />
-            </g>
-          ))}
-        </g>
-      ))}
-      <text x={DEST_BTN.x + DEST_BTN.w / 2} y={DEST_BTN.y + 18} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="7.5" letterSpacing="2">
-        CHANGE
-      </text>
-      <text x={DEST_BTN.x + DEST_BTN.w / 2} y={DEST_BTN.y + 35} textAnchor="middle" fill={CLASSIC.plateInk} fontSize="14" fontWeight="700" letterSpacing="3">
-        DEST
-      </text>
-      <circle cx={START_BTN.x + 40} cy={START_BTN.y + START_BTN.h / 2} r="16" fill="none" stroke={CLASSIC.needle} strokeWidth="1.8" />
-      <path
-        d={`M${START_BTN.x + 40} ${START_BTN.y + START_BTN.h / 2 + 10} s6.5-6 6.5-10.8 a6.5 6.5 0 1 0-13 0 c0 4.8 6.5 10.8 6.5 10.8z`}
-        fill="none"
-        stroke={CLASSIC.plateInk}
-        strokeWidth="1.6"
-      />
-      <text x={START_BTN.x + 68} y={START_BTN.y + 28} fill={CLASSIC.dialMuted} fontSize="8" letterSpacing="2.4">
-        START
-      </text>
-      <path d={`M${START_BTN.x + START_BTN.w - 28} ${START_BTN.y + 27} l9 9 -9 9`} fill="none" stroke={CLASSIC.plateInk} strokeWidth="2" />
-    </svg>
-  );
-});
-
-/** 天気の小さな絵(線で描く)。 */
-const ClassicWeatherIcon = ({ kind, isDay, x, y }: { kind: WeatherKind; isDay: boolean; x: number; y: number }) => {
-  const cloud = (
-    <path d="M-14 6 a8 8 0 0 1 8-8 a10 10 0 0 1 19 3 a6 6 0 0 1 0 12 h-22 a6 6 0 0 1-5-7z" fill="#1a1612" stroke={CLASSIC.ink} strokeWidth="1.6" />
-  );
-  const sun = isDay ? (
-    <circle cx="-4" cy="-6" r="9" fill="none" stroke="#ffb15a" strokeWidth="1.8" />
-  ) : (
-    <path d="M-2 -15 a9 9 0 1 0 9 12 a7 7 0 0 1 -9 -12z" fill="none" stroke="#ffd79a" strokeWidth="1.6" />
-  );
-  return (
-    <g transform={`translate(${x} ${y})`}>
-      {kind === "clear" ? (
-        isDay ? (
-          <g fill="none" stroke="#ffb15a" strokeWidth="1.8">
-            <circle r="8" />
-            <path d="M0 -15 v4 M0 11 v4 M-15 0 h4 M11 0 h4 M-10.6 -10.6 l3 3 M7.6 7.6 l3 3 M10.6 -10.6 l-3 3 M-7.6 7.6 l-3 3" />
-          </g>
-        ) : (
-          <path d="M-2 -12 a11 11 0 1 0 12 14 a9 9 0 0 1 -12 -14z" fill="none" stroke="#ffd79a" strokeWidth="1.8" />
-        )
-      ) : (
-        <>
-          {kind === "partly" ? sun : null}
-          {kind === "fog" ? (
-            <path d="M-16 -6 h28 M-12 2 h28 M-16 10 h28" stroke={CLASSIC.ink} strokeWidth="1.8" strokeLinecap="round" />
-          ) : (
-            cloud
-          )}
-          {kind === "rain" ? <path d="M-8 22 l-2 5 M0 22 l-2 5 M8 22 l-2 5" stroke="#8fb8d8" strokeWidth="1.6" /> : null}
-          {kind === "snow" ? <path d="M-8 24 h4 M0 24 h4 M8 24 h4" stroke={CLASSIC.ink} strokeWidth="2" /> : null}
-          {kind === "storm" ? <path d="M0 18 l-4 7 h4 l-2 6 7-9 h-4 l2-4z" fill="#ffb15a" /> : null}
-        </>
-      )}
-    </g>
-  );
 };
 
 /** 時計の針の角度(時・分・秒)。 */
@@ -1317,128 +832,9 @@ const forecastText = (weather: ClusterWeather | null) =>
     .map((hour, i) => `${i === 0 ? "+3H" : "+6H"} ${Math.round(hour.temperature)}°`)
     .join(" · ");
 
-export function ClassicCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
-  const time = useClockTime(data.clock);
-  const hands = clockAngles(time.h, time.m, time.s);
-  const speedDeg = scaleAngle({ from: 0, to: SPEED_MAX }, data.speed ?? 0);
-  const rpmDeg = scaleAngle({ from: 0, to: 8, sweep: TACHO_SWEEP }, (data.rpm ?? 0) / 1000);
-  const miniDeg = {
-    fuel: -60 + 120 * clamp01(data.fuelPercent / 100),
-    temp: -60 + 120 * clamp01(data.coolant === null ? 0 : (data.coolant - 50) / 70),
-  };
-  const miniValue = {
-    fuel: { value: String(Math.round(data.rangeKm)), unit: "km" },
-    temp: { value: data.coolant === null ? "—" : String(Math.round(data.coolant)), unit: "°C" },
-  };
-  const odometer = String(Math.min(99999, Math.round(data.todayKm * 10))).padStart(ODO.drums, "0").split("");
-  const kind = data.weather ? weatherKind(data.weather.code) : null;
-  const forecast = forecastText(data.weather);
-  const dest = data.destLabel ?? "目的地なし";
-  return (
-    <Board className="ms-classic">
-      <ClassicFace />
-      <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-        {/* 左: 回転計 */}
-        <text x={TX} y={TY - 48.5} textAnchor="middle" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
-          {data.rpm === null ? "—" : Math.round(data.rpm)}
-        </text>
-        {MINI.map((g) => (
-          <g key={g.key}>
-            <Needle cx={g.cx} cy={g.cy} len={MINI_R - 3} tail={4} width={3.2} deg={miniDeg[g.key]} />
-            <Hub cx={g.cx} cy={g.cy} r={3.6} />
-            <text x={g.cx} y={g.cy + 15} textAnchor="middle" fill={CLASSIC.dialInk} fontSize="9" fontWeight="700">
-              {miniValue[g.key].value}
-              <tspan fontSize="6.5" fill={CLASSIC.dialMuted}>
-                {` ${miniValue[g.key].unit}`}
-              </tspan>
-            </text>
-          </g>
-        ))}
-        <Needle cx={TX} cy={TY} len={105} tail={19} width={6.5} deg={rpmDeg} />
-        <Hub cx={TX} cy={TY} r={10} />
-        {/* 右: 時計 */}
-        <text x={CX + 54} y={CY + 5} textAnchor="middle" fill="#1a1612" fontSize="13" fontWeight="700">
-          {data.day}
-        </text>
-        <text x={CX - 54} y={CY + 5} textAnchor="middle" fill={CLASSIC.needle} fontSize="12" fontWeight="700" className="ms-ja">
-          {WEEKDAYS[data.weekday]}
-        </text>
-        <text x={CX} y={CY - 42} textAnchor="middle" fill={CLASSIC.dialMuted} fontSize="8.5" letterSpacing="2.2">
-          {`${data.year}.${pad2(data.month)}.${pad2(data.day)}`}
-        </text>
-        <g filter="url(#ms-shadow)">
-          <polygon points="-5,9 0,-68 5,9" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.hour)})`} />
-          <polygon points="-3.8,11 0,-101 3.8,11" fill={CLASSIC.dialInk} transform={`translate(${CX} ${CY}) rotate(${r2(hands.minute)})`} />
-          <g transform={`translate(${CX} ${CY}) rotate(${hands.second})`}>
-            <line x1="0" y1="20" x2="0" y2="-109" stroke={CLASSIC.needle} strokeWidth="1.5" />
-            <circle r="3.6" fill={CLASSIC.needle} />
-          </g>
-        </g>
-        <Hub cx={CX} cy={CY} r={6} />
-        {/* 真ん中: 速度計 */}
-        {odometer.map((digit, i) => (
-          <text
-            key={i}
-            x={ODO_X + i * (ODO.w + ODO.gap) + ODO.w / 2}
-            y={ODO.y + 18}
-            textAnchor="middle"
-            fill={i === ODO.drums - 1 ? "#1a1612" : CLASSIC.ink}
-            fontSize="16"
-            fontWeight="700"
-          >
-            {digit}
-          </text>
-        ))}
-        <FuelDrumDigits value={data.avgFuel === null ? null : data.avgFuel.toFixed(1)} />
-        <Needle cx={SX} cy={SY} len={196} tail={32} width={9} deg={speedDeg} />
-        <Hub cx={SX} cy={SY} r={15} />
-        {/* 左下の板: 天気と日の出・日の入り */}
-        {kind && data.weather ? <ClassicWeatherIcon kind={kind} isDay={data.weather.isDay} x={52} y={404} /> : null}
-        <text x="80" y="412" fill={CLASSIC.ink} fontSize="34" fontWeight="700" className="ms-serif">
-          {data.weather ? Math.round(data.weather.temperature) : "—"}
-          <tspan fontSize="14" dx="1">
-            °C
-          </tspan>
-        </text>
-        <text x="150" y="404" fill={CLASSIC.ink} fontSize="10.5" fontWeight="700" className="ms-ja">
-          {kind ? WEATHER_JA[kind] : "天気を読み込み中"}
-        </text>
-        <text x="150" y="420" fill={CLASSIC.muted} fontSize="8.5">
-          {forecast}
-        </text>
-        <text x="62" y="497" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
-          {data.sunrise ?? "--:--"}
-        </text>
-        <text x="194" y="497" fill={CLASSIC.ink} fontSize="11" fontWeight="700">
-          {data.sunset ?? "--:--"}
-        </text>
-        {/* 右下の板: 電圧と START の行き先 */}
-        <text x={BATTERY_BOX.x + BATTERY_BOX.w - 16} y={BATTERY_BOX.y + 24} textAnchor="end" fill={CLASSIC.ink} fontSize="17" fontWeight="700">
-          {data.voltage === null ? "—" : data.voltage.toFixed(1)}
-          <tspan fontSize="9" fill={CLASSIC.muted} dx="2">
-            V
-          </tspan>
-        </text>
-        <text x={START_BTN.x + 68} y={START_BTN.y + 51} fill={CLASSIC.plateInk} fontSize={dest.length <= 5 ? 20 : 16} fontWeight="700" className="ms-ja">
-          {dest}
-        </text>
-      </svg>
-      <ClassicGlass />
-      <Hit box={[MINI[0].cx - MINI_R - 4, MINI[0].cy - MINI_R - 4, MINI_R * 2 + 8, MINI_R + 26]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[FUEL_DRUM.x, FUEL_DRUM.y, FUEL_DRUM.w, FUEL_DRUM.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[DEST_BTN.x, DEST_BTN.y, DEST_BTN.w, DEST_BTN.h]} label="目的地を選ぶ" onPress={onDest} />
-      <Hit
-        box={[START_BTN.x, START_BTN.y, START_BTN.w, START_BTN.h]}
-        label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
-        onPress={onStart}
-      />
-    </Board>
-  );
-}
-
 // ------------------------------------------------------------------
 // デイライト: 昼間の日差しの中でも読みやすい、白い文字盤の三連メーター。
-// 並びは本物の針のテーマと同じ(左に回転計、真ん中に速度計、右に時計、下の左右に板)。
+// 並びは三連メーター(左に回転計、真ん中に速度計、右に時計、下の左右に板)。
 // 明るいアルミの板に、クロムの縁・白い文字盤・影の落ちる針・液晶の小窓を、本物のメーターに似せて描く。
 // ------------------------------------------------------------------
 
@@ -1989,6 +1385,737 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 }
 
 // ------------------------------------------------------------------
+// 八卦: 速さの勢いを八卦で表すネオンのメーター。真ん中を押すと2つのパターンが入れ替わる。
+// ネオン八卦: 八角に並べた8つの卦(24本の線)が、止まっている坤(☷)から、速さに合わせて陽の線が増える順に
+//   乾(☰)まで光っていく。外の輪が回転、真ん中に大きな速さ。車両位置の八卦の印と同じ考え方。
+// 六十四卦の円図: 先天の並びの64の卦(五行の色分け)。2km/h ごとに次の卦に枠が動き、真ん中に今の卦。
+// どちらも真ん中の速さと回転数は、数字の代わりに8進の卦で出す(坤0〜乾7。58km/h は 乾7・坎2)。
+// 左右の札は羅盤の金の板: 右上の羅盤の針が今の卦を指し、左の時計に十二支の刻、燃料・水温・電圧に十二消息卦。
+// ------------------------------------------------------------------
+
+const BAGUA = {
+  gold: "#ffc94a",
+  red: "#ff3b2f",
+  cyan: "#4df0ff",
+  ink: "#ffe9c2",
+  dim: "#6f5a3d",
+  off: "#2a1d12",
+  line: "#3a2614",
+  panel: "#0d0605",
+  /** 羅盤の金の板の縁と、目盛りの線。 */
+  brass: "#7a5a26",
+  rule: "#5a4020",
+};
+/**
+ * 八卦(線は上から、1 が陽・0 が陰)。坤(陽0本)から乾(陽3本)へ、速さの順に並べる。
+ * el は五行、dir は先天の並びの方位(上が南)。
+ */
+const TRIGRAMS = [
+  { name: "坤", mean: "地", el: "土", dir: "北", lines: [0, 0, 0] },
+  { name: "艮", mean: "山", el: "土", dir: "北西", lines: [1, 0, 0] },
+  { name: "坎", mean: "水", el: "水", dir: "西", lines: [0, 1, 0] },
+  { name: "巽", mean: "風", el: "木", dir: "南西", lines: [1, 1, 0] },
+  { name: "震", mean: "雷", el: "木", dir: "北東", lines: [0, 0, 1] },
+  { name: "離", mean: "火", el: "火", dir: "東", lines: [1, 0, 1] },
+  { name: "兌", mean: "沢", el: "金", dir: "南東", lines: [0, 1, 1] },
+  { name: "乾", mean: "天", el: "金", dir: "南", lines: [1, 1, 1] },
+] as const;
+/** 八角の真ん中と大きさ。卦は下(坤)から時計回りに45度ずつ。 */
+const BX = 512;
+const BY = 283;
+const B_OCT_R = 262;
+const B_RPM_R = 228;
+const B_RPM_SEGS = 32;
+const B_LINE = { r: 196, gap: 15, t: 9, w: 92 };
+/** ここから上の卦(兌・乾)は赤く光る(105km/h〜)。 */
+const B_HOT = 6;
+/** 1つの卦の速さの幅(140km/h を8つに分ける)。 */
+const B_BAND_KMH = SPEED_MAX / TRIGRAMS.length;
+/** 右下の DEST・START(80年代のテーマと同じ、Google マップの小窓が重なる所)。 */
+const B_DEST = { x: 834, y: 332, w: 174, h: 96 };
+const B_START = { x: 834, y: 440, w: 174, h: 108 };
+const B_FUEL_PANEL = { x: 16, y: 288, w: 220, h: 260 };
+
+const octagonPoints = (cx: number, cy: number, r: number) =>
+  Array.from({ length: 8 }, (_, i) => pol(cx, cy, r, 22.5 + i * 45).join(",")).join(" ");
+/** 卦の1本の線(陰はまん中を切った2本)。中心から r、上の線ほど外。k は上から0・1・2。 */
+const trigramLine = (cx: number, cy: number, line: { r: number; gap: number; t: number; w: number }, k: number, yang: number, key: string) => {
+  const y = r2(cy - line.r - (1 - k) * line.gap - line.t / 2);
+  const x = r2(cx - line.w / 2);
+  if (yang) return <rect key={key} x={x} y={y} width={line.w} height={line.t} rx={r2(line.t * 0.22)} />;
+  const half = r2((line.w * 0.78) / 2);
+  return (
+    <g key={key}>
+      <rect x={x} y={y} width={half} height={line.t} rx={r2(line.t * 0.22)} />
+      <rect x={r2(cx + line.w / 2 - half)} y={y} width={half} height={line.t} rx={r2(line.t * 0.22)} />
+    </g>
+  );
+};
+/** 光る順の線(24本)。卦ごとに内(下の線)から外へ。 */
+const B_LINES = TRIGRAMS.flatMap((tri, i) =>
+  [2, 1, 0].map((k) => ({ index: i * 3 + (2 - k), tri: i, k, yang: tri.lines[k], deg: 180 + i * 45 })),
+);
+/** 回転の輪の1つ分(弧)。 */
+const rpmSegment = (i: number) => {
+  const d0 = -135 + (i * 270) / B_RPM_SEGS;
+  const d1 = d0 + 270 / B_RPM_SEGS - 1.6;
+  const [ax, ay] = pol(BX, BY, B_RPM_R, d0);
+  const [bx, by] = pol(BX, BY, B_RPM_R, d1);
+  return `M${ax} ${ay}A${B_RPM_R} ${B_RPM_R} 0 0 1 ${bx} ${by}`;
+};
+const B_RPM_HOT = Math.round((RPM_RED / RPM_MAX) * B_RPM_SEGS);
+
+/**
+ * 六十四卦の円図(先天の並び。上が南で、乾が上・坤が下)。
+ * 右半分は下から上へ 坤(0)〜姤(31)、左半分は下から上へ 復(32)〜乾(63)。
+ * 卦の数 v は、1本目(下の線)がいちばん上の位(下の卦×8+上の卦。卦は坤0〜乾7)。
+ * 6重の輪は、内側が1本目、外側が6本目。内の3本は下の卦の色、外の3本は上の卦の色(五行)。
+ */
+const HEX_SPAN = 360 / 64;
+const HEX_RING = { inner: 150, step: 15, width: 11 };
+const HEX_IN = HEX_RING.inner - HEX_RING.width / 2 - 1.5;
+const HEX_OUT = HEX_RING.inner + 5 * HEX_RING.step + HEX_RING.width / 2 + 1.5;
+const HEX_LABEL_R = 252;
+/** 2km/h ごとに次の卦(0〜126km/h)。 */
+const B_HEX_KMH = 2;
+/** 五行の色(TRIGRAMS と同じ順): 土(坤・艮)・水(坎)・木(巽・震)・火(離)・金(兌・乾)。 */
+const ELEMENT_COLORS = ["#c9a26b", "#c9a26b", "#4aa6ef", "#5ec46e", "#5ec46e", "#ef6a5e", "#f5c04a", "#f5c04a"];
+/** 六十四卦の名前。「上の卦・下の卦」で引く。 */
+const HEXAGRAM_NAMES: Record<string, string> = {
+  乾乾: "乾", 坤坤: "坤", 坎震: "屯", 艮坎: "蒙", 坎乾: "需", 乾坎: "訟", 坤坎: "師", 坎坤: "比",
+  巽乾: "小畜", 乾兌: "履", 坤乾: "泰", 乾坤: "否", 乾離: "同人", 離乾: "大有", 坤艮: "謙", 震坤: "豫",
+  兌震: "随", 艮巽: "蠱", 坤兌: "臨", 巽坤: "観", 離震: "噬嗑", 艮離: "賁", 艮坤: "剥", 坤震: "復",
+  乾震: "无妄", 艮乾: "大畜", 艮震: "頤", 兌巽: "大過", 坎坎: "坎", 離離: "離", 兌艮: "咸", 震巽: "恒",
+  乾艮: "遯", 震乾: "大壮", 離坤: "晋", 坤離: "明夷", 巽離: "家人", 離兌: "睽", 坎艮: "蹇", 震坎: "解",
+  艮兌: "損", 巽震: "益", 兌乾: "夬", 乾巽: "姤", 兌坤: "萃", 坤巽: "升", 兌坎: "困", 坎巽: "井",
+  兌離: "革", 離巽: "鼎", 震震: "震", 艮艮: "艮", 巽艮: "漸", 震兌: "帰妹", 震離: "豊", 離艮: "旅",
+  巽巽: "巽", 兌兌: "兌", 巽坎: "渙", 坎兌: "節", 巽兌: "中孚", 震艮: "小過", 坎離: "既済", 離坎: "未済",
+};
+/** 卦 v の名前(鼎)と長い名前(火風鼎)。 */
+const hexagramName = (v: number) => {
+  const lower = TRIGRAMS[v >> 3];
+  const upper = TRIGRAMS[v & 7];
+  const short = HEXAGRAM_NAMES[`${upper.name}${lower.name}`];
+  return { short, long: upper === lower ? `${upper.name}為${upper.mean}` : `${upper.mean}${lower.mean}${short}` };
+};
+/** 卦 v の j 本目(0 が1本目・下の線)が陽なら 1。 */
+const hexagramLine = (v: number, j: number) => (v >> (5 - j)) & 1;
+/** 卦 v の真ん中の角度(12時が0、時計回り)。 */
+const hexagramAngle = (v: number) => (v < 32 ? 180 - (v + 0.5) * HEX_SPAN : 180 + (v - 31.5) * HEX_SPAN);
+/** 下の卦の名前を置く角度(その卦が下の8つの卦の真ん中)。 */
+const lowerLabelAngle = (lower: number) => hexagramAngle(lower * 8 + 3.5);
+/** 輪の上の弧(d0 から d1 へ時計回り)。 */
+const ringArc = (r: number, d0: number, d1: number) => {
+  const [ax, ay] = pol(BX, BY, r, d0);
+  const [bx, by] = pol(BX, BY, r, d1);
+  return `M${ax} ${ay}A${r} ${r} 0 0 1 ${bx} ${by}`;
+};
+/** 卦 v の j 本目(0 が1本目)の線の弧。陰は真ん中を切った2つ。 */
+const hexagramLinePath = (v: number, j: number) => {
+  const a = hexagramAngle(v);
+  const r = HEX_RING.inner + j * HEX_RING.step;
+  const half = HEX_SPAN / 2 - 0.36;
+  return hexagramLine(v, j) ? ringArc(r, a - half, a + half) : ringArc(r, a - half, a - 0.55) + ringArc(r, a + 0.55, a + half);
+};
+/** 輪の扇形(d0 から d1 へ時計回り。90度ずつに分けて描く)。 */
+const ringSector = (d0: number, d1: number): string => {
+  if (d1 - d0 > 90) return ringSector(d0, d0 + 90) + ringSector(d0 + 90, d1);
+  const [a1, b1] = pol(BX, BY, HEX_OUT, d0);
+  const [a2, b2] = pol(BX, BY, HEX_OUT, d1);
+  const [a3, b3] = pol(BX, BY, HEX_IN, d1);
+  const [a4, b4] = pol(BX, BY, HEX_IN, d0);
+  return `M${a1} ${b1}A${HEX_OUT} ${HEX_OUT} 0 0 1 ${a2} ${b2}L${a3} ${b3}A${HEX_IN} ${HEX_IN} 0 0 0 ${a4} ${b4}Z`;
+};
+type LineSize = { r: number; gap: number; t: number; w: number };
+/** 数の8進のけた(58 → [7, 2])。 */
+const octalDigits = (value: number) => Math.max(0, Math.round(value)).toString(8).split("").map(Number);
+/** 8進の卦の並びの幅。 */
+const octalWidth = (digits: number[], line: LineSize, space: number) => digits.length * line.w + (digits.length - 1) * space;
+/**
+ * 数を、数字の代わりに8進の卦で描く(1けたが1つの卦。坤0・艮1・坎2・巽3・震4・離5・兌6・乾7)。
+ * 色は五行。消えている線もうっすら見せる(7セグメントの消えている所と同じ)。names を決めると、下に卦の名前。
+ */
+const TrigramNumber = ({ value, cx, cy, line, space, names, glow }: { value: number; cx: number; cy: number; line: LineSize; space: number; names?: number; glow?: string }) => {
+  const digits = octalDigits(value);
+  const total = octalWidth(digits, line, space);
+  return (
+    <g data-octal={digits.join("")}>
+      {digits.map((digit, i) => {
+        const x = r2(cx - total / 2 + i * (line.w + space) + line.w / 2);
+        const tri = TRIGRAMS[digit];
+        return (
+          <g key={i}>
+            <g fill={ELEMENT_COLORS[digit]} opacity=".1">
+              {[1, 1, 1].map((yang, k) => trigramLine(x, cy, line, k, yang, String(k)))}
+            </g>
+            <g fill={ELEMENT_COLORS[digit]} filter={glow}>
+              {tri.lines.map((yang, k) => trigramLine(x, cy, line, k, yang, String(k)))}
+            </g>
+            {names ? (
+              <text x={x} y={r2(cy + line.gap + line.t / 2 + names + 4)} textAnchor="middle" fill={ELEMENT_COLORS[digit]} fontSize={names} fontWeight="700" className="mb-serif">
+                {tri.name}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+    </g>
+  );
+};
+/** 回転数(100回転ごと)を小さな8進の卦で出し、右に「×100 r/min」。 */
+const RpmTrigrams = ({ rpm, cy, line, glow }: { rpm: number | null; cy: number; line: LineSize; glow: string }) => {
+  if (rpm === null) {
+    return (
+      <text x={BX} y={cy + 4} textAnchor="middle" fill={BAGUA.cyan} fontSize="11" fontWeight="700">
+        — r/min
+      </text>
+    );
+  }
+  const space = 7;
+  const width = octalWidth(octalDigits(rpm / 100), line, space);
+  const label = 58;
+  const left = BX - (width + 8 + label) / 2;
+  return (
+    <g>
+      <TrigramNumber value={rpm / 100} cx={r2(left + width / 2)} cy={cy} line={line} space={space} glow={glow} />
+      <text x={r2(left + width + 8)} y={cy + 4} fill={BAGUA.cyan} fontSize="10" fontWeight="700" letterSpacing=".5">
+        ×100 r/min
+      </text>
+    </g>
+  );
+};
+/** 卦 v を6本の線の絵で(下が1本目)。内の3本は下の卦、外の3本は上の卦の色。 */
+const HexagramGlyph = ({ v, cx, cy }: { v: number; cx: number; cy: number }) => {
+  const w = 64;
+  const t = 6;
+  const step = 10;
+  const half = r2(w * 0.39);
+  return (
+    <g data-lines={Array.from({ length: 6 }, (_, j) => hexagramLine(v, j)).join("")}>
+      {Array.from({ length: 6 }, (_, j) => {
+        const y = r2(cy + 2.5 * step - j * step - t / 2);
+        const color = ELEMENT_COLORS[j < 3 ? v >> 3 : v & 7];
+        return hexagramLine(v, j) ? (
+          <rect key={j} x={cx - w / 2} y={y} width={w} height={t} rx="1.2" fill={color} />
+        ) : (
+          <g key={j} fill={color}>
+            <rect x={cx - w / 2} y={y} width={half} height={t} rx="1.2" />
+            <rect x={r2(cx + w / 2 - half)} y={y} width={half} height={t} rx="1.2" />
+          </g>
+        );
+      })}
+    </g>
+  );
+};
+/** 真ん中を押すと次のパターン。 */
+const B_CENTER = 110;
+
+/** 左右の札の、羅盤と同じ金の板(内の線と四隅の鋲)。 */
+const BrassPlate = ({ x, y, w, h }: { x: number; y: number; w: number; h: number }) => (
+  <g>
+    <rect x={x} y={y} width={w} height={h} rx="8" fill="#120806" stroke={BAGUA.brass} strokeWidth="1.2" />
+    <rect x={x + 6} y={y + 6} width={w - 12} height={h - 12} rx="5" fill="none" stroke={BAGUA.line} />
+    {[
+      [x + 12, y + 12],
+      [x + w - 12, y + 12],
+      [x + 12, y + h - 12],
+      [x + w - 12, y + h - 12],
+    ].map(([cx, cy]) => (
+      <circle key={`${cx} ${cy}`} cx={cx} cy={cy} r="2.4" fill={BAGUA.gold} opacity=".7" />
+    ))}
+  </g>
+);
+/** 右上の羅盤の板と輪(外から 卦・名前・数・五行、真ん中は天池)。 */
+const LUOPAN = { x: 791, y: 19, w: 214, h: 218, cx: 898, cy: 128 };
+const LP_R = { outer: 100, tri: 92, name: 77, num: 64, el: 52, pool: 44 };
+const LP_BORDERS = [84, 70, 58, 46];
+const LP_LINE = { r: LP_R.tri, gap: 4.4, t: 2.8, w: 20 };
+/** 先天の並びの角度(上が南で乾、下が北で坤。右半分を下から 坤0〜巽3、左半分を下から 震4〜乾7)。 */
+const FUXI_DEG = [180, 135, 90, 45, 225, 270, 315, 0];
+/** 羅盤の扇形(今の卦の所を光らせる)。 */
+const luopanSector = (d0: number, d1: number) => {
+  const { cx, cy } = LUOPAN;
+  const outer = LP_R.outer - 1;
+  const inner = LP_R.pool + 3;
+  const [a1, b1] = pol(cx, cy, outer, d0);
+  const [a2, b2] = pol(cx, cy, outer, d1);
+  const [a3, b3] = pol(cx, cy, inner, d1);
+  const [a4, b4] = pol(cx, cy, inner, d0);
+  return `M${a1} ${b1}A${outer} ${outer} 0 0 1 ${a2} ${b2}L${a3} ${b3}A${inner} ${inner} 0 0 0 ${a4} ${b4}Z`;
+};
+/** 羅盤の1つの卦の所(卦・名前・数・五行)。動かない絵では消えた形、今の卦までは光らせて上に重ねる。 */
+const LuopanSlot = ({ v, lit }: { v: number; lit: boolean }) => {
+  const { cx, cy } = LUOPAN;
+  const tri = TRIGRAMS[v];
+  const deg = FUXI_DEG[v];
+  const [nx, ny] = pol(cx, cy, LP_R.name, deg);
+  const [mx, my] = pol(cx, cy, LP_R.num, deg);
+  const [ex, ey] = pol(cx, cy, LP_R.el, deg);
+  return (
+    <g>
+      <g transform={`rotate(${deg} ${cx} ${cy})`} fill={ELEMENT_COLORS[v]} opacity={lit ? 1 : 0.32} filter={lit ? "url(#mb-glow)" : undefined}>
+        {tri.lines.map((yang, k) => trigramLine(cx, cy, LP_LINE, k, yang, String(k)))}
+      </g>
+      <text x={nx} y={ny + 4} textAnchor="middle" fill={lit ? ELEMENT_COLORS[v] : BAGUA.dim} fontSize="11" fontWeight="700" className="mb-serif">
+        {tri.name}
+      </text>
+      <text x={mx} y={r2(my + 3.5)} textAnchor="middle" fill={lit ? BAGUA.ink : BAGUA.dim} fontSize="10" fontWeight="700">
+        {v}
+      </text>
+      <text x={ex} y={ey + 3} textAnchor="middle" fill={ELEMENT_COLORS[v]} opacity={lit ? 0.95 : 0.4} fontSize="8.5" fontWeight="700" className="mb-serif">
+        {tri.el}
+      </text>
+    </g>
+  );
+};
+/** 針の読みの札と、南北の目盛り(下の北が止まっている所、上の南が 140km/h)。 */
+const B_READ = { x: 791, y: 246, w: 214, h: 70 };
+const B_RULER = { x: 811, top: 352, bottom: 532 };
+/** 左上の時計の下の、十二支の目盛り(子の刻は 23時〜1時)。 */
+const BRANCHES = "子丑寅卯辰巳午未申酉戌亥";
+const B_HOURS = { x: 36, slot: 15, y: 104 };
+/** 天気の卦: 晴れ=乾(天)・晴れ時々くもり=離(日)・くもり=坤・霧=兌(沢)・雨=坎(水)・雪=艮・雷雨=震(雷)。 */
+const WEATHER_TRIGRAM: Record<WeatherKind, number> = { clear: 7, partly: 5, cloud: 0, fog: 6, rain: 2, snow: 1, storm: 4 };
+/** 十二消息卦: 下から陽が増える(坤 → 復 → 臨 → 泰 → 大壮 → 夬 → 乾)。 */
+const XIAO = ["坤", "復", "臨", "泰", "大壮", "夬", "乾"];
+/** 左下の燃料・水温・電圧の行(色は 燃料=離・水温=坎・電圧=震)。目盛りは left から width の長さ。 */
+const B_GAUGES = [
+  { label: "燃料", y: 318, color: ELEMENT_COLORS[5] },
+  { label: "水温", y: 396, color: ELEMENT_COLORS[2] },
+  { label: "電圧", y: 474, color: ELEMENT_COLORS[4] },
+];
+const B_GAUGE = { left: 36, width: 180, seal: 184 };
+
+/** 八卦の動かない絵: 下地・(パターンごとの)消えている線や輪・左右の札。 */
+const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }) {
+  return (
+    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+      <defs>
+        <radialGradient id="mb-bg" cx=".5" cy=".55" r=".7">
+          <stop offset="0" stopColor="#1a0806" />
+          <stop offset="1" stopColor="#030202" />
+        </radialGradient>
+        <radialGradient id="mb-pool" cx=".5" cy=".45" r=".6">
+          <stop offset="0" stopColor="#0b2a2e" />
+          <stop offset="1" stopColor="#020707" />
+        </radialGradient>
+        <linearGradient id="mb-seal" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#d8342a" />
+          <stop offset="1" stopColor="#8a150f" />
+        </linearGradient>
+        <filter id="mb-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.6" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#mb-bg)" />
+      {pattern === "neon" ? (
+        <g>
+          <polygon points={octagonPoints(BX, BY, B_OCT_R)} fill="none" stroke={BAGUA.dim} strokeWidth="1.5" />
+          <polygon points={octagonPoints(BX, BY, B_OCT_R - 8)} fill="none" stroke={BAGUA.line} />
+          {Array.from({ length: B_RPM_SEGS }, (_, i) => (
+            <path key={i} d={rpmSegment(i)} fill="none" stroke={i >= B_RPM_HOT ? "#3a0d0a" : "#0b2a2e"} strokeWidth="10" />
+          ))}
+          <g fill={BAGUA.off}>
+            {TRIGRAMS.map((tri, i) => (
+              <g key={tri.name} transform={`rotate(${180 + i * 45} ${BX} ${BY})`}>
+                {tri.lines.map((yang, k) => trigramLine(BX, BY, B_LINE, k, yang, String(k)))}
+              </g>
+            ))}
+          </g>
+          <text x={BX} y={BY + 82} textAnchor="middle" fill={BAGUA.dim} fontSize="13" fontWeight="700" letterSpacing="3">
+            km/h
+          </text>
+        </g>
+      ) : (
+        <g>
+          <circle cx={BX} cy={BY} r={HEX_OUT + 5} fill="#080403" stroke={BAGUA.line} />
+          <circle cx={BX} cy={BY} r={HEX_IN - 5} fill="none" stroke={BAGUA.line} />
+          {/* 下の卦が変わる8つの区切り */}
+          {Array.from({ length: 8 }, (_, i) => {
+            const [x1, y1] = pol(BX, BY, HEX_IN - 9, i * 45);
+            const [x2, y2] = pol(BX, BY, HEX_OUT + 9, i * 45);
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={BAGUA.line} />;
+          })}
+          <g fill="none" strokeWidth={HEX_RING.width}>
+            {Array.from({ length: 64 }, (_, v) => (
+              <g key={v}>
+                {Array.from({ length: 6 }, (_, j) => (
+                  <path key={j} d={hexagramLinePath(v, j)} stroke={ELEMENT_COLORS[j < 3 ? v >> 3 : v & 7]} />
+                ))}
+              </g>
+            ))}
+          </g>
+          {TRIGRAMS.map((tri, i) => {
+            const [x, y] = pol(BX, BY, HEX_LABEL_R, lowerLabelAngle(i));
+            return (
+              <text key={tri.name} x={x} y={y + 7} textAnchor="middle" fill={ELEMENT_COLORS[i]} opacity=".75" fontSize="19" fontWeight="700" className="mb-serif">
+                {tri.name}
+              </text>
+            );
+          })}
+        </g>
+      )}
+      {/* 左上の板: 時計の下に十二支の目盛り */}
+      <BrassPlate x={16} y={16} w={220} h={260} />
+      <line x1={B_HOURS.x} y1={B_HOURS.y} x2={B_HOURS.x + 12 * B_HOURS.slot} y2={B_HOURS.y} stroke={BAGUA.brass} />
+      {Array.from({ length: 13 }, (_, i) => (
+        <line key={i} x1={B_HOURS.x + i * B_HOURS.slot} y1={B_HOURS.y - 4} x2={B_HOURS.x + i * B_HOURS.slot} y2={B_HOURS.y + 4} stroke={BAGUA.brass} />
+      ))}
+      {Array.from(BRANCHES, (branch, i) => (
+        <text key={branch} x={B_HOURS.x + (i + 0.5) * B_HOURS.slot} y={B_HOURS.y + 16} textAnchor="middle" fill={BAGUA.dim} fontSize="9.5" fontWeight="700" className="mb-serif">
+          {branch}
+        </text>
+      ))}
+      {/* 左下の板: 燃料・水温・電圧の名前、消息卦のはんこの枠、目盛り */}
+      <BrassPlate x={B_FUEL_PANEL.x} y={B_FUEL_PANEL.y} w={B_FUEL_PANEL.w} h={B_FUEL_PANEL.h} />
+      {B_GAUGES.map((gauge) => (
+        <g key={gauge.label}>
+          <text x={B_GAUGE.left} y={gauge.y} fill={BAGUA.dim} fontSize="11" fontWeight="700" letterSpacing="2">
+            {gauge.label}
+          </text>
+          <rect x={B_GAUGE.seal} y={gauge.y - 12} width="32" height="32" rx="2" fill={gauge.color} fillOpacity=".12" stroke={gauge.color} strokeWidth="1.3" />
+          <line x1={B_GAUGE.left} y1={gauge.y + 46} x2={B_GAUGE.left + B_GAUGE.width} y2={gauge.y + 46} stroke={BAGUA.rule} />
+          {Array.from({ length: 7 }, (_, j) => (
+            <line key={j} x1={B_GAUGE.left + j * 30} y1={gauge.y + 42} x2={B_GAUGE.left + j * 30} y2={gauge.y + 50} stroke={BAGUA.rule} />
+          ))}
+        </g>
+      ))}
+      {/* 右上の羅盤(消えた形)。今の卦までの光と針は、動く絵で上に重ねる */}
+      <BrassPlate x={LUOPAN.x} y={LUOPAN.y} w={LUOPAN.w} h={LUOPAN.h} />
+      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="#0c0504" />
+      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="none" stroke={BAGUA.gold} strokeWidth="1.6" filter="url(#mb-glow)" />
+      {LP_BORDERS.map((r) => (
+        <circle key={r} cx={LUOPAN.cx} cy={LUOPAN.cy} r={r} fill="none" stroke={BAGUA.rule} strokeWidth=".8" />
+      ))}
+      {Array.from({ length: 8 }, (_, i) => {
+        const [x1, y1] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.pool + 2, 22.5 + i * 45);
+        const [x2, y2] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.outer, 22.5 + i * 45);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={BAGUA.rule} strokeWidth=".8" />;
+      })}
+      {TRIGRAMS.map((tri, v) => (
+        <LuopanSlot key={tri.name} v={v} lit={false} />
+      ))}
+      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.pool} fill="url(#mb-pool)" stroke={BAGUA.cyan} strokeWidth=".8" strokeOpacity=".7" />
+      {/* 天心十道(赤い糸) */}
+      <g stroke={BAGUA.red} strokeWidth="1" opacity=".75">
+        <line x1={LUOPAN.x} y1={LUOPAN.cy} x2={LUOPAN.x + LUOPAN.w} y2={LUOPAN.cy} />
+        <line x1={LUOPAN.cx} y1={LUOPAN.y} x2={LUOPAN.cx} y2={LUOPAN.y + LUOPAN.h} />
+      </g>
+      {/* 針の読みの札 */}
+      <rect x={B_READ.x} y={B_READ.y} width={B_READ.w} height={B_READ.h} rx="8" fill={BAGUA.panel} stroke={BAGUA.line} />
+      <text x={B_READ.x + 15} y={B_READ.y + 16} fill={BAGUA.dim} fontSize="9" fontWeight="700" letterSpacing="1">
+        針の指す卦
+      </text>
+      {/* 南北の目盛り */}
+      <text x={B_RULER.x} y={B_RULER.top - 7} textAnchor="middle" fill={BAGUA.gold} fontSize="11" fontWeight="700" className="mb-serif">
+        南
+      </text>
+      <text x={B_RULER.x} y={B_RULER.bottom + 16} textAnchor="middle" fill={BAGUA.gold} fontSize="11" fontWeight="700" className="mb-serif">
+        北
+      </text>
+      <line x1={B_RULER.x} y1={B_RULER.top} x2={B_RULER.x} y2={B_RULER.bottom} stroke={BAGUA.rule} />
+      {Array.from({ length: 25 }, (_, k) => {
+        const y = r2(B_RULER.top + (k * (B_RULER.bottom - B_RULER.top)) / 24);
+        const long = k % 3 === 0;
+        return (
+          <line
+            key={k}
+            x1={B_RULER.x - (long ? 8 : 4)}
+            y1={y}
+            x2={B_RULER.x + (long ? 8 : 4)}
+            y2={y}
+            stroke={long ? BAGUA.gold : BAGUA.rule}
+            strokeWidth={long ? 1.1 : 0.8}
+            opacity={long ? 0.75 : 1}
+          />
+        );
+      })}
+      {/* DEST(金のはんこ「至」)と START(朱のはんこ「発」) */}
+      <rect x={B_DEST.x} y={B_DEST.y} width={B_DEST.w} height={B_DEST.h} rx="6" fill={BAGUA.panel} />
+      <rect x={B_DEST.x} y={B_DEST.y} width={B_DEST.w} height={B_DEST.h} rx="6" fill="none" stroke={BAGUA.gold} strokeWidth="2" filter="url(#mb-glow)" />
+      <rect x={B_DEST.x + 6} y={B_DEST.y + 6} width={B_DEST.w - 12} height={B_DEST.h - 12} rx="3" fill="none" stroke={BAGUA.gold} strokeWidth=".8" opacity=".55" />
+      <text x={B_DEST.x + 18} y={B_DEST.y + 32} fill={BAGUA.dim} fontSize="12" fontWeight="700">
+        目的地
+      </text>
+      <text x={B_DEST.x + 18} y={B_DEST.y + 74} fill={BAGUA.gold} fontSize="26" fontWeight="700" letterSpacing="2" filter="url(#mb-glow)">
+        DEST
+      </text>
+      <rect x={B_DEST.x + 136} y={B_DEST.y + 14} width="26" height="26" rx="2" fill={BAGUA.gold} />
+      <text x={B_DEST.x + 149} y={B_DEST.y + 33} textAnchor="middle" fill={BAGUA.panel} fontSize="16" fontWeight="700" className="mb-serif">
+        至
+      </text>
+      <rect x={B_START.x} y={B_START.y} width={B_START.w} height={B_START.h} rx="6" fill="url(#mb-seal)" filter="url(#mb-glow)" />
+      <rect x={B_START.x + 6} y={B_START.y + 6} width={B_START.w - 12} height={B_START.h - 12} rx="3" fill="none" stroke={BAGUA.ink} strokeWidth="1.4" opacity=".85" />
+      <text x={B_START.x + 18} y={B_START.y + 34} fill={BAGUA.ink} fontSize="12" fontWeight="700" letterSpacing="3">
+        START
+      </text>
+      <rect x={B_START.x + 136} y={B_START.y + 14} width="26" height="26" rx="2" fill="none" stroke={BAGUA.ink} strokeWidth="1.3" />
+      <text x={B_START.x + 149} y={B_START.y + 33} textAnchor="middle" fill={BAGUA.ink} fontSize="16" fontWeight="700" className="mb-serif">
+        発
+      </text>
+    </svg>
+  );
+});
+
+type BaguaProps = ClusterProps & {
+  pattern: BaguaPattern;
+  /** 真ん中を押したとき(次のパターンにする)。 */
+  onPattern: () => void;
+  /** パターンを変えた回数。0 より大きいと、名前の札を少し出す。 */
+  flash: number;
+};
+
+export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern, flash }: BaguaProps) {
+  const speed = Math.max(0, data.speed ?? 0);
+  const litLines = Math.min(24, Math.floor((speed / SPEED_MAX) * 24));
+  const band = Math.min(TRIGRAMS.length - 1, Math.floor(speed / B_BAND_KMH));
+  const now = TRIGRAMS[band];
+  const litRpm = Math.min(B_RPM_SEGS, Math.round(((data.rpm ?? 0) / RPM_MAX) * B_RPM_SEGS));
+  const hexNow = Math.min(63, Math.floor(speed / B_HEX_KMH));
+  const hexagram = hexagramName(hexNow);
+  // 羅盤の針が指す卦: ネオン八卦は勢いの卦、円図は今の卦の下の卦(右半分を下から、そのあと左半分)。
+  const needle = pattern === "neon" ? band : hexNow >> 3;
+  const needleTip = pol(LUOPAN.cx, LUOPAN.cy, 40, FUXI_DEG[needle]);
+  const needleTail = pol(LUOPAN.cx, LUOPAN.cy, 34, FUXI_DEG[needle] + 180);
+  const needleSide = [pol(LUOPAN.cx, LUOPAN.cy, 4.5, FUXI_DEG[needle] + 90), pol(LUOPAN.cx, LUOPAN.cy, 4.5, FUXI_DEG[needle] - 90)];
+  const speedY = r2(B_RULER.bottom - clamp01(speed / SPEED_MAX) * (B_RULER.bottom - B_RULER.top));
+  // 十二支の刻(子の刻は 23時〜1時)と、目盛りの上の針の位置。
+  const time = readHm(data.clock);
+  const hourSlots = ((time.h + time.m / 60 + 1) % 24) / 2;
+  const branch = Math.min(11, Math.floor(hourSlots));
+  const hourX = r2(B_HOURS.x + hourSlots * B_HOURS.slot);
+  // 燃料・水温・電圧の目盛りの割合(水温は 50〜120℃、電圧は 11.5〜14.5V)。
+  const gauges = [
+    { value: String(Math.round(data.rangeKm)), unit: "km", ratio: data.fuelPercent / 100 },
+    { value: data.coolant === null ? "—" : String(Math.round(data.coolant)), unit: "°C", ratio: data.coolant === null ? null : (data.coolant - 50) / 70 },
+    { value: data.voltage === null ? "—" : data.voltage.toFixed(1), unit: "V", ratio: data.voltage === null ? null : (data.voltage - 11.5) / 3 },
+  ];
+  const patternIndex = Math.max(0, BAGUA_PATTERNS.findIndex((item) => item.id === pattern));
+  const speedDigits = octalDigits(speed).length;
+  const kind = data.weather ? weatherKind(data.weather.code) : null;
+  const weatherTri = kind ? WEATHER_TRIGRAM[kind] : null;
+  const dest = data.destLabel ?? "目的地なし";
+  const glow = "url(#mb-glow)";
+  return (
+    <Board className="ms-bagua">
+      <BaguaFace pattern={pattern} />
+      <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+        {pattern === "neon" ? (
+          <g>
+            {/* 回転の輪(光っている分だけ) */}
+            <g fill="none" strokeWidth="10" filter={glow}>
+              {Array.from({ length: litRpm }, (_, i) => (
+                <path key={i} d={rpmSegment(i)} stroke={i >= B_RPM_HOT ? BAGUA.red : BAGUA.cyan} />
+              ))}
+            </g>
+            {/* 八卦の線(速さの分だけ、坤から順に光る) */}
+            <g filter={glow}>
+              {B_LINES.filter((line) => line.index < litLines).map((line) => (
+                <g key={line.index} transform={`rotate(${line.deg} ${BX} ${BY})`} fill={line.tri >= B_HOT ? BAGUA.red : BAGUA.gold}>
+                  {trigramLine(BX, BY, B_LINE, line.k, line.yang, "l")}
+                </g>
+              ))}
+            </g>
+            {TRIGRAMS.map((tri, i) => {
+              const [x, y] = pol(BX, BY, 140, 180 + i * 45);
+              const current = i === band;
+              return (
+                <text key={tri.name} x={x} y={y + 7} textAnchor="middle" fill={current ? BAGUA.gold : BAGUA.dim} fontSize="20" fontWeight="700" className="mb-serif" filter={current ? glow : undefined}>
+                  {tri.name}
+                </text>
+              );
+            })}
+            {/* 真ん中: 今の卦・大きな速さ・回転数 */}
+            <text x={BX} y={BY - 64} textAnchor="middle" fill={BAGUA.gold} fontSize="18" fontWeight="700" letterSpacing="4" className="mb-serif" filter={glow}>
+              {`${now.name}・${now.mean}`}
+            </text>
+            {data.speed === null ? (
+              <text x={BX} y={BY + 16} textAnchor="middle" fill={BAGUA.dim} fontSize="40" fontWeight="700">
+                --
+              </text>
+            ) : (
+              <TrigramNumber
+                value={speed}
+                cx={BX}
+                cy={BY + 2}
+                line={speedDigits <= 2 ? { r: 0, gap: 28, t: 18, w: 96 } : { r: 0, gap: 22, t: 14, w: 64 }}
+                space={speedDigits <= 2 ? 26 : 16}
+                names={13}
+                glow={glow}
+              />
+            )}
+            <RpmTrigrams rpm={data.rpm} cy={BY + 104} line={{ r: 0, gap: 6, t: 4, w: 22 }} glow={glow} />
+          </g>
+        ) : (
+          <g>
+            {/* 今の卦に枠を付ける(五行の色分けはそのまま) */}
+            <path
+              d={ringSector(hexagramAngle(hexNow) - HEX_SPAN / 2, hexagramAngle(hexNow) + HEX_SPAN / 2)}
+              fill="none"
+              stroke="#ff4d3d"
+              strokeWidth="2.2"
+              filter={glow}
+            />
+            {(() => {
+              const lower = hexNow >> 3;
+              const [x, y] = pol(BX, BY, HEX_LABEL_R, lowerLabelAngle(lower));
+              return (
+                <text x={x} y={y + 7} textAnchor="middle" fill={ELEMENT_COLORS[lower]} fontSize="19" fontWeight="700" className="mb-serif" filter={glow}>
+                  {TRIGRAMS[lower].name}
+                </text>
+              );
+            })()}
+            {/* 真ん中: 今の卦の絵(6本の線)と名前、速さ・回転数の8進の卦 */}
+            <HexagramGlyph v={hexNow} cx={BX} cy={BY - 80} />
+            <text x={BX} y={BY - 20} textAnchor="middle" fill={BAGUA.ink} fontSize="30" fontWeight="700" className="mb-serif" filter={glow}>
+              {hexagram.short}
+            </text>
+            <text x={BX} y={BY + 1} textAnchor="middle" fill={BAGUA.dim} fontSize="12" fontWeight="700" letterSpacing="2" className="mb-serif">
+              {hexagram.long}
+            </text>
+            {data.speed === null ? (
+              <text x={BX} y={BY + 46} textAnchor="middle" fill={BAGUA.dim} fontSize="24" fontWeight="700">
+                --
+              </text>
+            ) : (
+              <TrigramNumber value={speed} cx={BX} cy={BY + 36} line={{ r: 0, gap: 12, t: 7, w: 44 }} space={14} names={10} glow={glow} />
+            )}
+            <text x={BX} y={BY + 82} textAnchor="middle" fill={BAGUA.dim} fontSize="9" fontWeight="700" letterSpacing="2">
+              km/h
+            </text>
+            <RpmTrigrams rpm={data.rpm} cy={BY + 102} line={{ r: 0, gap: 5.5, t: 4, w: 20 }} glow={glow} />
+          </g>
+        )}
+        {/* 左上の板: 時計・日付・十二支の刻(目盛りの針)・天気の印・今日の距離と平均 */}
+        <text x="36" y="64" fill={BAGUA.ink} fontSize="42" fontWeight="700">
+          {data.clock}
+        </text>
+        <text x="36" y="86" fill={BAGUA.dim} fontSize="12" fontWeight="700">
+          {`${data.month}/${data.day}(${WEEKDAYS[data.weekday]})`}
+        </text>
+        <text x="104" y="86" fill={BAGUA.gold} fontSize="12" fontWeight="700" className="mb-serif">
+          {`${BRANCHES[branch]}の刻`}
+        </text>
+        <text x={B_HOURS.x + (branch + 0.5) * B_HOURS.slot} y={B_HOURS.y + 16} textAnchor="middle" fill={BAGUA.gold} fontSize="9.5" fontWeight="700" className="mb-serif" filter={glow}>
+          {BRANCHES[branch]}
+        </text>
+        <polygon points={`${hourX - 5},${B_HOURS.y - 12} ${hourX + 5},${B_HOURS.y - 12} ${hourX},${B_HOURS.y - 4}`} fill={BAGUA.red} filter={glow} />
+        <rect x="36" y="136" width="30" height="30" rx="2" fill="none" stroke={weatherTri === null ? BAGUA.dim : ELEMENT_COLORS[weatherTri]} strokeWidth="1.3" filter={weatherTri === null ? undefined : glow} />
+        {weatherTri === null ? null : (
+          <g fill={ELEMENT_COLORS[weatherTri]} data-weather={TRIGRAMS[weatherTri].name}>
+            {TRIGRAMS[weatherTri].lines.map((yang, k) => trigramLine(51, 151, { r: 0, gap: 6, t: 3.2, w: 18 }, k, yang, String(k)))}
+          </g>
+        )}
+        <text x="74" y="168" fill={BAGUA.ink} fontSize="34" fontWeight="700">
+          {data.weather ? `${Math.round(data.weather.temperature)}°` : "—"}
+        </text>
+        <text x="140" y="152" fill={BAGUA.ink} fontSize="11" fontWeight="700" className="ms-ja">
+          {kind ? WEATHER_JA[kind] : "天気を読み込み中"}
+        </text>
+        <text x="140" y="168" fill={BAGUA.dim} fontSize="9.5" fontWeight="700">
+          {forecastText(data.weather)}
+        </text>
+        <text x="36" y="214" fill={BAGUA.ink} fontSize="15" fontWeight="700">
+          {`今日 ${data.todayKm.toFixed(1)} km`}
+        </text>
+        <text x="36" y="244" fill={BAGUA.ink} fontSize="15" fontWeight="700">
+          {`平均 ${data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)} km/L`}
+        </text>
+        {/* 左下の板: 燃料・水温・電圧の数と、目盛りの針・消息卦のはんこ(多いほど下から陽が増える) */}
+        {B_GAUGES.map((gauge, i) => {
+          const { value, unit, ratio } = gauges[i];
+          const level = ratio === null ? null : clamp01(ratio);
+          const name = level === null ? "—" : XIAO[Math.round(level * 6)];
+          const x = level === null ? 0 : r2(B_GAUGE.left + level * B_GAUGE.width);
+          const sealX = B_GAUGE.seal + 16;
+          return (
+            <g key={gauge.label} data-xiao={name}>
+              <text x={B_GAUGE.left} y={gauge.y + 34} fill={BAGUA.ink} fontSize="32" fontWeight="700">
+                {value}
+                <tspan fontSize="12" fill={BAGUA.dim} dx={unit === "V" ? 6 : 9}>
+                  {unit}
+                </tspan>
+              </text>
+              {name.length === 1 ? (
+                <text x={sealX} y={gauge.y + 11} textAnchor="middle" fill={level === null ? BAGUA.dim : gauge.color} fontSize="18" fontWeight="700" className="mb-serif">
+                  {name}
+                </text>
+              ) : (
+                <g fill={gauge.color} fontSize="12" fontWeight="700" textAnchor="middle">
+                  <text x={sealX} y={gauge.y + 2} className="mb-serif">
+                    {name[0]}
+                  </text>
+                  <text x={sealX} y={gauge.y + 15} className="mb-serif">
+                    {name[1]}
+                  </text>
+                </g>
+              )}
+              {level === null ? null : (
+                <g>
+                  {Array.from({ length: 7 }, (_, j) =>
+                    B_GAUGE.left + j * 30 <= x ? <line key={j} x1={B_GAUGE.left + j * 30} y1={gauge.y + 42} x2={B_GAUGE.left + j * 30} y2={gauge.y + 50} stroke={gauge.color} /> : null,
+                  )}
+                  <rect x={B_GAUGE.left} y={gauge.y + 44.5} width={r2(x - B_GAUGE.left)} height="3" fill={gauge.color} filter={glow} />
+                  <polygon points={`${x - 5},${gauge.y + 34} ${x + 5},${gauge.y + 34} ${x},${gauge.y + 42}`} fill={BAGUA.red} filter={glow} />
+                </g>
+              )}
+            </g>
+          );
+        })}
+        {/* 右上の羅盤: 今の卦までが光り、針が今の卦を指す */}
+        <g data-needle={TRIGRAMS[needle].name}>
+          <path d={luopanSector(FUXI_DEG[needle] - 22.5, FUXI_DEG[needle] + 22.5)} fill={ELEMENT_COLORS[needle]} fillOpacity=".14" stroke={BAGUA.gold} strokeWidth="1.2" filter={glow} />
+          {TRIGRAMS.map((tri, v) => (v <= needle ? <LuopanSlot key={tri.name} v={v} lit /> : null))}
+          <polygon points={`${needleTip.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.red} filter={glow} />
+          <polygon points={`${needleTail.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.ink} opacity=".85" />
+          <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r="3.6" fill={BAGUA.gold} />
+        </g>
+        {/* 針の読み: 卦の名前・意味と五行・方位・数 */}
+        <text x={B_READ.x + 15} y={B_READ.y + 58} fill={ELEMENT_COLORS[needle]} fontSize="32" fontWeight="700" className="mb-serif" filter={glow}>
+          {TRIGRAMS[needle].name}
+        </text>
+        <text x={B_READ.x + 59} y={B_READ.y + 41} fill={BAGUA.ink} fontSize="13" fontWeight="700" className="mb-serif">
+          {`${TRIGRAMS[needle].mean} · ${TRIGRAMS[needle].el}`}
+        </text>
+        <text x={B_READ.x + 59} y={B_READ.y + 59} fill={BAGUA.dim} fontSize="11" fontWeight="700" className="mb-serif">
+          {`方位 ${TRIGRAMS[needle].dir}`}
+        </text>
+        <polygon points={octagonPoints(974, B_READ.y + 35, 22)} fill="none" stroke={ELEMENT_COLORS[needle]} strokeWidth="1.4" filter={glow} />
+        <text x="974" y={B_READ.y + 42} textAnchor="middle" fill={BAGUA.ink} fontSize="20" fontWeight="700">
+          {needle}
+        </text>
+        {/* 南北の目盛りの、今の速さの印 */}
+        <polygon points={`${B_RULER.x + 10},${speedY} ${B_RULER.x + 19},${speedY - 5} ${B_RULER.x + 19},${speedY + 5}`} fill={BAGUA.red} filter={glow} />
+        <text x={B_START.x + 18} y={B_START.y + 84} fill={BAGUA.ink} fontSize={dest.length <= 5 ? 26 : 19} fontWeight="700" className="ms-ja">
+          {dest}
+        </text>
+      </svg>
+      <Hit box={[BX - B_CENTER, BY - B_CENTER, B_CENTER * 2, B_CENTER * 2]} label={`八卦のパターンを変える(今は ${BAGUA_PATTERNS[patternIndex].name})`} onPress={onPattern} />
+      {flash > 0 ? (
+        <span key={flash} className="gauge-design-flash" aria-live="polite">
+          <small>
+            PATTERN {patternIndex + 1}/{BAGUA_PATTERNS.length}
+          </small>
+          <b>{BAGUA_PATTERNS[patternIndex].name}</b>
+        </span>
+      ) : null}
+      <Hit box={[B_FUEL_PANEL.x, B_FUEL_PANEL.y, B_FUEL_PANEL.w, B_FUEL_PANEL.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[B_DEST.x, B_DEST.y, B_DEST.w, B_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
+      <Hit
+        box={[B_START.x, B_START.y, B_START.w, B_START.h]}
+        label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
+        onPress={onStart}
+      />
+    </Board>
+  );
+}
+
+// ------------------------------------------------------------------
 // テーマ選びに出す小さな見本の絵(車の THEME とスマホの THEME タブ)。
 // ------------------------------------------------------------------
 
@@ -2013,40 +2140,22 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
       </svg>
     );
   }
-  if (style === "classic") {
-    const [nx, ny] = pol(60, 38, 25, -23);
+  if (style === "bagua") {
     return (
       <svg viewBox="0 0 120 70" className="ms-thumb" aria-hidden="true">
-        <defs>
-          <linearGradient id="ms-thumb-metal" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#fdfdfd" />
-            <stop offset=".46" stopColor="#8e8e8e" />
-            <stop offset="1" stopColor="#e0e0e0" />
-          </linearGradient>
-        </defs>
-        <rect width="120" height="70" fill="#15110d" />
-        <circle cx="60" cy="38" r="31" fill="url(#ms-thumb-metal)" />
-        <circle cx="60" cy="38" r="28" fill="#efe5cf" />
-        {Array.from({ length: 15 }, (_, i) => {
-          const [x1, y1] = pol(60, 38, 26, -135 + i * (270 / 14));
-          const [x2, y2] = pol(60, 38, i % 2 ? 23.5 : 21.5, -135 + i * (270 / 14));
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={CLASSIC.dialInk} strokeWidth={i % 2 ? 0.8 : 1.6} />;
-        })}
-        <line x1="60" y1="38" x2={nx} y2={ny} stroke={CLASSIC.needle} strokeWidth="2" strokeLinecap="round" />
-        <circle cx="60" cy="38" r="3.4" fill="url(#ms-thumb-metal)" />
-        <circle cx="17" cy="22" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="17" cy="22" r="10.5" fill="#efe5cf" />
-        <line x1="17" y1="22" x2="23" y2="18" stroke={CLASSIC.needle} strokeWidth="1.4" />
-        <circle cx="103" cy="22" r="12" fill="url(#ms-thumb-metal)" />
-        <circle cx="103" cy="22" r="10.5" fill="#efe5cf" />
-        <line x1="103" y1="22" x2="103" y2="14" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
-        <line x1="103" y1="22" x2="108" y2="25" stroke={CLASSIC.dialInk} strokeWidth="1.2" />
-        {/* 革のフード */}
-        <g fill="none" stroke="#57463a" strokeLinecap="round">
-          <path d={`M${pol(60, 38, 34, -50).join(" ")}A34 34 0 0 1 ${pol(60, 38, 34, 50).join(" ")}`} strokeWidth="3" />
-          <path d={`M${pol(17, 22, 14.5, -55).join(" ")}A14.5 14.5 0 0 1 ${pol(17, 22, 14.5, 55).join(" ")}`} strokeWidth="2" />
-          <path d={`M${pol(103, 22, 14.5, -55).join(" ")}A14.5 14.5 0 0 1 ${pol(103, 22, 14.5, 55).join(" ")}`} strokeWidth="2" />
-        </g>
+        <rect width="120" height="70" fill="#070303" />
+        <polygon points={octagonPoints(60, 35, 31)} fill="none" stroke={BAGUA.dim} />
+        {TRIGRAMS.map((tri, i) => (
+          <g key={tri.name} transform={`rotate(${180 + i * 45} 60 35)`} fill={i < 3 ? BAGUA.gold : BAGUA.off}>
+            {tri.lines.map((yang, k) => trigramLine(60, 35, { r: 22, gap: 2.6, t: 1.6, w: 11 }, k, yang, String(k)))}
+          </g>
+        ))}
+        {/* 真ん中の速さは8進の卦(58km/h は 乾・坎) */}
+        {[7, 2].map((v, i) => (
+          <g key={v} fill={ELEMENT_COLORS[v]}>
+            {TRIGRAMS[v].lines.map((yang, k) => trigramLine(54.5 + i * 11, 35, { r: 0, gap: 3.2, t: 1.9, w: 9 }, k, yang, String(k)))}
+          </g>
+        ))}
       </svg>
     );
   }
