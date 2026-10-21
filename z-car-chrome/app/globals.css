@@ -3651,6 +3651,23 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .shift-off { color: #66727c; font-size: 13px; font-weight: 800; letter-spacing: .1em; }
 .shift-empty { margin: 18px 0 4px; color: #9ba6b1; font-size: 14px; }
 .shift-updated { margin: 10px 2px 0; color: #66727c; font-size: 10px; text-align: right; }
+.shift-later { margin: 10px 2px 0; color: #c9d4de; font-size: 13px; font-weight: 800; }
+
+/* 近未来のテーマ: 出勤日の曜日の札(五行の色)。色を変える filter の外から、一週間の帯の札の上に重ねる */
+.future-obd { position: relative; }
+.workday-marks { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.workday-marks span {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  background: var(--wx-bg);
+  box-shadow: inset 0 -2px var(--wx), 0 0 7px var(--wx-glow);
+  color: var(--wx);
+  font-weight: 800;
+  line-height: 1;
+}
+.workday-marks span.is-today { box-shadow: inset 0 -2px #ffffff, 0 0 10px var(--wx-glow); color: #ffffff; }
 
 .meter-theme-dialog .meter-theme-options { margin-top: 10px; }
 .meter-theme-dialog .meter-theme-options > button { min-height: 112px; grid-template-rows: 44px auto auto; padding: 10px 12px; }

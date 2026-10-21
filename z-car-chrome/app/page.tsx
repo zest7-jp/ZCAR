@@ -43,16 +43,20 @@ import {
 } from "./meter-styles";
 import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
 import {
+  addDays,
   nextShift,
   parseShiftFeed,
   SHIFT_REFRESH_MS,
   SHIFT_URL,
   shiftDayLabel,
+  shiftTimeText,
   shiftWeek,
   shortDate,
   weekdayJa,
+  workWeekdays,
   type ShiftFeed,
 } from "./shifts";
+import { WorkdayMarks } from "./workday-marks";
 import { readCoords } from "./place-import";
 import { StarMark } from "./star-mark";
 
@@ -383,6 +387,8 @@ export default function Home() {
   const themeDialog = useRef<HTMLDialogElement>(null);
   // Zポータルの確定シフト(上の帯に次のシフト、押すと1週間の画面)。
   const shiftDialog = useRef<HTMLDialogElement>(null);
+  /** 近未来のテーマの一週間の帯(出勤日の札を上に重ねるため)。 */
+  const weekStripRef = useRef<HTMLOListElement>(null);
   const [shiftFeed, setShiftFeed] = useState<ShiftFeed | null>(null);
   const [shiftStatus, setShiftStatus] = useState<"loading" | "ready" | "error">("loading");
   // スマホとつなぐためのQR(燃費画面から開く)。
@@ -1016,6 +1022,10 @@ export default function Home() {
   const hour = new Date().getHours();
   const today = japanDateKey();
   const upcomingShift = shiftFeed ? nextShift(shiftFeed, today, clock) : null;
+  // 今週(月曜〜日曜)でシフトのある曜日(0 が日曜)。一週間の帯の札に五行の色を付ける。
+  const workDays = shiftFeed ? [...workWeekdays(shiftFeed, today)].sort((a, b) => a - b) : [];
+  // 1週間の画面で、今日から7日のうちにシフトがないときに出す、その先の次のシフト。
+  const laterShift = shiftFeed && upcomingShift && upcomingShift.date > addDays(today, 6) ? upcomingShift : null;
   const routeMinutesRemaining = routeEta
     ? Math.max(0, Math.ceil((routeEta.arrivalAt - Date.now()) / 60_000))
     : null;
@@ -1208,7 +1218,9 @@ export default function Home() {
           : "取得できません",
       stateEn: shiftFeed
         ? upcomingShift
-          ? `${upcomingShift.startTime}-${upcomingShift.endTime}`
+          ? upcomingShift.startTime
+            ? shiftTimeText(upcomingShift, "-")
+            : "WORK"
           : "NO SHIFT"
         : shiftStatus === "loading"
           ? "LOADING"
@@ -1543,6 +1555,7 @@ export default function Home() {
     // 360度に丸めない向き(北をまたいでも、車の印が逆向きに一回りしないように)。
     heading: location?.heading ?? null,
     destLabel: navTarget ? navTarget.label : null,
+    workDays,
   };
   const startNavigation = navTarget
     ? () => void beginNavigation(navTarget.destination, "DESTINATION")
@@ -1852,7 +1865,7 @@ export default function Home() {
         ) : null}
 
         {!showFuel && isFuture && (
-          <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
+          <main className="fullscreen-obd future-obd" aria-label="CARISTA OBD2 vehicle monitor">
               <section className="performance-cluster green-nav-cluster" style={greenCockpitStyle}>
               <aside className="performance-side performance-left green-instrument-rail">
                 <article className={`performance-date solar-clock-card ${weather?.isDay ? "day" : "night"}`}>
@@ -1891,11 +1904,15 @@ export default function Home() {
                     </span>
                     <small aria-hidden="true">{todayYear}</small>
                   </div>
-                  <ol className="solar-clock-week" aria-hidden="true">
+                  <ol ref={weekStripRef} className="solar-clock-week" aria-hidden="true">
                     {WEEK_STRIP_ORDER.map((dayIndex) => (
                       <li
                         key={dayIndex}
-                        className={dayIndex === todayWeekdayIndex ? "is-today" : undefined}
+                        data-day={dayIndex}
+                        className={
+                          [dayIndex === todayWeekdayIndex ? "is-today" : "", workDays.includes(dayIndex) ? "is-work" : ""].filter(Boolean).join(" ") ||
+                          undefined
+                        }
                       >
                         {WEEKDAYS_JA[dayIndex]}
                       </li>
@@ -2129,6 +2146,8 @@ export default function Home() {
                 </button>
               </aside>
               </section>
+              {/* 出勤日の曜日の札(五行の色)。色を変える filter の外から帯の上に重ねる */}
+              <WorkdayMarks stripRef={weekStripRef} days={workDays} today={todayWeekdayIndex} labels={WEEKDAYS_JA} />
           </main>
         )}
 
@@ -2374,9 +2393,7 @@ export default function Home() {
                     <span className="shift-list">
                       {day.shifts.map((shift) => (
                         <span key={shift.id} className="shift-item">
-                          <b>
-                            {shift.startTime}〜{shift.endTime}
-                          </b>
+                          <b>{shiftTimeText(shift)}</b>
                           <small>{[shift.storeName, shift.workType].filter(Boolean).join(" · ")}</small>
                         </span>
                       ))}
@@ -2392,7 +2409,22 @@ export default function Home() {
               {shiftStatus === "loading" ? "シフトを確認しています" : "シフトを取得できません。ネットにつながると読み直します。"}
             </p>
           )}
-          {shiftFeed?.updatedAt ? <p className="shift-updated">Zポータルの更新 {formatShiftUpdated(shiftFeed.updatedAt)}</p> : null}
+          {laterShift ? (
+            <p className="shift-later">
+              次のシフト {shiftDayLabel(laterShift.date, today)} {shiftTimeText(laterShift)}
+            </p>
+          ) : null}
+          {shiftFeed ? (
+            <p className="shift-updated">
+              {[
+                shiftFeed.updatedAt ? `Zポータルの更新 ${formatShiftUpdated(shiftFeed.updatedAt)}` : "",
+                shiftFeed.received ? `届いたシフト ${shiftFeed.received}件` : "Zポータルに確定シフトがありません",
+                shiftFeed.unreadable ? `読めない形 ${shiftFeed.unreadable}件` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          ) : null}
         </div>
       </dialog>
 

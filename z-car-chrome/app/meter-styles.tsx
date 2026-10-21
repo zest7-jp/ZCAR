@@ -6,6 +6,7 @@
 // 地図(Google マップ)を作るのは app/page.tsx で、ここでは置き場所を用意するだけ。
 
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { WEEKDAY_ELEMENT_COLORS } from "./workday-marks";
 import { BAGUA_PATTERNS, type BaguaPattern, type MeterStyle } from "./settings-store";
 
 const BOARD_W = 1024;
@@ -51,6 +52,8 @@ export type ClusterData = {
   heading: number | null;
   /** START の行き先の名前。無ければ null。 */
   destLabel: string | null;
+  /** 今週(月曜〜日曜)でシフトのある曜日(0 が日曜)。曜日の札に五行の色を付ける。 */
+  workDays: number[];
 };
 
 export type ClusterProps = {
@@ -630,16 +633,21 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
         <SevenSeg text={`${pad2(data.month)}-${pad2(data.day)}`} x={22} y={118} h={22} color={RETRO.amber} />
         {label("year", 118, 137, String(data.year), { size: 10, spacing: 2 })}
-        {WEEK_ORDER.map((dayIndex, i) =>
-          dayIndex === data.weekday ? (
-            <g key={dayIndex}>
-              <rect x={22 + i * 32} y="150" width="27" height="19" rx="2" fill={RETRO.amber} fillOpacity=".16" stroke={RETRO.amber} />
-              <text x={35.5 + i * 32} y="164" textAnchor="middle" fontSize="12" fill={RETRO.amber} filter="url(#ms-vfd)" className="ms-ja">
+        {/* 今日の札(琥珀色の枠)と、出勤日の札(五行の色) */}
+        {WEEK_ORDER.map((dayIndex, i) => {
+          const today = dayIndex === data.weekday;
+          const work = data.workDays.includes(dayIndex);
+          if (!today && !work) return null;
+          const color = work ? WEEKDAY_ELEMENT_COLORS[dayIndex] : RETRO.amber;
+          return (
+            <g key={dayIndex} data-work={work ? "1" : undefined}>
+              <rect x={22 + i * 32} y="150" width="27" height="19" rx="2" fill={color} fillOpacity={work && today ? 0.32 : 0.16} stroke={today ? RETRO.amber : color} />
+              <text x={35.5 + i * 32} y="164" textAnchor="middle" fontSize="12" fill={color} filter="url(#ms-vfd)" className="ms-ja">
                 {WEEKDAYS[dayIndex]}
               </text>
             </g>
-          ) : null,
-        )}
+          );
+        })}
         <SevenSeg text={temperature} x={22} y={208} h={40} color={RETRO.cyan} />
         {label("deg", r2(22 + segWidth(temperature, 40) + 10), 246, "°C", { color: RETRO.cyan, size: 15, spacing: 0 })}
         <SevenSeg text={data.sunrise ?? "--:--"} x={168} y={204} h={12} color={RETRO.amber} />
