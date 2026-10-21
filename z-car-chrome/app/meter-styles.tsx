@@ -1994,6 +1994,7 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 //   乾(☰)まで光っていく。外の輪が回転、真ん中に大きな速さ。車両位置の八卦の印と同じ考え方。
 // 六十四卦の円図: 先天の並びの64の卦(五行の色分け)。2km/h ごとに次の卦に枠が動き、真ん中に今の卦。
 // どちらも真ん中の速さと回転数は、数字の代わりに8進の卦で出す(坤0〜乾7。58km/h は 乾7・坎2)。
+// 左右の札は羅盤の金の板: 右上の羅盤の針が今の卦を指し、左の時計に十二支の刻、燃料・水温・電圧に十二消息卦。
 // ------------------------------------------------------------------
 
 const BAGUA = {
@@ -2005,17 +2006,23 @@ const BAGUA = {
   off: "#2a1d12",
   line: "#3a2614",
   panel: "#0d0605",
+  /** 羅盤の金の板の縁と、目盛りの線。 */
+  brass: "#7a5a26",
+  rule: "#5a4020",
 };
-/** 八卦(線は上から、1 が陽・0 が陰)。坤(陽0本)から乾(陽3本)へ、速さの順に並べる。 */
+/**
+ * 八卦(線は上から、1 が陽・0 が陰)。坤(陽0本)から乾(陽3本)へ、速さの順に並べる。
+ * el は五行、dir は先天の並びの方位(上が南)。
+ */
 const TRIGRAMS = [
-  { name: "坤", mean: "地", lines: [0, 0, 0] },
-  { name: "艮", mean: "山", lines: [1, 0, 0] },
-  { name: "坎", mean: "水", lines: [0, 1, 0] },
-  { name: "巽", mean: "風", lines: [1, 1, 0] },
-  { name: "震", mean: "雷", lines: [0, 0, 1] },
-  { name: "離", mean: "火", lines: [1, 0, 1] },
-  { name: "兌", mean: "沢", lines: [0, 1, 1] },
-  { name: "乾", mean: "天", lines: [1, 1, 1] },
+  { name: "坤", mean: "地", el: "土", dir: "北", lines: [0, 0, 0] },
+  { name: "艮", mean: "山", el: "土", dir: "北西", lines: [1, 0, 0] },
+  { name: "坎", mean: "水", el: "水", dir: "西", lines: [0, 1, 0] },
+  { name: "巽", mean: "風", el: "木", dir: "南西", lines: [1, 1, 0] },
+  { name: "震", mean: "雷", el: "木", dir: "北東", lines: [0, 0, 1] },
+  { name: "離", mean: "火", el: "火", dir: "東", lines: [1, 0, 1] },
+  { name: "兌", mean: "沢", el: "金", dir: "南東", lines: [0, 1, 1] },
+  { name: "乾", mean: "天", el: "金", dir: "南", lines: [1, 1, 1] },
 ] as const;
 /** 八角の真ん中と大きさ。卦は下(坤)から時計回りに45度ずつ。 */
 const BX = 512;
@@ -2061,9 +2068,6 @@ const rpmSegment = (i: number) => {
   return `M${ax} ${ay}A${B_RPM_R} ${B_RPM_R} 0 0 1 ${bx} ${by}`;
 };
 const B_RPM_HOT = Math.round((RPM_RED / RPM_MAX) * B_RPM_SEGS);
-/** 小さな卦の印(右の、遅い→速いの並び)。 */
-const B_LEGEND = TRIGRAMS.map((tri, i) => ({ ...tri, x: 824 + (i % 4) * 50, y: 90 + Math.floor(i / 4) * 110 }));
-const B_LEGEND_LINE = { r: 0, gap: 9, t: 5, w: 30 };
 
 /**
  * 六十四卦の円図(先天の並び。上が南で、乾が上・坤が下)。
@@ -2210,6 +2214,82 @@ const HexagramGlyph = ({ v, cx, cy }: { v: number; cx: number; cy: number }) => 
 /** 真ん中を押すと次のパターン。 */
 const B_CENTER = 110;
 
+/** 左右の札の、羅盤と同じ金の板(内の線と四隅の鋲)。 */
+const BrassPlate = ({ x, y, w, h }: { x: number; y: number; w: number; h: number }) => (
+  <g>
+    <rect x={x} y={y} width={w} height={h} rx="8" fill="#120806" stroke={BAGUA.brass} strokeWidth="1.2" />
+    <rect x={x + 6} y={y + 6} width={w - 12} height={h - 12} rx="5" fill="none" stroke={BAGUA.line} />
+    {[
+      [x + 12, y + 12],
+      [x + w - 12, y + 12],
+      [x + 12, y + h - 12],
+      [x + w - 12, y + h - 12],
+    ].map(([cx, cy]) => (
+      <circle key={`${cx} ${cy}`} cx={cx} cy={cy} r="2.4" fill={BAGUA.gold} opacity=".7" />
+    ))}
+  </g>
+);
+/** 右上の羅盤の板と輪(外から 卦・名前・数・五行、真ん中は天池)。 */
+const LUOPAN = { x: 791, y: 19, w: 214, h: 218, cx: 898, cy: 128 };
+const LP_R = { outer: 100, tri: 92, name: 77, num: 64, el: 52, pool: 44 };
+const LP_BORDERS = [84, 70, 58, 46];
+const LP_LINE = { r: LP_R.tri, gap: 4.4, t: 2.8, w: 20 };
+/** 先天の並びの角度(上が南で乾、下が北で坤。右半分を下から 坤0〜巽3、左半分を下から 震4〜乾7)。 */
+const FUXI_DEG = [180, 135, 90, 45, 225, 270, 315, 0];
+/** 羅盤の扇形(今の卦の所を光らせる)。 */
+const luopanSector = (d0: number, d1: number) => {
+  const { cx, cy } = LUOPAN;
+  const outer = LP_R.outer - 1;
+  const inner = LP_R.pool + 3;
+  const [a1, b1] = pol(cx, cy, outer, d0);
+  const [a2, b2] = pol(cx, cy, outer, d1);
+  const [a3, b3] = pol(cx, cy, inner, d1);
+  const [a4, b4] = pol(cx, cy, inner, d0);
+  return `M${a1} ${b1}A${outer} ${outer} 0 0 1 ${a2} ${b2}L${a3} ${b3}A${inner} ${inner} 0 0 0 ${a4} ${b4}Z`;
+};
+/** 羅盤の1つの卦の所(卦・名前・数・五行)。動かない絵では消えた形、今の卦までは光らせて上に重ねる。 */
+const LuopanSlot = ({ v, lit }: { v: number; lit: boolean }) => {
+  const { cx, cy } = LUOPAN;
+  const tri = TRIGRAMS[v];
+  const deg = FUXI_DEG[v];
+  const [nx, ny] = pol(cx, cy, LP_R.name, deg);
+  const [mx, my] = pol(cx, cy, LP_R.num, deg);
+  const [ex, ey] = pol(cx, cy, LP_R.el, deg);
+  return (
+    <g>
+      <g transform={`rotate(${deg} ${cx} ${cy})`} fill={ELEMENT_COLORS[v]} opacity={lit ? 1 : 0.32} filter={lit ? "url(#mb-glow)" : undefined}>
+        {tri.lines.map((yang, k) => trigramLine(cx, cy, LP_LINE, k, yang, String(k)))}
+      </g>
+      <text x={nx} y={ny + 4} textAnchor="middle" fill={lit ? ELEMENT_COLORS[v] : BAGUA.dim} fontSize="11" fontWeight="700" className="mb-serif">
+        {tri.name}
+      </text>
+      <text x={mx} y={r2(my + 3.5)} textAnchor="middle" fill={lit ? BAGUA.ink : BAGUA.dim} fontSize="10" fontWeight="700">
+        {v}
+      </text>
+      <text x={ex} y={ey + 3} textAnchor="middle" fill={ELEMENT_COLORS[v]} opacity={lit ? 0.95 : 0.4} fontSize="8.5" fontWeight="700" className="mb-serif">
+        {tri.el}
+      </text>
+    </g>
+  );
+};
+/** 針の読みの札と、南北の目盛り(下の北が止まっている所、上の南が 140km/h)。 */
+const B_READ = { x: 791, y: 246, w: 214, h: 70 };
+const B_RULER = { x: 811, top: 352, bottom: 532 };
+/** 左上の時計の下の、十二支の目盛り(子の刻は 23時〜1時)。 */
+const BRANCHES = "子丑寅卯辰巳午未申酉戌亥";
+const B_HOURS = { x: 36, slot: 15, y: 104 };
+/** 天気の卦: 晴れ=乾(天)・晴れ時々くもり=離(日)・くもり=坤・霧=兌(沢)・雨=坎(水)・雪=艮・雷雨=震(雷)。 */
+const WEATHER_TRIGRAM: Record<WeatherKind, number> = { clear: 7, partly: 5, cloud: 0, fog: 6, rain: 2, snow: 1, storm: 4 };
+/** 十二消息卦: 下から陽が増える(坤 → 復 → 臨 → 泰 → 大壮 → 夬 → 乾)。 */
+const XIAO = ["坤", "復", "臨", "泰", "大壮", "夬", "乾"];
+/** 左下の燃料・水温・電圧の行(色は 燃料=離・水温=坎・電圧=震)。目盛りは left から width の長さ。 */
+const B_GAUGES = [
+  { label: "燃料", y: 318, color: ELEMENT_COLORS[5] },
+  { label: "水温", y: 396, color: ELEMENT_COLORS[2] },
+  { label: "電圧", y: 474, color: ELEMENT_COLORS[4] },
+];
+const B_GAUGE = { left: 36, width: 180, seal: 184 };
+
 /** 八卦の動かない絵: 下地・(パターンごとの)消えている線や輪・左右の札。 */
 const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }) {
   return (
@@ -2219,6 +2299,14 @@ const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }
           <stop offset="0" stopColor="#1a0806" />
           <stop offset="1" stopColor="#030202" />
         </radialGradient>
+        <radialGradient id="mb-pool" cx=".5" cy=".45" r=".6">
+          <stop offset="0" stopColor="#0b2a2e" />
+          <stop offset="1" stopColor="#020707" />
+        </radialGradient>
+        <linearGradient id="mb-seal" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#d8342a" />
+          <stop offset="1" stopColor="#8a150f" />
+        </linearGradient>
         <filter id="mb-glow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="2.6" result="b" />
           <feMerge>
@@ -2276,34 +2364,103 @@ const BaguaFace = memo(function BaguaFace({ pattern }: { pattern: BaguaPattern }
           })}
         </g>
       )}
-      {/* 左の札(時計・天気・今日の距離)と、燃料・水温・電圧 */}
-      <rect x="16" y="16" width="220" height="260" rx="12" fill={BAGUA.panel} stroke={BAGUA.line} />
-      <line x1="36" y1="112" x2="216" y2="112" stroke={BAGUA.line} />
-      <rect x={B_FUEL_PANEL.x} y={B_FUEL_PANEL.y} width={B_FUEL_PANEL.w} height={B_FUEL_PANEL.h} rx="12" fill={BAGUA.panel} stroke={BAGUA.line} />
-      {[
-        ["燃料", 322],
-        ["水温", 402],
-        ["電圧", 482],
-      ].map(([label, y]) => (
-        <text key={label} x="36" y={y} fill={BAGUA.dim} fontSize="12" fontWeight="700" letterSpacing="2">
-          {label}
+      {/* 左上の板: 時計の下に十二支の目盛り */}
+      <BrassPlate x={16} y={16} w={220} h={260} />
+      <line x1={B_HOURS.x} y1={B_HOURS.y} x2={B_HOURS.x + 12 * B_HOURS.slot} y2={B_HOURS.y} stroke={BAGUA.brass} />
+      {Array.from({ length: 13 }, (_, i) => (
+        <line key={i} x1={B_HOURS.x + i * B_HOURS.slot} y1={B_HOURS.y - 4} x2={B_HOURS.x + i * B_HOURS.slot} y2={B_HOURS.y + 4} stroke={BAGUA.brass} />
+      ))}
+      {Array.from(BRANCHES, (branch, i) => (
+        <text key={branch} x={B_HOURS.x + (i + 0.5) * B_HOURS.slot} y={B_HOURS.y + 16} textAnchor="middle" fill={BAGUA.dim} fontSize="9.5" fontWeight="700" className="mb-serif">
+          {branch}
         </text>
       ))}
-      {/* 右の札: 八卦の順と数(遅い→速い。8進の1けた) */}
-      <rect x="788" y="16" width="220" height="300" rx="12" fill={BAGUA.panel} stroke={BAGUA.line} />
-      <text x="808" y="46" fill={BAGUA.dim} fontSize="11" fontWeight="700" letterSpacing="1">
-        八卦の順と数(遅い → 速い)
+      {/* 左下の板: 燃料・水温・電圧の名前、消息卦のはんこの枠、目盛り */}
+      <BrassPlate x={B_FUEL_PANEL.x} y={B_FUEL_PANEL.y} w={B_FUEL_PANEL.w} h={B_FUEL_PANEL.h} />
+      {B_GAUGES.map((gauge) => (
+        <g key={gauge.label}>
+          <text x={B_GAUGE.left} y={gauge.y} fill={BAGUA.dim} fontSize="11" fontWeight="700" letterSpacing="2">
+            {gauge.label}
+          </text>
+          <rect x={B_GAUGE.seal} y={gauge.y - 12} width="32" height="32" rx="2" fill={gauge.color} fillOpacity=".12" stroke={gauge.color} strokeWidth="1.3" />
+          <line x1={B_GAUGE.left} y1={gauge.y + 46} x2={B_GAUGE.left + B_GAUGE.width} y2={gauge.y + 46} stroke={BAGUA.rule} />
+          {Array.from({ length: 7 }, (_, j) => (
+            <line key={j} x1={B_GAUGE.left + j * 30} y1={gauge.y + 42} x2={B_GAUGE.left + j * 30} y2={gauge.y + 50} stroke={BAGUA.rule} />
+          ))}
+        </g>
+      ))}
+      {/* 右上の羅盤(消えた形)。今の卦までの光と針は、動く絵で上に重ねる */}
+      <BrassPlate x={LUOPAN.x} y={LUOPAN.y} w={LUOPAN.w} h={LUOPAN.h} />
+      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="#0c0504" />
+      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.outer} fill="none" stroke={BAGUA.gold} strokeWidth="1.6" filter="url(#mb-glow)" />
+      {LP_BORDERS.map((r) => (
+        <circle key={r} cx={LUOPAN.cx} cy={LUOPAN.cy} r={r} fill="none" stroke={BAGUA.rule} strokeWidth=".8" />
+      ))}
+      {Array.from({ length: 8 }, (_, i) => {
+        const [x1, y1] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.pool + 2, 22.5 + i * 45);
+        const [x2, y2] = pol(LUOPAN.cx, LUOPAN.cy, LP_R.outer, 22.5 + i * 45);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={BAGUA.rule} strokeWidth=".8" />;
+      })}
+      {TRIGRAMS.map((tri, v) => (
+        <LuopanSlot key={tri.name} v={v} lit={false} />
+      ))}
+      <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r={LP_R.pool} fill="url(#mb-pool)" stroke={BAGUA.cyan} strokeWidth=".8" strokeOpacity=".7" />
+      {/* 天心十道(赤い糸) */}
+      <g stroke={BAGUA.red} strokeWidth="1" opacity=".75">
+        <line x1={LUOPAN.x} y1={LUOPAN.cy} x2={LUOPAN.x + LUOPAN.w} y2={LUOPAN.cy} />
+        <line x1={LUOPAN.cx} y1={LUOPAN.y} x2={LUOPAN.cx} y2={LUOPAN.y + LUOPAN.h} />
+      </g>
+      {/* 針の読みの札 */}
+      <rect x={B_READ.x} y={B_READ.y} width={B_READ.w} height={B_READ.h} rx="8" fill={BAGUA.panel} stroke={BAGUA.line} />
+      <text x={B_READ.x + 15} y={B_READ.y + 16} fill={BAGUA.dim} fontSize="9" fontWeight="700" letterSpacing="1">
+        針の指す卦
       </text>
-      <rect x={B_DEST.x} y={B_DEST.y} width={B_DEST.w} height={B_DEST.h} rx="12" fill={BAGUA.panel} stroke={BAGUA.gold} strokeWidth="1.6" />
+      {/* 南北の目盛り */}
+      <text x={B_RULER.x} y={B_RULER.top - 7} textAnchor="middle" fill={BAGUA.gold} fontSize="11" fontWeight="700" className="mb-serif">
+        南
+      </text>
+      <text x={B_RULER.x} y={B_RULER.bottom + 16} textAnchor="middle" fill={BAGUA.gold} fontSize="11" fontWeight="700" className="mb-serif">
+        北
+      </text>
+      <line x1={B_RULER.x} y1={B_RULER.top} x2={B_RULER.x} y2={B_RULER.bottom} stroke={BAGUA.rule} />
+      {Array.from({ length: 25 }, (_, k) => {
+        const y = r2(B_RULER.top + (k * (B_RULER.bottom - B_RULER.top)) / 24);
+        const long = k % 3 === 0;
+        return (
+          <line
+            key={k}
+            x1={B_RULER.x - (long ? 8 : 4)}
+            y1={y}
+            x2={B_RULER.x + (long ? 8 : 4)}
+            y2={y}
+            stroke={long ? BAGUA.gold : BAGUA.rule}
+            strokeWidth={long ? 1.1 : 0.8}
+            opacity={long ? 0.75 : 1}
+          />
+        );
+      })}
+      {/* DEST(金のはんこ「至」)と START(朱のはんこ「発」) */}
+      <rect x={B_DEST.x} y={B_DEST.y} width={B_DEST.w} height={B_DEST.h} rx="6" fill={BAGUA.panel} />
+      <rect x={B_DEST.x} y={B_DEST.y} width={B_DEST.w} height={B_DEST.h} rx="6" fill="none" stroke={BAGUA.gold} strokeWidth="2" filter="url(#mb-glow)" />
+      <rect x={B_DEST.x + 6} y={B_DEST.y + 6} width={B_DEST.w - 12} height={B_DEST.h - 12} rx="3" fill="none" stroke={BAGUA.gold} strokeWidth=".8" opacity=".55" />
       <text x={B_DEST.x + 18} y={B_DEST.y + 32} fill={BAGUA.dim} fontSize="12" fontWeight="700">
         目的地
       </text>
-      <text x={B_DEST.x + 18} y={B_DEST.y + 72} fill={BAGUA.gold} fontSize="26" fontWeight="700" letterSpacing="2" filter="url(#mb-glow)">
+      <text x={B_DEST.x + 18} y={B_DEST.y + 74} fill={BAGUA.gold} fontSize="26" fontWeight="700" letterSpacing="2" filter="url(#mb-glow)">
         DEST
       </text>
-      <rect x={B_START.x} y={B_START.y} width={B_START.w} height={B_START.h} rx="12" fill={BAGUA.panel} stroke={BAGUA.red} strokeWidth="1.6" />
-      <text x={B_START.x + 18} y={B_START.y + 32} fill={BAGUA.red} fontSize="12" fontWeight="700" letterSpacing="2">
+      <rect x={B_DEST.x + 136} y={B_DEST.y + 14} width="26" height="26" rx="2" fill={BAGUA.gold} />
+      <text x={B_DEST.x + 149} y={B_DEST.y + 33} textAnchor="middle" fill={BAGUA.panel} fontSize="16" fontWeight="700" className="mb-serif">
+        至
+      </text>
+      <rect x={B_START.x} y={B_START.y} width={B_START.w} height={B_START.h} rx="6" fill="url(#mb-seal)" filter="url(#mb-glow)" />
+      <rect x={B_START.x + 6} y={B_START.y + 6} width={B_START.w - 12} height={B_START.h - 12} rx="3" fill="none" stroke={BAGUA.ink} strokeWidth="1.4" opacity=".85" />
+      <text x={B_START.x + 18} y={B_START.y + 34} fill={BAGUA.ink} fontSize="12" fontWeight="700" letterSpacing="3">
         START
+      </text>
+      <rect x={B_START.x + 136} y={B_START.y + 14} width="26" height="26" rx="2" fill="none" stroke={BAGUA.ink} strokeWidth="1.3" />
+      <text x={B_START.x + 149} y={B_START.y + 33} textAnchor="middle" fill={BAGUA.ink} fontSize="16" fontWeight="700" className="mb-serif">
+        発
       </text>
     </svg>
   );
@@ -2325,11 +2482,27 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
   const litRpm = Math.min(B_RPM_SEGS, Math.round(((data.rpm ?? 0) / RPM_MAX) * B_RPM_SEGS));
   const hexNow = Math.min(63, Math.floor(speed / B_HEX_KMH));
   const hexagram = hexagramName(hexNow);
-  // 右の札で光らせる卦: ネオン八卦は勢いの卦、円図は今の卦の下の卦(右半分を下から、そのあと左半分)。
-  const legendNow = pattern === "neon" ? band : hexNow >> 3;
+  // 羅盤の針が指す卦: ネオン八卦は勢いの卦、円図は今の卦の下の卦(右半分を下から、そのあと左半分)。
+  const needle = pattern === "neon" ? band : hexNow >> 3;
+  const needleTip = pol(LUOPAN.cx, LUOPAN.cy, 40, FUXI_DEG[needle]);
+  const needleTail = pol(LUOPAN.cx, LUOPAN.cy, 34, FUXI_DEG[needle] + 180);
+  const needleSide = [pol(LUOPAN.cx, LUOPAN.cy, 4.5, FUXI_DEG[needle] + 90), pol(LUOPAN.cx, LUOPAN.cy, 4.5, FUXI_DEG[needle] - 90)];
+  const speedY = r2(B_RULER.bottom - clamp01(speed / SPEED_MAX) * (B_RULER.bottom - B_RULER.top));
+  // 十二支の刻(子の刻は 23時〜1時)と、目盛りの上の針の位置。
+  const time = readHm(data.clock);
+  const hourSlots = ((time.h + time.m / 60 + 1) % 24) / 2;
+  const branch = Math.min(11, Math.floor(hourSlots));
+  const hourX = r2(B_HOURS.x + hourSlots * B_HOURS.slot);
+  // 燃料・水温・電圧の目盛りの割合(水温は 50〜120℃、電圧は 11.5〜14.5V)。
+  const gauges = [
+    { value: String(Math.round(data.rangeKm)), unit: "km", ratio: data.fuelPercent / 100 },
+    { value: data.coolant === null ? "—" : String(Math.round(data.coolant)), unit: "°C", ratio: data.coolant === null ? null : (data.coolant - 50) / 70 },
+    { value: data.voltage === null ? "—" : data.voltage.toFixed(1), unit: "V", ratio: data.voltage === null ? null : (data.voltage - 11.5) / 3 },
+  ];
   const patternIndex = Math.max(0, BAGUA_PATTERNS.findIndex((item) => item.id === pattern));
   const speedDigits = octalDigits(speed).length;
   const kind = data.weather ? weatherKind(data.weather.code) : null;
+  const weatherTri = kind ? WEATHER_TRIGRAM[kind] : null;
   const dest = data.destLabel ?? "目的地なし";
   const glow = "url(#mb-glow)";
   return (
@@ -2422,64 +2595,107 @@ export function BaguaCluster({ data, onFuel, onDest, onStart, pattern, onPattern
             <RpmTrigrams rpm={data.rpm} cy={BY + 102} line={{ r: 0, gap: 5.5, t: 4, w: 20 }} glow={glow} />
           </g>
         )}
-        {/* 左の札 */}
-        <text x="36" y="66" fill={BAGUA.ink} fontSize="44" fontWeight="700">
+        {/* 左上の板: 時計・日付・十二支の刻(目盛りの針)・天気の印・今日の距離と平均 */}
+        <text x="36" y="64" fill={BAGUA.ink} fontSize="42" fontWeight="700">
           {data.clock}
         </text>
-        <text x="36" y="92" fill={BAGUA.dim} fontSize="13" fontWeight="700">
+        <text x="36" y="86" fill={BAGUA.dim} fontSize="12" fontWeight="700">
           {`${data.month}/${data.day}(${WEEKDAYS[data.weekday]})`}
         </text>
-        <text x="36" y="162" fill={BAGUA.ink} fontSize="42" fontWeight="700">
+        <text x="104" y="86" fill={BAGUA.gold} fontSize="12" fontWeight="700" className="mb-serif">
+          {`${BRANCHES[branch]}の刻`}
+        </text>
+        <text x={B_HOURS.x + (branch + 0.5) * B_HOURS.slot} y={B_HOURS.y + 16} textAnchor="middle" fill={BAGUA.gold} fontSize="9.5" fontWeight="700" className="mb-serif" filter={glow}>
+          {BRANCHES[branch]}
+        </text>
+        <polygon points={`${hourX - 5},${B_HOURS.y - 12} ${hourX + 5},${B_HOURS.y - 12} ${hourX},${B_HOURS.y - 4}`} fill={BAGUA.red} filter={glow} />
+        <rect x="36" y="136" width="30" height="30" rx="2" fill="none" stroke={weatherTri === null ? BAGUA.dim : ELEMENT_COLORS[weatherTri]} strokeWidth="1.3" filter={weatherTri === null ? undefined : glow} />
+        {weatherTri === null ? null : (
+          <g fill={ELEMENT_COLORS[weatherTri]} data-weather={TRIGRAMS[weatherTri].name}>
+            {TRIGRAMS[weatherTri].lines.map((yang, k) => trigramLine(51, 151, { r: 0, gap: 6, t: 3.2, w: 18 }, k, yang, String(k)))}
+          </g>
+        )}
+        <text x="74" y="168" fill={BAGUA.ink} fontSize="34" fontWeight="700">
           {data.weather ? `${Math.round(data.weather.temperature)}°` : "—"}
         </text>
-        <text x="116" y="146" fill={BAGUA.ink} fontSize="13" fontWeight="700" className="ms-ja">
+        <text x="140" y="152" fill={BAGUA.ink} fontSize="11" fontWeight="700" className="ms-ja">
           {kind ? WEATHER_JA[kind] : "天気を読み込み中"}
         </text>
-        <text x="116" y="164" fill={BAGUA.dim} fontSize="11" fontWeight="700">
+        <text x="140" y="168" fill={BAGUA.dim} fontSize="9.5" fontWeight="700">
           {forecastText(data.weather)}
         </text>
-        <text x="36" y="210" fill={BAGUA.ink} fontSize="16" fontWeight="700">
+        <text x="36" y="214" fill={BAGUA.ink} fontSize="15" fontWeight="700">
           {`今日 ${data.todayKm.toFixed(1)} km`}
         </text>
-        <text x="36" y="242" fill={BAGUA.ink} fontSize="16" fontWeight="700">
+        <text x="36" y="244" fill={BAGUA.ink} fontSize="15" fontWeight="700">
           {`平均 ${data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)} km/L`}
         </text>
-        <text x="36" y="362" fill={BAGUA.ink} fontSize="36" fontWeight="700">
-          {Math.round(data.rangeKm)}
-          <tspan fontSize="13" fill={BAGUA.dim} dx="10">
-            km
-          </tspan>
-        </text>
-        <text x="36" y="442" fill={BAGUA.ink} fontSize="36" fontWeight="700">
-          {data.coolant === null ? "—" : Math.round(data.coolant)}
-          <tspan fontSize="13" fill={BAGUA.dim} dx="10">
-            °C
-          </tspan>
-        </text>
-        <text x="36" y="522" fill={BAGUA.ink} fontSize="36" fontWeight="700">
-          {data.voltage === null ? "—" : data.voltage.toFixed(1)}
-          <tspan fontSize="13" fill={BAGUA.dim} dx="6">
-            V
-          </tspan>
-        </text>
-        {/* 右の札: 五行の色分けのまま、今の卦までが光る。下に意味と数(8進の1けた) */}
-        {B_LEGEND.map((tri, i) => {
-          const on = i <= legendNow;
+        {/* 左下の板: 燃料・水温・電圧の数と、目盛りの針・消息卦のはんこ(多いほど下から陽が増える) */}
+        {B_GAUGES.map((gauge, i) => {
+          const { value, unit, ratio } = gauges[i];
+          const level = ratio === null ? null : clamp01(ratio);
+          const name = level === null ? "—" : XIAO[Math.round(level * 6)];
+          const x = level === null ? 0 : r2(B_GAUGE.left + level * B_GAUGE.width);
+          const sealX = B_GAUGE.seal + 16;
           return (
-            <g key={tri.name}>
-              <g fill={ELEMENT_COLORS[i]} opacity={on ? 1 : 0.32} filter={on ? glow : undefined}>
-                {tri.lines.map((yang, k) => trigramLine(tri.x, tri.y, B_LEGEND_LINE, k, yang, String(k)))}
-              </g>
-              <text x={tri.x} y={tri.y + 40} textAnchor="middle" fill={on ? ELEMENT_COLORS[i] : BAGUA.dim} fontSize="15" fontWeight="700" className="mb-serif">
-                {tri.name}
+            <g key={gauge.label} data-xiao={name}>
+              <text x={B_GAUGE.left} y={gauge.y + 34} fill={BAGUA.ink} fontSize="32" fontWeight="700">
+                {value}
+                <tspan fontSize="12" fill={BAGUA.dim} dx={unit === "V" ? 6 : 9}>
+                  {unit}
+                </tspan>
               </text>
-              <text x={tri.x} y={tri.y + 58} textAnchor="middle" fill={BAGUA.dim} fontSize="10" fontWeight="700">
-                {`${tri.mean} ${i}`}
-              </text>
+              {name.length === 1 ? (
+                <text x={sealX} y={gauge.y + 11} textAnchor="middle" fill={level === null ? BAGUA.dim : gauge.color} fontSize="18" fontWeight="700" className="mb-serif">
+                  {name}
+                </text>
+              ) : (
+                <g fill={gauge.color} fontSize="12" fontWeight="700" textAnchor="middle">
+                  <text x={sealX} y={gauge.y + 2} className="mb-serif">
+                    {name[0]}
+                  </text>
+                  <text x={sealX} y={gauge.y + 15} className="mb-serif">
+                    {name[1]}
+                  </text>
+                </g>
+              )}
+              {level === null ? null : (
+                <g>
+                  {Array.from({ length: 7 }, (_, j) =>
+                    B_GAUGE.left + j * 30 <= x ? <line key={j} x1={B_GAUGE.left + j * 30} y1={gauge.y + 42} x2={B_GAUGE.left + j * 30} y2={gauge.y + 50} stroke={gauge.color} /> : null,
+                  )}
+                  <rect x={B_GAUGE.left} y={gauge.y + 44.5} width={r2(x - B_GAUGE.left)} height="3" fill={gauge.color} filter={glow} />
+                  <polygon points={`${x - 5},${gauge.y + 34} ${x + 5},${gauge.y + 34} ${x},${gauge.y + 42}`} fill={BAGUA.red} filter={glow} />
+                </g>
+              )}
             </g>
           );
         })}
-        <text x={B_START.x + 18} y={B_START.y + 78} fill={BAGUA.ink} fontSize={dest.length <= 5 ? 26 : 19} fontWeight="700" className="ms-ja">
+        {/* 右上の羅盤: 今の卦までが光り、針が今の卦を指す */}
+        <g data-needle={TRIGRAMS[needle].name}>
+          <path d={luopanSector(FUXI_DEG[needle] - 22.5, FUXI_DEG[needle] + 22.5)} fill={ELEMENT_COLORS[needle]} fillOpacity=".14" stroke={BAGUA.gold} strokeWidth="1.2" filter={glow} />
+          {TRIGRAMS.map((tri, v) => (v <= needle ? <LuopanSlot key={tri.name} v={v} lit /> : null))}
+          <polygon points={`${needleTip.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.red} filter={glow} />
+          <polygon points={`${needleTail.join(",")} ${needleSide[0].join(",")} ${LUOPAN.cx},${LUOPAN.cy} ${needleSide[1].join(",")}`} fill={BAGUA.ink} opacity=".85" />
+          <circle cx={LUOPAN.cx} cy={LUOPAN.cy} r="3.6" fill={BAGUA.gold} />
+        </g>
+        {/* 針の読み: 卦の名前・意味と五行・方位・数 */}
+        <text x={B_READ.x + 15} y={B_READ.y + 58} fill={ELEMENT_COLORS[needle]} fontSize="32" fontWeight="700" className="mb-serif" filter={glow}>
+          {TRIGRAMS[needle].name}
+        </text>
+        <text x={B_READ.x + 59} y={B_READ.y + 41} fill={BAGUA.ink} fontSize="13" fontWeight="700" className="mb-serif">
+          {`${TRIGRAMS[needle].mean} · ${TRIGRAMS[needle].el}`}
+        </text>
+        <text x={B_READ.x + 59} y={B_READ.y + 59} fill={BAGUA.dim} fontSize="11" fontWeight="700" className="mb-serif">
+          {`方位 ${TRIGRAMS[needle].dir}`}
+        </text>
+        <polygon points={octagonPoints(974, B_READ.y + 35, 22)} fill="none" stroke={ELEMENT_COLORS[needle]} strokeWidth="1.4" filter={glow} />
+        <text x="974" y={B_READ.y + 42} textAnchor="middle" fill={BAGUA.ink} fontSize="20" fontWeight="700">
+          {needle}
+        </text>
+        {/* 南北の目盛りの、今の速さの印 */}
+        <polygon points={`${B_RULER.x + 10},${speedY} ${B_RULER.x + 19},${speedY - 5} ${B_RULER.x + 19},${speedY + 5}`} fill={BAGUA.red} filter={glow} />
+        <text x={B_START.x + 18} y={B_START.y + 84} fill={BAGUA.ink} fontSize={dest.length <= 5 ? 26 : 19} fontWeight="700" className="ms-ja">
           {dest}
         </text>
       </svg>
@@ -2575,9 +2791,12 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
             {tri.lines.map((yang, k) => trigramLine(60, 35, { r: 22, gap: 2.6, t: 1.6, w: 11 }, k, yang, String(k)))}
           </g>
         ))}
-        <text x="60" y="41" textAnchor="middle" fill={BAGUA.ink} fontSize="15" fontWeight="700" fontStyle="italic">
-          58
-        </text>
+        {/* 真ん中の速さは8進の卦(58km/h は 乾・坎) */}
+        {[7, 2].map((v, i) => (
+          <g key={v} fill={ELEMENT_COLORS[v]}>
+            {TRIGRAMS[v].lines.map((yang, k) => trigramLine(54.5 + i * 11, 35, { r: 0, gap: 3.2, t: 1.9, w: 9 }, k, yang, String(k)))}
+          </g>
+        ))}
       </svg>
     );
   }
