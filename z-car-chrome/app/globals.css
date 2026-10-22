@@ -7089,12 +7089,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   height: 100dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: max(12px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
-  background:
-    radial-gradient(130% 55% at 50% -12%, rgba(var(--zr-accent-rgb), .17), transparent 62%),
-    linear-gradient(rgba(var(--zr-accent-rgb), .035) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(90deg, rgba(var(--zr-accent-rgb), .035) 1px, transparent 1px) 0 0 / 28px 28px,
-    #040706;
+  /* 下に固定したタブの分だけ、下をあける */
+  padding: max(12px, env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom));
+  /* 高級車のアプリのような、なめらかな暗い背景 */
+  background: linear-gradient(180deg, #181b20 0%, #0d0f12 55%, #08090b 100%);
   color: var(--zr-ink);
 }
 
@@ -7170,20 +7168,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .zr-reload-stamp.is-pressing { color: var(--zr-accent); opacity: 1; }
 .zr-reload-stamp.is-pressing::after { transform: scaleX(1); transition: transform .7s linear; }
+/* 名前は細く、字の間を広くとる(高級車のロゴのように) */
 .zr-brand b {
-  font-size: clamp(28px, 3.7dvh, 36px);
-  font-weight: 900;
-  letter-spacing: .04em;
+  font-size: clamp(26px, 3.4dvh, 32px);
+  font-weight: 300;
+  letter-spacing: .4em;
   line-height: 1;
-  transform: skewX(-6deg);
-  text-shadow: 0 0 18px rgba(var(--zr-accent-rgb), .35);
 }
 .zr-brand small {
-  color: var(--zr-accent);
+  color: var(--zr-muted);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 9px;
-  font-weight: 900;
-  letter-spacing: .32em;
+  font-weight: 700;
+  letter-spacing: .46em;
 }
 
 /* 車に送れないときだけ出す一行。 */
@@ -7210,66 +7207,72 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   color: #e7b55a;
 }
 
-/* --- 切り替え(車両位置 / 目的地 / 給油 / メーター) --- */
+/* --- 切り替え(車両位置 / 目的地 / 給油 / メーター)。画面の下に固定した、アイコン付きのタブ --- */
 .zr-tabs {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  margin: 0 -16px 12px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--zr-edge);
-  background: rgba(4, 7, 6, .86);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(20, 22, 26, .84);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
 }
-.zr[data-theme="eva"] .zr-tabs { background: rgba(7, 4, 2, .86); }
-.zr.is-tinted .zr-tabs { background: var(--zt-tabs); }
 .zr-tabs button {
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 3px;
-  padding: 8px 4px 10px;
+  min-height: 52px;
+  padding: 32px 4px 4px;
   border: 0;
   background: transparent;
   color: var(--zr-muted);
   font-family: inherit;
   cursor: pointer;
 }
-.zr-tabs b { font-size: clamp(14px, 1.85dvh, 17px); font-weight: 800; letter-spacing: .04em; }
-.zr-tabs small {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .26em;
-}
-.zr-tabs button.is-active { color: var(--zr-ink); }
-.zr-tabs button.is-active small { color: var(--zr-accent); }
-.zr-tabs button.is-active::after {
+/* アイコンは線の絵を、字と同じ色でぬる */
+.zr-tabs button::before {
   content: "";
   position: absolute;
-  left: 22%;
-  right: 22%;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--zr-accent);
-  box-shadow: 0 0 10px rgba(var(--zr-accent-rgb), .8);
+  top: 4px;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translateX(-50%);
+  background: currentColor;
+  -webkit-mask: var(--zr-tab-icon) center / contain no-repeat;
+  mask: var(--zr-tab-icon) center / contain no-repeat;
 }
+.zr-tabs .is-park { --zr-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z'/%3E%3Ccircle cx='12' cy='10' r='2.4'/%3E%3C/svg%3E"); }
+.zr-tabs .is-navi { --zr-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 21V4h11l-2 3.5L16 11H5'/%3E%3C/svg%3E"); }
+.zr-tabs .is-fuel { --zr-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 21V5.5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2V21M3 21h12M7 7.5h4M13.5 9.5h2l2 2v5.5a1.5 1.5 0 0 0 3 0V8.5l-2.5-2.5'/%3E%3C/svg%3E"); }
+.zr-tabs .is-theme { --zr-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 16.5a8.5 8.5 0 1 1 16 0'/%3E%3Cpath d='M12 13l4.2-3.6'/%3E%3Ccircle cx='12' cy='13.5' r='1.3'/%3E%3C/svg%3E"); }
+.zr-tabs b { font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+/* 英語の名前は読み上げ用に残し、画面には出さない */
+.zr-tabs small {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.zr-tabs button.is-active { color: var(--zr-accent-strong); }
 
 /* --- 今月の燃費(大きな数字はメーターの速度と同じ書体) --- */
 .zr-hero {
   position: relative;
   margin-bottom: 12px;
   padding: 13px 16px 11px;
-  border: 1px solid var(--zr-edge);
-  border-radius: 18px;
+  border-radius: 28px;
   background:
-    linear-gradient(120deg, rgba(var(--zr-accent-rgb), .14), transparent 55%),
-    var(--zr-panel);
-  box-shadow: inset 3px 0 var(--zr-accent);
+    linear-gradient(120deg, rgba(var(--zr-accent-rgb), .1), transparent 55%),
+    linear-gradient(180deg, #20232a, #16181d);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 .zr-hero header { display: flex; align-items: baseline; gap: 8px; }
 /* 給油のタブは画面の残りの高さいっぱいに広げる。余った高さは燃費のグラフが受け持つ。 */
@@ -7409,12 +7412,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 
 /* --- 共通のパネル --- */
+/* カードは角の丸い大きな板。ふちの線は引かず、影で浮かせる。 */
 .zr-panel {
   margin-bottom: 14px;
   padding: 14px 16px 16px;
-  border: 1px solid var(--zr-edge);
-  border-radius: 18px;
-  background: var(--zr-panel);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #20232a, #16181d);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 .zr-panel-head {
   display: flex;
@@ -7579,21 +7583,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   width: 100%;
   min-height: 54px;
   border: 0;
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--zr-accent-strong), var(--zr-accent));
-  box-shadow: 0 8px 22px rgba(var(--zr-accent-rgb), .25);
-  color: #03110e;
+  border-radius: 999px;
+  background: #f3f4f6;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .4);
+  color: #0b0c0f;
   font-family: inherit;
   font-size: 16px;
   font-weight: 900;
-  letter-spacing: .08em;
+  letter-spacing: .04em;
   cursor: pointer;
 }
-.zr[data-theme="eva"] .zr-primary { color: #1c0b00; }
-.zr.is-tinted .zr-primary:enabled { color: var(--zt-on-accent); }
 .zr-primary:active { transform: translateY(1px); filter: brightness(1.06); }
 .zr-primary:disabled {
-  background: rgba(var(--zr-accent-rgb), .14);
+  background: rgba(255, 255, 255, .1);
   box-shadow: none;
   color: rgba(255, 255, 255, .35);
   cursor: default;
@@ -7601,9 +7603,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-ghost {
   min-height: 54px;
   padding: 0 18px;
-  border: 1px solid rgba(255, 255, 255, .12);
-  border-radius: 14px;
-  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
   color: var(--zr-ink);
   font-family: inherit;
   font-size: 14px;
@@ -7783,10 +7785,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   min-height: 46px;
   margin: 0;
   padding: 5px 12px;
-  border: 1px dashed rgba(var(--zr-accent-rgb), .45);
-  border-radius: 14px;
-  background: rgba(var(--zr-accent-rgb), .04);
-  color: var(--zr-accent-strong);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .04);
+  color: var(--zr-ink);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
@@ -7861,9 +7863,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   gap: 2px;
   min-width: 0;
   padding: 9px 4px 8px;
-  border: 1px solid var(--zr-edge);
-  border-radius: 14px;
-  background: var(--zr-panel);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #20232a, #16181d);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
   color: var(--zr-ink);
   font-family: inherit;
   cursor: pointer;
@@ -7921,12 +7924,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   margin-bottom: 16px;
   padding: 14px 16px 16px;
   overflow: hidden;
-  border: 1px solid rgba(var(--zr-accent-rgb), .3);
-  border-radius: 20px;
+  border-radius: 28px;
   background:
-    radial-gradient(90% 60% at 20% 0%, rgba(var(--zr-accent-rgb), .14), transparent 70%),
-    var(--zr-panel);
-  box-shadow: 0 0 0 1px rgba(var(--zr-accent-rgb), .06), 0 16px 34px rgba(0, 0, 0, .35);
+    radial-gradient(90% 60% at 20% 0%, rgba(var(--zr-accent-rgb), .12), transparent 70%),
+    linear-gradient(180deg, #20232a, #16181d);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 .zr-link-bar {
   display: flex;
@@ -8097,9 +8099,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   align-items: center;
   gap: 2px 12px;
   padding: 14px 16px;
-  border: 1px solid var(--zr-accent);
-  border-radius: 16px;
-  background: rgba(4, 10, 9, .96);
+  border: 1px solid rgba(var(--zr-accent-rgb), .5);
+  border-radius: 22px;
+  background: rgba(30, 33, 39, .97);
   box-shadow: 0 14px 34px rgba(0, 0, 0, .5), 0 0 24px rgba(var(--zr-accent-rgb), .3);
   color: var(--zr-ink);
   font-family: inherit;
@@ -8124,13 +8126,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   position: fixed;
   z-index: 30;
   left: 50%;
-  bottom: calc(22px + env(safe-area-inset-bottom));
+  bottom: calc(88px + env(safe-area-inset-bottom));
   max-width: calc(100% - 32px);
   margin: 0;
   padding: 12px 18px;
-  border: 1px solid rgba(var(--zr-accent-rgb), .45);
+  border: 1px solid rgba(255, 255, 255, .1);
   border-radius: 999px;
-  background: rgba(3, 7, 6, .94);
+  background: rgba(30, 33, 39, .96);
   box-shadow: 0 10px 28px rgba(0, 0, 0, .5);
   color: var(--zr-accent-strong);
   font-size: 13px;
@@ -8397,9 +8399,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   gap: 4px;
   min-width: 0;
   padding: 7px 4px 8px;
-  border: 1px solid var(--zr-edge);
-  border-radius: 14px;
-  background: var(--zr-panel);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #20232a, #16181d);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
   color: var(--zr-ink);
   font-family: inherit;
   cursor: pointer;
@@ -8422,9 +8425,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   gap: 3px;
   min-width: 0;
   padding: 7px 6px;
-  border: 1px solid var(--zr-edge);
-  border-radius: 14px;
-  background: var(--zr-panel);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #20232a, #16181d);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
   color: var(--zr-ink);
   font-family: inherit;
   cursor: pointer;
@@ -8474,12 +8478,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   width: min(100%, 560px);
   max-height: 86dvh;
   padding: 14px 16px calc(12px + env(safe-area-inset-bottom));
-  border: 1px solid rgba(var(--zr-accent-rgb), .28);
-  border-bottom: 0;
-  border-radius: 22px 22px 0 0;
-  background:
-    linear-gradient(180deg, rgba(var(--zr-accent-rgb), .1), transparent 140px),
-    var(--zr-field);
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(180deg, #23262d, #16181d);
   box-shadow: 0 -18px 40px rgba(0, 0, 0, .5);
   animation: zr-sheet-up .22s ease-out;
 }
@@ -8559,9 +8559,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   flex-direction: column;
   margin-bottom: 12px;
   overflow: hidden;
-  border: 1px solid var(--zr-edge);
-  border-radius: 18px;
-  background: var(--zr-panel);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #20232a, #16181d);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 /* 上の角はカードの角に合わせて丸める(iPhone ではカードで切るだけだと、地図の絵が角からはみ出すことがあるため)。 */
 .zr-park-map {
@@ -8569,7 +8569,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   flex: 1 1 auto;
   min-height: 220px;
   overflow: hidden;
-  border-radius: 17px 17px 0 0;
+  border-radius: 28px 28px 0 0;
   background:
     radial-gradient(circle at 50% 50%, rgba(var(--zr-accent-rgb), .1), transparent 62%),
     linear-gradient(rgba(var(--zr-accent-rgb), .06) 1px, transparent 1px) 0 0 / 22px 22px,
@@ -8623,9 +8623,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   min-width: 42px;
   height: 42px;
   padding: 0 12px;
-  border: 1px solid rgba(var(--zr-accent-rgb), .35);
-  border-radius: 12px;
-  background: rgba(4, 8, 7, .8);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgba(20, 22, 26, .72);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   color: var(--zr-ink);
@@ -8915,7 +8915,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
 }
 .zr-park-memo-floors button:active { background: rgba(var(--zr-accent-rgb), .22); }
-.zr.is-tinted .zr-park-go a.zr-primary { color: var(--zt-on-accent); }
 @media (prefers-reduced-motion: reduce) {
   .zr-park-pin-ring,
   .zr-park-state.is-driving .zr-park-trigram { animation: none; }
@@ -8927,7 +8926,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 @media (max-height: 700px) {
   .zr-head { padding-bottom: 8px; }
   .zr-brand b { font-size: 26px; }
-  .zr-tabs button { padding: 6px 4px 8px; }
+  .zr { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .zr-tabs { padding-top: 6px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .zr-tabs button { min-height: 46px; padding: 27px 4px 2px; }
+  .zr-tabs button::before { top: 3px; width: 22px; height: 22px; }
   .zr-panel { padding: 11px 14px 12px; }
   .zr-place { padding: 6px 2px; }
   .zr-places { margin-bottom: 8px; }

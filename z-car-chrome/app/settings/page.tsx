@@ -788,7 +788,7 @@ export default function PhoneSettingsPage() {
           <button
             key={item.id}
             type="button"
-            className={tab === item.id ? "is-active" : undefined}
+            className={`is-${item.id}${tab === item.id ? " is-active" : ""}`}
             aria-pressed={tab === item.id}
             onClick={() => {
               setTab(item.id);
