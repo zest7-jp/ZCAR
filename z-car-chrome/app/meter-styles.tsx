@@ -48,6 +48,8 @@ export type ClusterData = {
   rangeKm: number;
   /** 残りの燃料(0〜100)。 */
   fuelPercent: number;
+  /** 燃料が予備の分まで減った(給油の記録から分かるときだけ true)。 */
+  lowFuel: boolean;
   /** 進んでいる向き(北が0、時計回りの度。360を超えることもある)。分からなければ null。 */
   heading: number | null;
   /** START の行き先の名前。無ければ null。 */
@@ -843,7 +845,9 @@ const forecastText = (weather: ClusterWeather | null) =>
 // ------------------------------------------------------------------
 // デイライト: 昼間の日差しの中でも読みやすい、白い文字盤の三連メーター。
 // 並びは三連メーター(左に回転計、真ん中に速度計、右に時計、下の左右に板)。
-// 明るいアルミの板に、クロムの縁・白い文字盤・影の落ちる針・液晶の小窓を、本物のメーターに似せて描く。
+// 黒いカーボンの板に、クロムの縁・白い文字盤・影の落ちる針・液晶の小窓を、本物のメーターに似せて描く。
+// 文字盤は筒の奥にある(上の縁に筒の影が落ち、ガラスのふちが光る)。針は浮いていて、影のふちがぼける。
+// 針の根元には丸いおもり、軸にはクロムのふた。速度計の下に警告灯(異常のときだけ光る)。
 // ------------------------------------------------------------------
 
 const DAY = {
@@ -869,22 +873,40 @@ const DAY_LCDS = [DAY_SPEED_LCD, DAY_INFO_LCD, DAY_RPM_LCD, DAY_WEATHER_LCD, BAT
 
 const DayDefs = () => (
   <defs>
-    <linearGradient id="md-alu" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#e1e3e5" />
-      <stop offset=".55" stopColor="#cfd2d5" />
-      <stop offset="1" stopColor="#babec2" />
+    {/* カーボンの板の編み目: 縦に光る目と横に光る目を、市松に並べる */}
+    <linearGradient id="md-carbon-v" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#34383d" />
+      <stop offset=".5" stopColor="#1b1d20" />
+      <stop offset="1" stopColor="#0d0e10" />
     </linearGradient>
-    {/* アルミの細いヘアライン(横の筋) */}
-    <filter id="md-brush" x="0" y="0" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency=".0016 .7" numOctaves="2" seed="5" />
-      <feColorMatrix type="matrix" values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 .2" />
-    </filter>
-    <linearGradient id="md-chrome" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="md-carbon-h" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stopColor="#2c3034" />
+      <stop offset=".5" stopColor="#16181a" />
+      <stop offset="1" stopColor="#0a0b0c" />
+    </linearGradient>
+    <pattern id="md-carbon" width="10" height="10" patternUnits="userSpaceOnUse">
+      <rect width="10" height="10" fill="#0a0b0c" />
+      <rect x=".4" y=".4" width="4.2" height="4.2" fill="url(#md-carbon-v)" />
+      <rect x="5.4" y="5.4" width="4.2" height="4.2" fill="url(#md-carbon-v)" />
+      <rect x="5.4" y=".4" width="4.2" height="4.2" fill="url(#md-carbon-h)" />
+      <rect x=".4" y="5.4" width="4.2" height="4.2" fill="url(#md-carbon-h)" />
+    </pattern>
+    {/* 上から当たる光(上はうっすら明るく、下と端は暗く) */}
+    <radialGradient id="md-sheen" cx=".5" cy="-.1" r=".9">
+      <stop offset="0" stopColor="#fff" stopOpacity=".13" />
+      <stop offset=".6" stopColor="#fff" stopOpacity=".03" />
+      <stop offset="1" stopColor="#000" stopOpacity=".35" />
+    </radialGradient>
+    {/* 本物のクロム: 空(白)・地平線(黒い線)・地面(灰)を映した帯 */}
+    <linearGradient id="md-chrome" x1=".15" y1="0" x2=".85" y2="1">
       <stop offset="0" stopColor="#ffffff" />
-      <stop offset=".2" stopColor="#a3a9ae" />
-      <stop offset=".45" stopColor="#f6f7f8" />
-      <stop offset=".7" stopColor="#5b6065" />
-      <stop offset="1" stopColor="#dcdfe2" />
+      <stop offset=".18" stopColor="#e9ecef" />
+      <stop offset=".3" stopColor="#9aa0a6" />
+      <stop offset=".38" stopColor="#2e3236" />
+      <stop offset=".46" stopColor="#b8bdc2" />
+      <stop offset=".62" stopColor="#f4f5f6" />
+      <stop offset=".8" stopColor="#7b8187" />
+      <stop offset="1" stopColor="#d5d8db" />
     </linearGradient>
     <linearGradient id="md-chrome-v" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stopColor="#f4f5f6" />
@@ -919,15 +941,79 @@ const DayDefs = () => (
     <filter id="md-soft" x="-20%" y="-30%" width="140%" height="170%">
       <feDropShadow dx="0" dy="2" stdDeviation="1.6" floodColor="#000" floodOpacity=".35" />
     </filter>
+    {/* 縁の内側の斜面(文字盤へ下りていく所。左上は陰、右下は光) */}
+    <linearGradient id="md-chrome-in" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stopColor="#1d1f22" />
+      <stop offset=".5" stopColor="#6d7278" />
+      <stop offset="1" stopColor="#eef0f2" />
+    </linearGradient>
+    {/* 文字盤は筒の奥にあるので、上の縁の近くに筒の影が落ちる */}
+    <radialGradient id="md-tube" cx=".5" cy=".64" r=".64">
+      <stop offset=".72" stopColor="#000" stopOpacity="0" />
+      <stop offset=".9" stopColor="#000" stopOpacity=".14" />
+      <stop offset="1" stopColor="#000" stopOpacity=".42" />
+    </radialGradient>
+    <filter id="md-blur" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="2" />
+    </filter>
+    {GAUGES.map((g, i) => (
+      <clipPath key={i} id={`md-face-clip-${i}`}>
+        <circle cx={g.cx} cy={g.cy} r={g.r} />
+      </clipPath>
+    ))}
   </defs>
 );
 
-/** クロムの縁(板との間に黒いすき間)と、白い文字盤(縁との間に黒いゴム)。 */
+/** 文字盤に落ちる筒の影(上の縁ほど濃い)と、縁のすぐ内側の濃い影。針より下、目盛りより上。 */
+const DayTubeShade = () => (
+  <g>
+    {GAUGES.map((g, i) => (
+      <g key={i} clipPath={`url(#md-face-clip-${i})`}>
+        <circle cx={g.cx} cy={g.cy} r={g.r} fill="url(#md-tube)" />
+        <circle cx={g.cx} cy={g.cy} r={g.r} fill="none" stroke="#000" strokeOpacity=".55" strokeWidth="5" filter="url(#md-blur)" />
+      </g>
+    ))}
+  </g>
+);
+
+/** 警告灯の窓(速度計の下)。消えているときは、黒い窓の中にうっすら見えるだけ。 */
+const TELLTALE_BOX: Box = { x: SX - 60, y: SY + 172, w: 120, h: 26 };
+const TELLTALES = [
+  { key: "battery", x: TELLTALE_BOX.x + 22, color: "#ff3b30" },
+  { key: "temp", x: TELLTALE_BOX.x + 60, color: "#ff3b30" },
+  { key: "fuel", x: TELLTALE_BOX.x + 98, color: "#ffb000" },
+] as const;
+const TelltaleIcon = ({ kind, x, y, color, weight = 1.6 }: { kind: (typeof TELLTALES)[number]["key"]; x: number; y: number; color: string; weight?: number }) => (
+  <g transform={`translate(${x} ${y})`} fill="none" stroke={color} strokeWidth={weight} strokeLinecap="round" strokeLinejoin="round">
+    {kind === "battery" ? (
+      <g>
+        <rect x="-8" y="-5" width="16" height="11" rx="1.2" />
+        <path d="M-5 -5 v-2 M5 -5 v-2 M-5.5 0.5 h3 M2.5 0.5 h3 M4 -1 v3" />
+      </g>
+    ) : kind === "temp" ? (
+      <g>
+        <path d="M0 -8 v8" />
+        <circle cy="2.5" r="2.2" fill={color} stroke="none" />
+        <path d="M0 -6 h3 M0 -3 h3" />
+        <path d="M-8 7 q2 -1.6 4 0 t4 0 t4 0 t4 0" />
+      </g>
+    ) : (
+      <g>
+        <rect x="-6" y="-7" width="8" height="13" rx="1" />
+        <path d="M-4.5 -4.5 h5 v3 h-5z" />
+        <path d="M2 -4 l3 2.5 v5 a1.2 1.2 0 0 0 2.4 0 v-6.5 l-2.2 -2.2" />
+      </g>
+    )}
+  </g>
+);
+
+/** クロムの縁(板との間に黒いすき間。内側は文字盤へ下りる斜面)と、白い文字盤(縁との間に黒いゴム)。 */
 const DayDial = ({ g }: { g: Gauge }) => (
   <g>
-    <circle cx={g.cx} cy={g.cy} r={g.r + g.ring + 3} fill="#2a2c2f" />
+    <circle cx={g.cx} cy={g.cy} r={g.r + g.ring + 3} fill="#050506" />
     <circle cx={g.cx} cy={g.cy} r={g.r + g.ring} fill="url(#md-chrome)" filter="url(#md-shadow)" />
     <circle cx={g.cx} cy={g.cy} r={r2(g.r + g.ring - 1.2)} fill="none" stroke="#fff" strokeOpacity=".6" strokeWidth="1.2" />
+    <circle cx={g.cx} cy={g.cy} r={r2(g.r + 3.4)} fill="none" stroke="url(#md-chrome-in)" strokeWidth="3.2" />
     <circle cx={g.cx} cy={g.cy} r={g.r + 1.8} fill="#0b0c0d" />
     <circle cx={g.cx} cy={g.cy} r={g.r} fill="url(#md-face)" />
   </g>
@@ -1034,15 +1120,16 @@ const DayMiniFace = ({ g }: { g: MiniGauge }) => {
   );
 };
 
-/** デイライトの動かない絵: アルミの板・下の左右の板・3つのメーターの文字盤・液晶の枠・ボタン。 */
+/** デイライトの動かない絵: カーボンの板・下の左右の板・3つのメーターの文字盤・液晶の枠・ボタン。 */
 const DayFace = memo(function DayFace() {
   return (
     <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <DayDefs />
-      <rect width={BOARD_W} height={BOARD_H} fill="url(#md-alu)" />
-      <rect width={BOARD_W} height={BOARD_H} filter="url(#md-brush)" />
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#md-carbon)" />
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#md-sheen)" />
+      {/* 下の左右の板は、黒い板の上で形が分かるように、ふちを細く光らせる */}
       {PANELS.map((panel) => (
-        <rect key={panel.x} x={panel.x} y={panel.y} width={panel.w} height={panel.h} rx="16" fill="url(#md-plastic)" filter="url(#md-shadow)" />
+        <rect key={panel.x} x={panel.x} y={panel.y} width={panel.w} height={panel.h} rx="16" fill="url(#md-plastic)" stroke="#fff" strokeOpacity=".12" strokeWidth="1.2" filter="url(#md-shadow)" />
       ))}
       {GAUGES.map((g) => (
         <DayDial key={g.cx} g={g} />
@@ -1092,6 +1179,11 @@ const DayFace = memo(function DayFace() {
       </text>
       <LcdFrame box={DAY_SPEED_LCD} rx={6} />
       <LcdFrame box={DAY_INFO_LCD} rx={5} />
+      <rect x={TELLTALE_BOX.x - 2} y={TELLTALE_BOX.y - 2} width={TELLTALE_BOX.w + 4} height={TELLTALE_BOX.h + 4} rx="7" fill="#2a2c2f" />
+      <rect x={TELLTALE_BOX.x} y={TELLTALE_BOX.y} width={TELLTALE_BOX.w} height={TELLTALE_BOX.h} rx="5.5" fill="#0d0e10" />
+      {TELLTALES.map((lamp) => (
+        <TelltaleIcon key={lamp.key} kind={lamp.key} x={lamp.x} y={TELLTALE_BOX.y + 13} color="#2b2e32" />
+      ))}
       {/* 左下: 天気の液晶 */}
       <LcdFrame box={DAY_WEATHER_LCD} rx={8} />
       {/* 右下: 電圧の液晶と、DEST・START のボタン */}
@@ -1123,6 +1215,7 @@ const DayFace = memo(function DayFace() {
         START
       </text>
       <path d={`M${START_BTN.x + START_BTN.w - 28} ${START_BTN.y + 26} l10 10 -10 10`} fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <DayTubeShade />
     </svg>
   );
 });
@@ -1135,15 +1228,29 @@ const DayNeedle = ({ cx, cy, len, tail, width, deg }: { cx: number; cy: number; 
     `${r2(cx + ox - half)},${r2(cy + oy)} ${r2(cx + ox - tip)},${r2(cy + oy - len)} ${r2(cx + ox + tip)},${r2(cy + oy - len)} ${r2(cx + ox + half)},${r2(cy + oy)}`;
   const shade = { x: r2(width * 0.35), y: r2(width * 0.5) };
   const rotate = { transform: `rotate(${r2(deg)}deg)` };
+  // 根元のおもり(丸い)と、針の真ん中の明るい筋。
+  const weight = r2(width * 1.05);
+  const stripe = Math.max(0.5, width * 0.11);
+  // 影のふち(針が文字盤から浮いているので、影のまわりがぼける)。
+  const blur = (ox: number, oy: number, grow: number) =>
+    `${r2(cx + ox - half - grow)},${r2(cy + oy + grow)} ${r2(cx + ox - tip - grow * 0.5)},${r2(cy + oy - len - grow)} ${r2(cx + ox + tip + grow * 0.5)},${r2(cy + oy - len - grow)} ${r2(cx + ox + half + grow)},${r2(cy + oy + grow)}`;
   return (
     <g>
       <g className="ms-needle" style={{ ...rotate, transformOrigin: `${r2(cx + shade.x)}px ${r2(cy + shade.y)}px` }}>
-        <polygon points={body(shade.x, shade.y)} fill="#000" opacity=".22" />
+        <polygon points={blur(shade.x, shade.y, Math.max(1.2, width * 0.22))} fill="#000" opacity=".1" />
+        <polygon points={body(shade.x, shade.y)} fill="#000" opacity=".2" />
+        <circle cx={r2(cx + shade.x)} cy={r2(cy + shade.y + tail)} r={weight} fill="#000" opacity=".2" />
       </g>
       <g className="ms-needle" style={{ ...rotate, transformOrigin: `${cx}px ${cy}px` }}>
         <polygon points={`${r2(cx - half * 1.1)},${cy} ${r2(cx - half * 1.3)},${cy + tail} ${r2(cx + half * 1.3)},${cy + tail} ${r2(cx + half * 1.1)},${cy}`} fill="#18191b" />
+        <circle cx={cx} cy={cy + tail} r={weight} fill="#18191b" />
         <polygon points={`${r2(cx - half)},${cy} ${r2(cx - tip)},${cy - len} ${cx},${r2(cy - len - 1)} ${cx},${cy}`} fill="#ff6b35" />
         <polygon points={`${cx},${cy} ${cx},${r2(cy - len - 1)} ${r2(cx + tip)},${cy - len} ${r2(cx + half)},${cy}`} fill="#d93a0b" />
+        <polygon
+          points={`${r2(cx - stripe)},${r2(cy - len * 0.2)} ${r2(cx - stripe * 0.4)},${r2(cy - len * 0.93)} ${r2(cx + stripe * 0.4)},${r2(cy - len * 0.93)} ${r2(cx + stripe)},${r2(cy - len * 0.2)}`}
+          fill="#ffe1cf"
+          opacity=".9"
+        />
       </g>
     </g>
   );
@@ -1211,10 +1318,13 @@ const DayGlass = memo(function DayGlass() {
   return (
     <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <defs>
-        <radialGradient id="md-cap" cx=".36" cy=".3" r=".75">
-          <stop offset="0" stopColor="#80848a" />
-          <stop offset=".35" stopColor="#2a2c2f" />
-          <stop offset="1" stopColor="#050506" />
+        {/* 磨いたクロムの軸のふた(左上に光が当たる) */}
+        <radialGradient id="md-cap" cx=".38" cy=".32" r=".8">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset=".22" stopColor="#e3e6e9" />
+          <stop offset=".55" stopColor="#8d9298" />
+          <stop offset=".85" stopColor="#3a3e42" />
+          <stop offset="1" stopColor="#1c1e20" />
         </radialGradient>
         <filter id="md-cap-shadow" x="-40%" y="-40%" width="180%" height="190%">
           <feDropShadow dx="0" dy="2" stdDeviation="1.8" floodColor="#000" floodOpacity=".4" />
@@ -1242,16 +1352,29 @@ const DayGlass = memo(function DayGlass() {
       </defs>
       {caps.map((cap) => (
         <g key={`${cap.cx},${cap.cy}`} filter="url(#md-cap-shadow)">
+          <circle cx={cap.cx} cy={cap.cy} r={r2(cap.r + 1.4)} fill="#0b0c0d" />
           <circle cx={cap.cx} cy={cap.cy} r={cap.r} fill="url(#md-cap)" />
-          <ellipse cx={r2(cap.cx - cap.r * 0.22)} cy={r2(cap.cy - cap.r * 0.38)} rx={r2(cap.r * 0.46)} ry={r2(cap.r * 0.24)} fill="#fff" opacity=".22" />
+          <ellipse cx={r2(cap.cx - cap.r * 0.22)} cy={r2(cap.cy - cap.r * 0.38)} rx={r2(cap.r * 0.46)} ry={r2(cap.r * 0.24)} fill="#fff" opacity=".5" />
         </g>
       ))}
-      {GAUGES.map((g, i) => (
-        <g key={i} clipPath={`url(#md-glass-clip-${i})`}>
-          <circle cx={g.cx} cy={g.cy} r={g.r} fill="url(#md-glass-edge)" />
-          <path d={glarePath(g)} fill="url(#md-glare)" />
-        </g>
-      ))}
+      {GAUGES.map((g, i) => {
+        // ガラスのふちの光(左上は強く、右下は弱く映る)。
+        const arc = (from: number, to: number, r: number) => {
+          const [x0, y0] = pol(g.cx, g.cy, r, from);
+          const [x1, y1] = pol(g.cx, g.cy, r, to);
+          return `M${x0} ${y0}A${r} ${r} 0 0 1 ${x1} ${y1}`;
+        };
+        return (
+          <g key={i} clipPath={`url(#md-glass-clip-${i})`}>
+            <circle cx={g.cx} cy={g.cy} r={g.r} fill="url(#md-glass-edge)" />
+            <path d={glarePath(g)} fill="url(#md-glare)" />
+            <g fill="none" stroke="#fff" strokeLinecap="round">
+              <path d={arc(-80, -16, r2(g.r - 3.5))} strokeOpacity=".6" strokeWidth="2.2" />
+              <path d={arc(102, 164, r2(g.r - 4))} strokeOpacity=".16" strokeWidth="3" />
+            </g>
+          </g>
+        );
+      })}
       {DAY_LCDS.map((box) => (
         <rect key={`${box.x},${box.y}`} x={box.x} y={box.y} width={box.w} height={box.h} rx="5" fill="url(#md-lcd-glare)" />
       ))}
@@ -1282,6 +1405,12 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
   ];
   const lcd = DAY_WEATHER_LCD;
   const outside = data.weather ? String(Math.round(data.weather.temperature)) : "--";
+  // 警告灯: 電圧が 12V より低い(充電されていない)・水温が 105℃ 以上・燃料が予備まで減った。
+  const lamps = {
+    battery: data.voltage !== null && data.voltage < 12,
+    temp: data.coolant !== null && data.coolant >= 105,
+    fuel: data.lowFuel,
+  };
   return (
     <Board className="ms-day">
       <DayFace />
@@ -1343,6 +1472,17 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
             </text>
           </g>
         ))}
+        {/* 警告灯: 電圧が低い・水温が高い・燃料が少ないときだけ光る */}
+        {TELLTALES.map((lamp) =>
+          lamps[lamp.key] ? (
+            <g key={lamp.key} className={`md-lamp is-${lamp.key}`}>
+              <g opacity=".4">
+                <TelltaleIcon kind={lamp.key} x={lamp.x} y={TELLTALE_BOX.y + 13} color={lamp.color} weight={4} />
+              </g>
+              <TelltaleIcon kind={lamp.key} x={lamp.x} y={TELLTALE_BOX.y + 13} color={lamp.color} />
+            </g>
+          ) : null,
+        )}
         <DayNeedle cx={SX} cy={SY} len={196} tail={26} width={10} deg={speedDeg} />
         {/* 左下: 天気の液晶 */}
         {kind && data.weather ? <LcdWeatherIcon kind={kind} isDay={data.weather.isDay} x={lcd.x + 32} y={lcd.y + 38} /> : null}
@@ -1427,8 +1567,13 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
             <stop offset=".45" stopColor="#8f959a" />
             <stop offset="1" stopColor="#e4e6e8" />
           </linearGradient>
+          <pattern id="ms-thumb-carbon" width="4" height="4" patternUnits="userSpaceOnUse">
+            <rect width="4" height="4" fill="#0b0c0e" />
+            <rect width="2" height="2" fill="#26292d" />
+            <rect x="2" y="2" width="2" height="2" fill="#26292d" />
+          </pattern>
         </defs>
-        <rect width="120" height="70" fill="#cfd2d5" />
+        <rect width="120" height="70" fill="url(#ms-thumb-carbon)" />
         {[
           [17, 22, 12],
           [103, 22, 12],

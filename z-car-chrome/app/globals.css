@@ -9012,7 +9012,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   gap: 0;
 }
 #app.meter-style-retro.is-fullscreen { background: #040506; }
-#app.meter-style-day.is-fullscreen { background: #cfd2d5; }
+#app.meter-style-day.is-fullscreen { background: #0a0b0c; }
 #app.meter-style-retro .meter-status,
 #app.meter-style-day .meter-status { margin: 0; }
 
@@ -9161,39 +9161,39 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 #app.meter-style-retro .meter-reload b { color: #ffb02e; }
 #app.meter-style-retro .meter-full-button { border-color: rgba(82, 255, 214, .4); color: #52ffd6; }
 
-/* --- デイライト(昼間に見やすい白いメーター)。上の帯も白に黒い字 --- */
+/* --- デイライト(昼間に見やすい白いメーター)。板は黒いカーボンなので、上の帯も黒に明るい字 --- */
 .ms-day text { font-family: "Helvetica Neue", Roboto, "Liberation Sans", Arial, sans-serif; }
 /* 目盛りの数字は、あれば幅の狭い字(本物のメーターに多い形) */
 .ms-day text.md-num { font-family: "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", "Helvetica Neue", Roboto, "Liberation Sans", Arial, sans-serif; }
 .ms-day .ms-hit { border-radius: 12px; }
 .ms-day .ms-hit:active { background: rgba(0, 0, 0, .08); }
 #app.meter-style-day .meter-status {
-  background: linear-gradient(#ffffff, #eceef0);
-  box-shadow: inset 0 -1px 0 #c3c7cb;
+  background: linear-gradient(#17191c, #0b0c0e);
+  box-shadow: inset 0 -1px 0 #26292d;
 }
-#app.meter-style-day .meter-status-item i { width: 7px; height: 7px; border-radius: 50%; transform: none; background: #b9bdc1; }
-#app.meter-style-day .meter-status-item.is-ok i { background: #11904a; box-shadow: none; }
-#app.meter-style-day .meter-status-item.is-warn i { background: #e8590c; box-shadow: none; }
-#app.meter-style-day .meter-status-item.is-off i { background: #b9bdc1; box-shadow: none; }
-#app.meter-style-day .meter-status-item small { color: #6b6f74; }
-#app.meter-style-day .meter-status-item small span { color: #4a4d51; }
-#app.meter-style-day .meter-status-item b { color: #2b2d30; }
-#app.meter-style-day .meter-status-item b span { color: #121315; }
+#app.meter-style-day .meter-status-item i { width: 7px; height: 7px; border-radius: 50%; transform: none; background: #4a4f55; }
+#app.meter-style-day .meter-status-item.is-ok i { background: #2fd27a; box-shadow: none; }
+#app.meter-style-day .meter-status-item.is-warn i { background: #ff8a3d; box-shadow: none; }
+#app.meter-style-day .meter-status-item.is-off i { background: #4a4f55; box-shadow: none; }
+#app.meter-style-day .meter-status-item small { color: #8c9197; }
+#app.meter-style-day .meter-status-item small span { color: #a9aeb4; }
+#app.meter-style-day .meter-status-item b { color: #d9dcdf; }
+#app.meter-style-day .meter-status-item b span { color: #ffffff; }
 #app.meter-style-day .meter-status-item.is-warn b,
-#app.meter-style-day .meter-status-item.is-warn b span { color: #c2410c; }
+#app.meter-style-day .meter-status-item.is-warn b span { color: #ff8a3d; }
 #app.meter-style-day .meter-status-item.is-off small,
 #app.meter-style-day .meter-status-item.is-off small span,
 #app.meter-style-day .meter-status-item.is-off b,
-#app.meter-style-day .meter-status-item.is-off b span { color: #9a9ea3; }
-#app.meter-style-day .meter-status-item + .meter-status-item::before { background: rgba(0, 0, 0, .12); }
+#app.meter-style-day .meter-status-item.is-off b span { color: #5d6268; }
+#app.meter-style-day .meter-status-item + .meter-status-item::before { background: rgba(255, 255, 255, .12); }
 #app.meter-style-day .meter-status-item.is-button:active,
-#app.meter-style-day .meter-reload:active { background: rgba(0, 0, 0, .06); }
-#app.meter-style-day .meter-status-detail { color: #6b6f74; }
+#app.meter-style-day .meter-reload:active { background: rgba(255, 255, 255, .08); }
+#app.meter-style-day .meter-status-detail { color: #8c9197; }
 #app.meter-style-day .meter-reload,
 #app.meter-style-day .meter-reload small,
-#app.meter-style-day .meter-reload small span { color: #4a4d51; }
-#app.meter-style-day .meter-reload b { color: #121315; }
-#app.meter-style-day .meter-full-button { border-color: rgba(0, 0, 0, .25); color: #2b2d30; }
+#app.meter-style-day .meter-reload small span { color: #a9aeb4; }
+#app.meter-style-day .meter-reload b { color: #ffffff; }
+#app.meter-style-day .meter-full-button { border-color: rgba(255, 255, 255, .25); color: #d9dcdf; }
 
 @media (prefers-reduced-motion: reduce) {
   .ms-needle,
