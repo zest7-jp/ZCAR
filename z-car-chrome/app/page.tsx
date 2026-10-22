@@ -1548,6 +1548,7 @@ export default function Home() {
     avgFuel: estimatedAverageFuelEconomy,
     rangeKm: fuelRangeKm,
     fuelPercent,
+    lowFuel: estimatedRemainingLiters !== null && estimatedRemainingLiters <= FUEL_RESERVE_L,
     // 360度に丸めない向き(北をまたいでも、車の印が逆向きに一回りしないように)。
     heading: location?.heading ?? null,
     destLabel: navTarget ? navTarget.label : null,
