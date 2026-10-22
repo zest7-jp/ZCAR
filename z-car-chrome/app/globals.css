@@ -7708,6 +7708,29 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   cursor: pointer;
 }
 .zr-star:disabled { opacity: .35; cursor: default; }
+/* 右の削除: 1回押すと「消す」に変わり、もう一度押すと消える(3秒で元に戻る)。住所のない行は空けておく。 */
+.zr-del,
+.zr-del-space { flex: 0 0 44px; }
+.zr-del {
+  display: grid;
+  place-items: center;
+  margin-right: -6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--zr-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+.zr-del svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.zr-del.is-armed {
+  flex-basis: 52px;
+  margin: 10px -4px 10px 4px;
+  border: 1px solid rgba(226, 106, 90, .5);
+  border-radius: 10px;
+  color: #e79a8f;
+}
+.zr-del.is-armed b { font-size: 12px; font-weight: 900; }
 .zr .star-mark {
   width: 22px;
   height: 22px;
