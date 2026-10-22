@@ -8789,6 +8789,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 @keyframes zr-park-breathe {
   50% { opacity: .55; }
 }
+/* 自宅として覚えた場所の近くに駐車中: 左上は「AT HOME 自宅に駐車中」。色は配色の色(駐車中の灰色の代わり)。 */
+.zr-park-state.is-home { --zr-state: var(--zr-accent-strong); --zr-state-rgb: var(--zr-accent-rgb); }
 
 .zr-park-facts {
   display: flex;

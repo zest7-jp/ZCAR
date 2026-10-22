@@ -56,6 +56,37 @@ const PARK_MEMO_MAX = 20;
 const PARK_MEMO_FLOORS = ["B2", "B1", "1F", "2F", "3F", "4F", "屋上"];
 
 /**
+ * 自宅は、七塚さんが「ここは自宅」と言ったとき(2026-10-22 23:40)に車が停まっていた場所。
+ * 登録のボタンは置かない。その駐車が続いている間(車を動かす前)にこの画面を開いたら、
+ * 車の場所を自宅として覚える(この端末だけに置く。同期しない)。
+ * 覚えた場所から HOME_NEAR_METERS 以内に駐車していたら、左上を「自宅に駐車中」にする
+ * (GPS のずれや、停める位置の違いの分だけ広めに)。
+ */
+const HOME_PARKED_BY = Date.parse("2026-10-22T23:40:00+09:00");
+const HOME_SPOT_STORAGE_KEY = "zcar-home-spot";
+const HOME_NEAR_METERS = 100;
+type HomeSpot = { lat: number; lng: number };
+
+const readHomeSpot = (): HomeSpot | null => {
+  try {
+    const value = JSON.parse(localStorage.getItem(HOME_SPOT_STORAGE_KEY) ?? "null") as Partial<HomeSpot> | null;
+    return value && Number.isFinite(value.lat) && Number.isFinite(value.lng)
+      ? { lat: value.lat as number, lng: value.lng as number }
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeHomeSpot = (spot: HomeSpot) => {
+  try {
+    localStorage.setItem(HOME_SPOT_STORAGE_KEY, JSON.stringify(spot));
+  } catch {
+    // 保存できない(プライベートブラウズなど)ときは、開いている間だけ覚える。
+  }
+};
+
+/**
  * 駐車メモ(階・番号・目印など)。at は書いた時刻(サーバーの時計)。
  * 車がその場所に来たのが書いたより後なら(車を動かした)、そのメモはもう出さない。
  */
@@ -455,6 +486,10 @@ export function CarLocationPanel({
     typeof window === "undefined" ? null : readParkMemo(),
   );
   const [memoDraft, setMemoDraft] = useState<string | null>(null);
+  // 自宅として覚えた場所(駐車メモと同じく、この端末に置く)。
+  const [homeSpot, setHomeSpot] = useState<HomeSpot | null>(() =>
+    typeof window === "undefined" ? null : readHomeSpot(),
+  );
   // 住所を調べ終わったときに、そのときの一覧へ足すため(調べている間に一覧が変わることがある)。
   const registerRef = useRef(onRegister);
   useEffect(() => {
@@ -470,6 +505,13 @@ export function CarLocationPanel({
       try {
         const result = await fetchParking(syncKey);
         if (!active) return;
+        // 「ここは自宅」と言ったときの駐車がまだ続いていれば、その場所を自宅として覚える(1回だけ)。
+        const parked = result.park;
+        if (parked && parked.since <= HOME_PARKED_BY && !readHomeSpot()) {
+          const spot = { lat: parked.lat, lng: parked.lng };
+          writeHomeSpot(spot);
+          setHomeSpot(spot);
+        }
         setLoaded({ park: result.park, offset: result.now - Date.now() });
         setClock(result.now);
         failures = 0;
@@ -585,6 +627,9 @@ export function CarLocationPanel({
   const status = !park ? null : live && !closed ? (moving ? "driving" : "stopped") : "parked";
   // 車の電源が入っている(走行中・停車中)。
   const carOn = status === "driving" || status === "stopped";
+  // 自宅として覚えた場所の近くに駐車している。
+  const atHome =
+    status === "parked" && park !== null && homeSpot !== null && distanceMeters(park, homeSpot) <= HOME_NEAR_METERS;
   const shown = phoneInCar ? phoneFix : park;
   const shownLat = shown?.lat;
   const shownLng = shown?.lng;
@@ -776,10 +821,10 @@ export function CarLocationPanel({
         <div className="zr-park-map">
           <div ref={mapElementRef} className="zr-park-canvas" />
           {status ? (
-            <em className={`zr-park-state is-${status}`}>
+            <em className={`zr-park-state is-${status}${atHome ? " is-home" : ""}`}>
               <TrigramMark lines={STATUS[status].lines} />
-              {STATUS[status].en}
-              <small>{STATUS[status].ja}</small>
+              {atHome ? "AT HOME" : STATUS[status].en}
+              <small>{atHome ? "自宅に駐車中" : STATUS[status].ja}</small>
             </em>
           ) : null}
           {standby ? (
