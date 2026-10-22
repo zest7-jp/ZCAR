@@ -1432,10 +1432,16 @@ const MC_SPEED = { x: 356, y: 150, w: 60, h: 380, px: 3, minor: 5, major: 20 };
 const MC_RPM = { x: 608, y: 150, w: 60, h: 380, px: 6, minor: 2, major: 10 };
 /** ガソリンの縦のテープ(目盛りは動かず、今の量の所に箱が動く)。 */
 const MC_FUEL = { x: 30, y: 166, w: 64, h: 352 };
-/** 右下の DEST・START(80年代のテーマと同じ、Google マップの小窓が重なる所)と、ガソリンの押せる所。 */
-const MC_DEST = { x: 834, y: 332, w: 174, h: 96 };
-const MC_START = { x: 834, y: 440, w: 174, h: 108 };
+/**
+ * 右下の「GOOGLE MAPS」の箱と DEST・START。80年代のテーマの箱とまったく同じ大きさ・場所にして、
+ * ナビ中に Google マップの小さな画面が重なったとき、ボタンがちょうど隠れるようにする。ガソリンの押せる所も。
+ */
+const MC_BAY = RETRO_MAP_BAY;
+const MC_DEST = RETRO_DEST;
+const MC_START = RETRO_START;
 const MC_FUEL_HIT = { x: 22, y: 136, w: 288, h: 400 };
+/** START の行き先の字を置ける幅(右の矢印の手前まで)。 */
+const MC_DEST_TEXT_W = 92;
 const mcNormal = (deg: number) => ((deg % 360) + 360) % 360;
 const mcDir = (deg: number) => MC_DIRS[Math.round(mcNormal(deg) / 45) % 8];
 const mcFuelY = (pct: number) => r2(MC_FUEL.y + MC_FUEL.h - (clamp01(pct / 100) * MC_FUEL.h));
@@ -1556,17 +1562,18 @@ const CockpitFace = memo(function CockpitFace() {
       {label(724, 128, "電圧", { size: 13, jp: true })}
       {label(724, 150, "V", { size: 11 })}
       <rect x="724" y="158" width="268" height="8" fill="#0c1a14" />
-      {/* 右下: ナビ中は Google マップの小さな画面がここに重なる(80年代のテーマの箱と同じ所)。DEST と START の枠と見出し */}
-      {label(MC_DEST.x, MC_DEST.y - 10, "GOOGLE MAPS", { size: 10, spacing: 2 })}
-      <line x1={MC_DEST.x + 96} y1={MC_DEST.y - 14} x2={MC_DEST.x + MC_DEST.w} y2={MC_DEST.y - 14} stroke={MC.frame} strokeWidth="1.5" />
+      {/* 右下: 「GOOGLE MAPS」の箱(80年代のテーマと同じ。ナビ中は Google マップの小さな画面がちょうど重なる)と、中の DEST・START */}
+      <rect x={MC_BAY.x} y={MC_BAY.y} width={MC_BAY.w} height={MC_BAY.h} rx="12" fill="none" stroke={MC.frame} strokeWidth="2" />
+      <rect x={MC_BAY.x + 14} y={MC_BAY.y - 6} width="96" height="12" fill={MC.screen} />
+      {label(MC_BAY.x + 19, MC_BAY.y + 4, "GOOGLE MAPS", { size: 9, spacing: 2 })}
       <rect x={MC_DEST.x} y={MC_DEST.y} width={MC_DEST.w} height={MC_DEST.h} rx="4" fill="#06120c" stroke={MC.green} strokeWidth="2.4" />
-      {label(MC_DEST.x + 16, MC_DEST.y + 24, "DEST", { size: 13, color: MC.green, spacing: 3 })}
-      <text x={MC_DEST.x + 16} y={MC_DEST.y + 68} fill={MC.white} fontSize="24" className="mc-jp">
+      {label(MC_DEST.x + 14, MC_DEST.y + 22, "DEST", { size: 12, color: MC.green, spacing: 3 })}
+      <text x={MC_DEST.x + 14} y={MC_DEST.y + 64} fill={MC.white} fontSize="22" className="mc-jp">
         目的地
       </text>
-      <path d={`M${MC_DEST.x + 146} ${MC_DEST.y + 50} l12 10 -12 10z`} fill={MC.green} />
+      <path d={`M${MC_DEST.x + MC_DEST.w - 24} ${MC_DEST.y + 46} l11 9 -11 9z`} fill={MC.green} />
       <rect x={MC_START.x} y={MC_START.y} width={MC_START.w} height={MC_START.h} rx="4" fill="#1a1204" stroke={MC.amber} strokeWidth="2.4" />
-      {label(MC_START.x + 16, MC_START.y + 24, "START", { size: 13, color: MC.amber, spacing: 3 })}
+      {label(MC_START.x + 14, MC_START.y + 22, "START", { size: 12, color: MC.amber, spacing: 3 })}
     </svg>
   );
 });
@@ -1592,6 +1599,7 @@ export function CockpitCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
     data.rpm !== null && data.rpm >= 6000 ? "回転が高い" : null,
   ].filter((text): text is string => text !== null);
   const dest = data.destLabel ?? "目的地なし";
+  const destSize = dest.length <= 3 ? 26 : dest.length <= 4 ? 21 : 17;
   const weekWidth = (186 - 6 * 3) / 7;
   const speedCy = MC_SPEED.y + MC_SPEED.h / 2;
   const rpmCy = MC_RPM.y + MC_RPM.h / 2;
@@ -1731,12 +1739,23 @@ export function CockpitCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
             </>
           )}
         </g>
-        {/* 右下: START の行き先 */}
-        <text x={MC_START.x + 16} y={MC_START.y + 74} fill={data.destLabel ? MC.white : MC.dim} fontSize={dest.length <= 5 ? 30 : 20} className="mc-jp">
+        {/* 右下: START の行き先(箱に収まるよう、長い名前は字を小さく・詰める) */}
+        <text
+          x={MC_START.x + 14}
+          y={MC_START.y + 64}
+          fill={data.destLabel ? MC.white : MC.dim}
+          fontSize={destSize}
+          className="mc-jp"
+          textLength={dest.length * destSize > MC_DEST_TEXT_W ? MC_DEST_TEXT_W : undefined}
+          lengthAdjust="spacingAndGlyphs"
+        >
           {dest}
         </text>
         {data.destLabel ? (
-          <path d={`M${MC_START.x + 136} ${MC_START.y + 56} l10 9 -10 9z M${MC_START.x + 150} ${MC_START.y + 56} l10 9 -10 9z`} fill={MC.amber} />
+          <path
+            d={`M${MC_START.x + MC_START.w - 34} ${MC_START.y + 47} l9 8 -9 8z M${MC_START.x + MC_START.w - 22} ${MC_START.y + 47} l9 8 -9 8z`}
+            fill={MC.amber}
+          />
         ) : null}
       </svg>
       <Hit box={[MC_FUEL_HIT.x, MC_FUEL_HIT.y, MC_FUEL_HIT.w, MC_FUEL_HIT.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
