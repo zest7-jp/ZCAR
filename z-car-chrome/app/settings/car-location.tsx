@@ -56,11 +56,15 @@ const PARK_MEMO_MAX = 20;
 const PARK_MEMO_FLOORS = ["B2", "B1", "1F", "2F", "3F", "4F", "屋上"];
 
 /**
- * 自宅として覚えた場所(この端末だけに置く。同期しない)。ここから HOME_NEAR_METERS 以内に
- * 駐車していたら、左上を「自宅に駐車中」にする(GPS のずれや、家の前と駐車場の違いがあるので広めに)。
+ * 自宅は、七塚さんが「ここは自宅」と言ったとき(2026-10-22 23:40)に車が停まっていた場所。
+ * 登録のボタンは置かない。その駐車が続いている間(車を動かす前)にこの画面を開いたら、
+ * 車の場所を自宅として覚える(この端末だけに置く。同期しない)。
+ * 覚えた場所から HOME_NEAR_METERS 以内に駐車していたら、左上を「自宅に駐車中」にする
+ * (GPS のずれや、停める位置の違いの分だけ広めに)。
  */
+const HOME_PARKED_BY = Date.parse("2026-10-22T23:40:00+09:00");
 const HOME_SPOT_STORAGE_KEY = "zcar-home-spot";
-const HOME_NEAR_METERS = 150;
+const HOME_NEAR_METERS = 100;
 type HomeSpot = { lat: number; lng: number };
 
 const readHomeSpot = (): HomeSpot | null => {
@@ -74,10 +78,9 @@ const readHomeSpot = (): HomeSpot | null => {
   }
 };
 
-const writeHomeSpot = (spot: HomeSpot | null) => {
+const writeHomeSpot = (spot: HomeSpot) => {
   try {
-    if (spot) localStorage.setItem(HOME_SPOT_STORAGE_KEY, JSON.stringify(spot));
-    else localStorage.removeItem(HOME_SPOT_STORAGE_KEY);
+    localStorage.setItem(HOME_SPOT_STORAGE_KEY, JSON.stringify(spot));
   } catch {
     // 保存できない(プライベートブラウズなど)ときは、開いている間だけ覚える。
   }
@@ -502,6 +505,13 @@ export function CarLocationPanel({
       try {
         const result = await fetchParking(syncKey);
         if (!active) return;
+        // 「ここは自宅」と言ったときの駐車がまだ続いていれば、その場所を自宅として覚える(1回だけ)。
+        const parked = result.park;
+        if (parked && parked.since <= HOME_PARKED_BY && !readHomeSpot()) {
+          const spot = { lat: parked.lat, lng: parked.lng };
+          writeHomeSpot(spot);
+          setHomeSpot(spot);
+        }
         setLoaded({ park: result.park, offset: result.now - Date.now() });
         setClock(result.now);
         failures = 0;
@@ -620,11 +630,6 @@ export function CarLocationPanel({
   // 自宅として覚えた場所の近くに駐車している。
   const atHome =
     status === "parked" && park !== null && homeSpot !== null && distanceMeters(park, homeSpot) <= HOME_NEAR_METERS;
-  /** 「ここを自宅にする」(いまの駐車の場所を覚える)・「自宅の登録をやめる」(null)。 */
-  const saveHome = (spot: HomeSpot | null) => {
-    setHomeSpot(spot);
-    writeHomeSpot(spot);
-  };
   const shown = phoneInCar ? phoneFix : park;
   const shownLat = shown?.lat;
   const shownLng = shown?.lng;
@@ -948,16 +953,6 @@ export function CarLocationPanel({
             )}
           </button>
         </div>
-      ) : null}
-      {status === "parked" && park ? (
-        // 駐車中は、いまの場所を自宅として覚えられる(自宅に停めたときは、やめられる)。
-        <button
-          type="button"
-          className="zr-park-home"
-          onClick={() => saveHome(atHome ? null : { lat: park.lat, lng: park.lng })}
-        >
-          {atHome ? "自宅の登録をやめる" : "ここを自宅にする"}
-        </button>
       ) : null}
       <p className="zr-note">
         {phoneInCar
