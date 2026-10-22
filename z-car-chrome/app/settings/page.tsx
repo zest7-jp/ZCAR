@@ -171,6 +171,8 @@ export default function PhoneSettingsPage() {
   // 目的地を直しているところ。
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState({ label: "", destination: "" });
+  // 一覧の右の削除を1回押したところ(もう一度押すと消える。3秒で元に戻る)。
+  const [armedDelete, setArmedDelete] = useState<string | null>(null);
   // Google マップのコピーを読み取っているところ。
   const [pasting, setPasting] = useState(false);
   // 「Google マップから直接送る」(ショートカットの作り方)を開いているところ。
@@ -519,6 +521,27 @@ export default function PhoneSettingsPage() {
       .writeText(shareUrlFor(shareToken))
       .then(() => setToast("送り先をコピーしました。ショートカットに貼り付けてください"))
       .catch(() => setToast("コピーできませんでした。もう一度押してください"));
+  };
+
+  useEffect(() => {
+    if (!armedDelete) return;
+    const timer = window.setTimeout(() => setArmedDelete(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [armedDelete]);
+
+  /**
+   * 一覧の右の削除。1回目は「消す」に変えるだけで、もう一度押すと消す(間違えて消さないように)。
+   * 出発・帰宅は名前が決まっているので、住所だけを消す(編集の欄の「この住所を消す」と同じ)。
+   */
+  const deleteChoice = (choice: NavChoice) => {
+    if (armedDelete !== choice.key) {
+      setArmedDelete(choice.key);
+      return;
+    }
+    setArmedDelete(null);
+    if (editKey === choice.key) setEditKey(null);
+    setDraft((current) => saveNavChoice(current, choice.key, { label: "", destination: "" }));
+    setToast(`「${choice.label}」${choice.fixed ? "の住所" : ""}を消しました${sendNote}`);
   };
 
   /** 直した(足した)場所を保存する。clear のときは、その場所を消す。 */
@@ -1001,6 +1024,28 @@ export default function PhoneSettingsPage() {
                       <span className="zr-place-addr">{choice.destination || "未登録"}</span>
                       <i aria-hidden="true" />
                     </button>
+                    {choice.destination ? (
+                      <button
+                        type="button"
+                        className={`zr-del${armedDelete === choice.key ? " is-armed" : ""}`}
+                        aria-label={
+                          armedDelete === choice.key
+                            ? `${choice.label} を消す(もう一度押すと消えます)`
+                            : `${choice.label} を消す`
+                        }
+                        onClick={() => deleteChoice(choice)}
+                      >
+                        {armedDelete === choice.key ? (
+                          <b>消す</b>
+                        ) : (
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6" />
+                          </svg>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="zr-del-space" aria-hidden="true" />
+                    )}
                   </div>
                   {editing ? placeEditor(choice) : null}
                 </li>
