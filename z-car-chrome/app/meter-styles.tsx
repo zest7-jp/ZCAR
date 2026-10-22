@@ -1398,8 +1398,8 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 // グラスコックピット: 戦闘機の計器盤のように、縁に押しボタンの目印がある3枚の画面(MFD)を並べる。
 // 昼間の日差しでも読めるよう、字は太く大きく、光のにじみは使わない。
 // 左(SYS): 時計とその右に天気予報・日付と一週間(出勤日)・ガソリンの縦のテープ(F〜E)と残り・あと何km。
-// 真ん中(FLIGHT): 方位のテープ、速さ(左)と回転(右)の流れるテープ、大きな速さ、ECO。
-// 右(ENGINE): 水温・電圧、注意の欄(異常がなければ ALL NORMAL)、右下に DEST・START。
+// 真ん中(FLIGHT): 方位のテープ、速さ(左)と回転(右)の流れるテープ、大きな速さ、平均の速さ。
+// 右(ENGINE): 水温・電圧、注意の欄(異常がなければ ALL NORMAL)、ECO DRIVE(80年代と同じ場所)、右下に DEST・START。
 // (設定の名前は前のナイト HUD のまま "hud")
 // ------------------------------------------------------------------
 
@@ -1440,6 +1440,13 @@ const MC_BAY = RETRO_MAP_BAY;
 const MC_DEST = RETRO_DEST;
 const MC_START = RETRO_START;
 const MC_FUEL_HIT = { x: 22, y: 136, w: 288, h: 400 };
+/**
+ * ECO DRIVE: 「GOOGLE MAPS」の箱の左(80年代のテーマと同じ並び。ナビ中も Google マップの小さな画面に隠れない)。
+ * 2400 回転以下で走っていると ECO のランプが点き、縦の棒は回転が低いほど多く光る(80年代と同じ決まり)。
+ */
+const MC_ECO = { x: 718, y: 332, w: 104, h: 218, segs: 12, barX: 740, barW: 60, barTop: 420, barBottom: 540 };
+const mcEcoY = (i: number) => r2(MC_ECO.barBottom - (i + 1) * ((MC_ECO.barBottom - MC_ECO.barTop) / MC_ECO.segs) + 2);
+const MC_ECO_SEG_H = r2((MC_ECO.barBottom - MC_ECO.barTop) / MC_ECO.segs - 3);
 /** START の行き先の字を置ける幅(右の矢印の手前まで)。 */
 const MC_DEST_TEXT_W = 92;
 const mcNormal = (deg: number) => ((deg % 360) + 360) % 360;
@@ -1552,9 +1559,15 @@ const CockpitFace = memo(function CockpitFace() {
         <circle cx="512" cy="330" r="12" />
         <path d="M466 330 H496 M528 330 H558 M512 318 V302" />
       </g>
-      {label(512, 400, "ECO", { size: 22, color: MC.green, anchor: "middle", spacing: 6 })}
-      {label(512, 420, `≤${ECO_RPM} rpm`, { size: 11, anchor: "middle" })}
-      <rect x="452" y="440" width="120" height="10" fill="#0c2016" />
+      {label(512, 404, "平均の速さ", { size: 12, anchor: "middle", jp: true })}
+      {label(560, 440, "km/h", { size: 12 })}
+      {/* 右下の左: ECO DRIVE の枠・見出し・消えている棒 */}
+      <rect x={MC_ECO.x} y={MC_ECO.y} width={MC_ECO.w} height={MC_ECO.h} rx="6" fill="none" stroke={MC.frame} strokeWidth="1.5" />
+      {label(MC_ECO.x + MC_ECO.w / 2, MC_ECO.y + 20, "ECO DRIVE", { size: 10, anchor: "middle", spacing: 2 })}
+      {label(MC_ECO.x + MC_ECO.w / 2, MC_ECO.y + 76, `≤${ECO_RPM} rpm`, { size: 10, anchor: "middle" })}
+      {Array.from({ length: MC_ECO.segs }, (_, i) => (
+        <rect key={i} x={MC_ECO.barX} y={mcEcoY(i)} width={MC_ECO.barW} height={MC_ECO_SEG_H} fill="#0c2016" />
+      ))}
       {/* 右: 水温・電圧の名前と単位・棒の下地、注意の欄の枠 */}
       {label(724, 60, "水温", { size: 13, jp: true })}
       {label(724, 82, "°C", { size: 11 })}
@@ -1591,6 +1604,8 @@ export function CockpitCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
   const speed = data.speed === null ? null : Math.max(0, Math.round(data.speed));
   const rpm100 = data.rpm === null ? null : Math.round(data.rpm / 100);
   const eco = ecoLevel(data.rpm, data.speed);
+  const ecoLit = eco >= 0.5;
+  const ecoSegs = Math.round(eco * MC_ECO.segs);
   // 注意の欄: 危ないものがあれば琥珀色で並べる(なければ ALL NORMAL)。
   const cautions = [
     fuelKnown && data.fuelPercent <= 15 ? "燃料が少ない" : null,
@@ -1706,7 +1721,19 @@ export function CockpitCluster({ data, onFuel, onDest, onStart }: ClusterProps) 
         <text x="512" y="262" textAnchor="middle" fill={speed === null ? MC.dim : MC.white} fontSize="84" className="mc-mono">
           {speed === null ? "--" : speed}
         </text>
-        <rect x="452" y="440" width={r2(120 * eco)} height="10" fill={MC.green} data-eco={Math.round(eco * 100)} />
+        {/* 真ん中: 平均の速さ */}
+        <text x="552" y="440" textAnchor="end" fill={MC.white} fontSize="28" className="mc-mono">
+          {data.avgCruise === null ? "--" : Math.round(data.avgCruise)}
+        </text>
+        {/* 右下の左: ECO DRIVE(2400 回転以下で走っているとランプが点き、棒は回転が低いほど多く光る) */}
+        <g data-eco={Math.round(eco * 100)} data-eco-lamp={ecoLit ? "1" : "0"}>
+          <text x={MC_ECO.x + MC_ECO.w / 2} y={MC_ECO.y + 58} textAnchor="middle" fill={ecoLit ? MC.green : "#173525"} fontSize="30" letterSpacing="4">
+            ECO
+          </text>
+          {Array.from({ length: ecoSegs }, (_, i) => (
+            <rect key={i} x={MC_ECO.barX} y={mcEcoY(i)} width={MC_ECO.barW} height={MC_ECO_SEG_H} fill={MC.green} />
+          ))}
+        </g>
         {/* 右: 水温・電圧(大きな数と棒) */}
         <text x="992" y="64" textAnchor="end" fill={MC.white} fontSize="30" className="mc-mono">
           {data.coolant === null ? "--" : Math.round(data.coolant)}
