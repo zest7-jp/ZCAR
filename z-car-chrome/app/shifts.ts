@@ -1,5 +1,6 @@
 // Zポータル(zest-home)の確定シフト。七塚のシフトを読み、車の上の帯と1週間の画面に出す。
-// (前のホーム画面で使っていたのと同じところから読む)
+// Zポータルは 2026-10-12 に自社の Cloudflare(portal.zest7.app)へ引っ越した。前の ChatGPT のサイトには
+// 9月までのシフトしか残っていないので、新しい住所から読む。
 
 /** 確定シフト1件。date は日本の日付(YYYY-MM-DD)、時刻は HH:MM(読めなければ空)。 */
 export type ConfirmedShift = {
@@ -21,8 +22,7 @@ export type ShiftFeed = {
   unreadable: number;
 };
 
-export const SHIFT_URL =
-  "https://zest-home.amok-uk.chatgpt.site/api/confirmed-shifts?profileId=nanatsuka";
+export const SHIFT_URL = "https://portal.zest7.app/api/confirmed-shifts?profileId=nanatsuka";
 /** シフトを読み直す間隔。 */
 export const SHIFT_REFRESH_MS = 30 * 60_000;
 
