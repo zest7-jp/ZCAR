@@ -5,7 +5,6 @@ import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import { useParkingReport } from "./hooks/use-parking-report";
 import { useSharedSync } from "./hooks/use-shared-sync";
 import {
-  BAGUA_PATTERNS,
   buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
   defaults,
@@ -34,7 +33,6 @@ import {
 } from "./settings-store";
 import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
 import {
-  BaguaCluster,
   DayCluster,
   MeterStyleThumb,
   RETRO_MAP_LOOK,
@@ -417,8 +415,6 @@ export default function Home() {
   const [greenMapReady, setGreenMapReady] = useState(false);
   // メーターの真ん中を押して形を変えたとき、形の名前を少しだけ出す(数が変わるたびに出し直す)。
   const [designFlash, setDesignFlash] = useState(0);
-  // 八卦のテーマで、真ん中を押してパターンを変えたとき(同じように名前を少し出す)。
-  const [baguaFlash, setBaguaFlash] = useState(0);
   const greenGmapRef = useRef<{
     setCenter: (point: { lat: number; lng: number }) => void;
     moveCamera: (camera: Record<string, unknown>) => void;
@@ -935,7 +931,7 @@ export default function Home() {
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
   // 地図はメーター(近未来のどちらの形と、80年代のテーマに地図がある)を出しているときだけ作る。
-  // 地図の器はテーマ(近未来なら形)ごとに違う。デイライト・八卦のテーマには地図を置かない。
+  // 地図の器はテーマ(近未来なら形)ごとに違う。デイライトのテーマには地図を置かない。
   const meterStyleId = meterStyleInfo(settings.meterStyle).id;
   const mapHost = showFuel
     ? null
@@ -1528,7 +1524,7 @@ export default function Home() {
       : Math.max(0, Math.min(100, (estimatedRemainingLiters / FUEL_TANK_CAPACITY_L) * 100));
   const estimatedAverageFuelEconomy = recentFuelEconomy;
 
-  // 80年代のデジタル・デイライト・八卦のテーマに渡す値(近未来のメーターと同じ値)。
+  // 80年代のデジタル・デイライトのテーマに渡す値(近未来のメーターと同じ値)。
   const clusterData: ClusterData = {
     speed: greenCenterSpeed,
     rpm: obdData.rpm ?? null,
@@ -1657,13 +1653,6 @@ export default function Home() {
     setSettings((current) => ({ ...current, meterDesign: next.id }));
     setDesignFlash((count) => count + 1);
   };
-  // 八卦のテーマ: メーターの真ん中を押すと、次のパターンにする(車だけに覚える)。
-  const cycleBaguaPattern = () => {
-    const index = BAGUA_PATTERNS.findIndex((pattern) => pattern.id === settings.baguaPattern);
-    const next = BAGUA_PATTERNS[(index + 1) % BAGUA_PATTERNS.length];
-    setSettings((current) => ({ ...current, baguaPattern: next.id }));
-    setBaguaFlash((count) => count + 1);
-  };
   const gaugeSwitch = (
     <>
       <button
@@ -1686,7 +1675,7 @@ export default function Home() {
       <div
         id="app"
         className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}${
-          // 80年代・デイライト・八卦のテーマでは、近未来の色の決まり(filter など)をかけない。
+          // 80年代・デイライトのテーマでは、近未来の色の決まり(filter など)をかけない。
           // 燃費画面は今まで通り、近未来の色で出す。
           isFuture || showFuel
             ? `meter-theme-${activeTheme.id}${activeTheme.tinted ? ` meter-tinted zt-${activeTheme.id}` : ""}`
@@ -1847,19 +1836,6 @@ export default function Home() {
               onFuel={toggleFuelView}
               onDest={openDestDialog}
               onStart={startNavigation}
-            />
-          </main>
-        ) : null}
-        {!showFuel && activeStyle.id === "bagua" ? (
-          <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
-            <BaguaCluster
-              data={clusterData}
-              onFuel={toggleFuelView}
-              onDest={openDestDialog}
-              onStart={startNavigation}
-              pattern={settings.baguaPattern}
-              onPattern={cycleBaguaPattern}
-              flash={baguaFlash}
             />
           </main>
         ) : null}
