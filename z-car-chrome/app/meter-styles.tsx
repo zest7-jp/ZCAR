@@ -843,7 +843,7 @@ const forecastText = (weather: ClusterWeather | null) =>
 // ------------------------------------------------------------------
 // デイライト: 昼間の日差しの中でも読みやすい、白い文字盤の三連メーター。
 // 並びは三連メーター(左に回転計、真ん中に速度計、右に時計、下の左右に板)。
-// 明るいアルミの板に、クロムの縁・白い文字盤・影の落ちる針・液晶の小窓を、本物のメーターに似せて描く。
+// 黒いカーボンの板に、クロムの縁・白い文字盤・影の落ちる針・液晶の小窓を、本物のメーターに似せて描く。
 // ------------------------------------------------------------------
 
 const DAY = {
@@ -869,16 +869,30 @@ const DAY_LCDS = [DAY_SPEED_LCD, DAY_INFO_LCD, DAY_RPM_LCD, DAY_WEATHER_LCD, BAT
 
 const DayDefs = () => (
   <defs>
-    <linearGradient id="md-alu" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#e1e3e5" />
-      <stop offset=".55" stopColor="#cfd2d5" />
-      <stop offset="1" stopColor="#babec2" />
+    {/* カーボンの板の編み目: 縦に光る目と横に光る目を、市松に並べる */}
+    <linearGradient id="md-carbon-v" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#34383d" />
+      <stop offset=".5" stopColor="#1b1d20" />
+      <stop offset="1" stopColor="#0d0e10" />
     </linearGradient>
-    {/* アルミの細いヘアライン(横の筋) */}
-    <filter id="md-brush" x="0" y="0" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency=".0016 .7" numOctaves="2" seed="5" />
-      <feColorMatrix type="matrix" values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 .2" />
-    </filter>
+    <linearGradient id="md-carbon-h" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stopColor="#2c3034" />
+      <stop offset=".5" stopColor="#16181a" />
+      <stop offset="1" stopColor="#0a0b0c" />
+    </linearGradient>
+    <pattern id="md-carbon" width="10" height="10" patternUnits="userSpaceOnUse">
+      <rect width="10" height="10" fill="#0a0b0c" />
+      <rect x=".4" y=".4" width="4.2" height="4.2" fill="url(#md-carbon-v)" />
+      <rect x="5.4" y="5.4" width="4.2" height="4.2" fill="url(#md-carbon-v)" />
+      <rect x="5.4" y=".4" width="4.2" height="4.2" fill="url(#md-carbon-h)" />
+      <rect x=".4" y="5.4" width="4.2" height="4.2" fill="url(#md-carbon-h)" />
+    </pattern>
+    {/* 上から当たる光(上はうっすら明るく、下と端は暗く) */}
+    <radialGradient id="md-sheen" cx=".5" cy="-.1" r=".9">
+      <stop offset="0" stopColor="#fff" stopOpacity=".13" />
+      <stop offset=".6" stopColor="#fff" stopOpacity=".03" />
+      <stop offset="1" stopColor="#000" stopOpacity=".35" />
+    </radialGradient>
     <linearGradient id="md-chrome" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stopColor="#ffffff" />
       <stop offset=".2" stopColor="#a3a9ae" />
@@ -1034,15 +1048,16 @@ const DayMiniFace = ({ g }: { g: MiniGauge }) => {
   );
 };
 
-/** デイライトの動かない絵: アルミの板・下の左右の板・3つのメーターの文字盤・液晶の枠・ボタン。 */
+/** デイライトの動かない絵: カーボンの板・下の左右の板・3つのメーターの文字盤・液晶の枠・ボタン。 */
 const DayFace = memo(function DayFace() {
   return (
     <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <DayDefs />
-      <rect width={BOARD_W} height={BOARD_H} fill="url(#md-alu)" />
-      <rect width={BOARD_W} height={BOARD_H} filter="url(#md-brush)" />
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#md-carbon)" />
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#md-sheen)" />
+      {/* 下の左右の板は、黒い板の上で形が分かるように、ふちを細く光らせる */}
       {PANELS.map((panel) => (
-        <rect key={panel.x} x={panel.x} y={panel.y} width={panel.w} height={panel.h} rx="16" fill="url(#md-plastic)" filter="url(#md-shadow)" />
+        <rect key={panel.x} x={panel.x} y={panel.y} width={panel.w} height={panel.h} rx="16" fill="url(#md-plastic)" stroke="#fff" strokeOpacity=".12" strokeWidth="1.2" filter="url(#md-shadow)" />
       ))}
       {GAUGES.map((g) => (
         <DayDial key={g.cx} g={g} />
@@ -1427,8 +1442,13 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
             <stop offset=".45" stopColor="#8f959a" />
             <stop offset="1" stopColor="#e4e6e8" />
           </linearGradient>
+          <pattern id="ms-thumb-carbon" width="4" height="4" patternUnits="userSpaceOnUse">
+            <rect width="4" height="4" fill="#0b0c0e" />
+            <rect width="2" height="2" fill="#26292d" />
+            <rect x="2" y="2" width="2" height="2" fill="#26292d" />
+          </pattern>
         </defs>
-        <rect width="120" height="70" fill="#cfd2d5" />
+        <rect width="120" height="70" fill="url(#ms-thumb-carbon)" />
         {[
           [17, 22, 12],
           [103, 22, 12],
