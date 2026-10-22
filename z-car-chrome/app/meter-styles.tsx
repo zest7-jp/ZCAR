@@ -1,6 +1,6 @@
 "use client";
 
-// 近未来のほかのテーマ(80年代のデジタル・デイライト・ナイト HUD)の、メーターの画面。
+// 近未来のほかのテーマ(80年代のデジタル・デイライト・グラスコックピット)の、メーターの画面。
 // どれも 1024x566 の板に描き、使える広さに合わせて拡大・縮小する(車載機ではほぼ等倍)。
 // 下から「動かない絵(SVG)」「地図」「動く針や数字(SVG)」「押せる所(ボタン)」の順に重ねる。
 // 地図(Google マップ)を作るのは app/page.tsx で、ここでは置き場所を用意するだけ。
@@ -1395,244 +1395,276 @@ export function DayCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
 }
 
 // ------------------------------------------------------------------
-// ナイト HUD: 戦闘機のヘッドアップ表示のような、黒に光る緑の線。方位とガソリン残量をいちばん大きく出す。
-// 上に方位のテープ(車の向きに合わせて流れる)、真ん中に大きな速さと、それを囲む六つのメーターの輪(円図のような6重の輪)、
-// 左にガソリンのはしご(%・L・あと何km)、右に時計・一週間の帯(出勤日)・天気・水温・電圧、右下に DEST・START。
+// グラスコックピット: 戦闘機の計器盤のように、縁に押しボタンの目印がある3枚の画面(MFD)を並べる。
+// 昼間の日差しでも読めるよう、字は太く大きく、光のにじみは使わない。
+// 左(SYS): 時計とその右に天気予報・日付と一週間(出勤日)・ガソリンの縦のテープ(F〜E)と残り・あと何km。
+// 真ん中(FLIGHT): 方位のテープ、速さ(左)と回転(右)の流れるテープ、大きな速さ、ECO。
+// 右(ENGINE): 水温・電圧、注意の欄(異常がなければ ALL NORMAL)、右下に DEST・START。
+// (設定の名前は前のナイト HUD のまま "hud")
 // ------------------------------------------------------------------
 
-const HUD = {
-  green: "#59ffa6",
-  dim: "#22865a",
-  faint: "#0d3424",
-  amber: "#ffc24d",
-  red: "#ff5a4d",
-  bg: "#010604",
-  work: "#1e7a4f",
-  cyan: "#5ad1ff",
-  blue: "#4a8dff",
-  lime: "#c2ff5a",
-  white: "#e6fff0",
+const MC = {
+  white: "#f4f7f6",
+  dim: "#8a9a98",
+  green: "#3dff8f",
+  cyan: "#40d9ff",
+  amber: "#ffb020",
+  red: "#ff4a3d",
+  bg: "#16191c",
+  screen: "#020504",
+  tape: "#07100c",
+  frame: "#2c3a34",
+  bezel: "#22272b",
 };
-/** 方位のテープ(1度 = px。真ん中 cx が今の向き)。 */
-const HT = { x: 292, w: 440, y: 22, h: 58, px: 3, cx: 512 };
-const HUD_DIRS = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
-/** ガソリンのはしご(下から上へ cells こ)。 */
-const HL = { x: 40, y: 58, h: 372, cells: 20 };
-/**
- * 真ん中の六つのメーターの輪(六十四卦の円図のように、6重の輪を細かく区切る)。外から 回転・速さ・燃料・水温・電圧・秒。
- * どれも左下から右下までの 270° を 48 に区切り、今の値の所まで光らせる。光の先は1秒ごとに点滅する。
- * 回転は 6000 から赤(超えると赤い所が速く点滅)。燃料が少ない・水温が高い・電圧が低いときは、その輪が速く点滅する。
- */
-const HRING = { cx: 512, cy: 322, r: 234, pitch: 13, thick: 10, segs: 48, from: -135, step: 5.625, w: 4.4, hot: 36 };
-type HudRingKey = "rpm" | "speed" | "fuel" | "coolant" | "volt" | "sec";
-const HUD_RINGS: { key: HudRingKey; name: string; color: string; glow: string }[] = [
-  { key: "rpm", name: "回転", color: HUD.green, glow: "url(#mh-g)" },
-  { key: "speed", name: "速さ", color: HUD.cyan, glow: "url(#mh-c)" },
-  { key: "fuel", name: "燃料", color: HUD.amber, glow: "url(#mh-y)" },
-  { key: "coolant", name: "水温", color: HUD.blue, glow: "url(#mh-b)" },
-  { key: "volt", name: "電圧", color: HUD.lime, glow: "url(#mh-l)" },
-  { key: "sec", name: "秒", color: HUD.white, glow: "url(#mh-w)" },
+/** 3枚の画面(縁の内側)。 */
+const MC_SCREENS = [
+  { x: 16, w: 300, title: "SYS" },
+  { x: 336, w: 352, title: "FLIGHT" },
+  { x: 708, w: 300, title: "ENGINE" },
 ];
-/** 輪 k の i 番目の区切り(ドーナツの一切れ)の形。動かないので最初に作っておく。 */
-const HRING_PATHS = HUD_RINGS.map((_, k) => {
-  const rOut = HRING.r - k * HRING.pitch;
-  const rIn = rOut - HRING.thick;
-  return Array.from({ length: HRING.segs }, (_, i) => {
-    const a0 = HRING.from + i * HRING.step + (HRING.step - HRING.w) / 2;
-    const [x0, y0] = pol(HRING.cx, HRING.cy, rOut, a0);
-    const [x1, y1] = pol(HRING.cx, HRING.cy, rOut, a0 + HRING.w);
-    const [x2, y2] = pol(HRING.cx, HRING.cy, rIn, a0 + HRING.w);
-    const [x3, y3] = pol(HRING.cx, HRING.cy, rIn, a0);
-    return `M${x0} ${y0}A${rOut} ${rOut} 0 0 1 ${x1} ${y1}L${x2} ${y2}A${rIn} ${rIn} 0 0 0 ${x3} ${y3}Z`;
-  });
-});
-/** 輪の下のすき間に並べる、輪の名前と値の場所(3列×2行。色の札で輪と合わせる)。 */
-const hudLegend = (k: number) => ({ x: [404, 512, 620][k % 3], y: k < 3 ? 514 : 540 });
+const MC_Y = 12;
+const MC_H = 540;
+/** 方位のテープ(1度 = px)。 */
+const MC_HT = { cx: 512, y: 52, w: 320, px: 3 };
+const MC_DIRS = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
+/** 速さ(左)と回転(右)の流れるテープ。 */
+const MC_SPEED = { x: 356, y: 150, w: 60, h: 380, px: 3, minor: 5, major: 20 };
+const MC_RPM = { x: 608, y: 150, w: 60, h: 380, px: 6, minor: 2, major: 10 };
+/** ガソリンの縦のテープ(目盛りは動かず、今の量の所に箱が動く)。 */
+const MC_FUEL = { x: 30, y: 166, w: 64, h: 352 };
 /** 右下の DEST・START(80年代のテーマと同じ、Google マップの小窓が重なる所)と、ガソリンの押せる所。 */
-const H_DEST = { x: 834, y: 332, w: 174, h: 96 };
-const H_START = { x: 834, y: 440, w: 174, h: 108 };
-const H_FUEL = { x: 24, y: 22, w: 236, h: 424 };
-const normalDeg = (deg: number) => ((deg % 360) + 360) % 360;
-const hudDir = (deg: number) => HUD_DIRS[Math.round(normalDeg(deg) / 45) % 8];
-/** はしごの段の色(下の3段は赤、その上の3段は琥珀色)。 */
-const ladderColor = (i: number) => (i < 3 ? HUD.red : i < 6 ? HUD.amber : HUD.green);
-const ladderGlow = (i: number) => (i < 3 ? "url(#mh-r)" : i < 6 ? "url(#mh-y)" : "url(#mh-g)");
-const ladderY = (i: number) => r2(HL.y + HL.h - (i + 1) * (HL.h / HL.cells) + 2);
+const MC_DEST = { x: 834, y: 332, w: 174, h: 96 };
+const MC_START = { x: 834, y: 440, w: 174, h: 108 };
+const MC_FUEL_HIT = { x: 22, y: 136, w: 288, h: 400 };
+const mcNormal = (deg: number) => ((deg % 360) + 360) % 360;
+const mcDir = (deg: number) => MC_DIRS[Math.round(mcNormal(deg) / 45) % 8];
+const mcFuelY = (pct: number) => r2(MC_FUEL.y + MC_FUEL.h - (clamp01(pct / 100) * MC_FUEL.h));
+/** 今の値の箱(テープの内側へとがった形)。 */
+const mcBox = (x: number, cy: number, w: number, side: "left" | "right") =>
+  side === "left"
+    ? `${x},${cy - 20} ${x + w},${cy - 20} ${x + w + 12},${cy} ${x + w},${cy + 20} ${x},${cy + 20}`
+    : `${x + 12},${cy} ${x + 24},${cy - 20} ${x + w + 24},${cy - 20} ${x + w + 24},${cy + 20} ${x + 24},${cy + 20}`;
 
-/** 色つきの光(ぼかした形を、その色で塗って下に敷く)。 */
-const HudGlow = ({ id, color }: { id: string; color: string }) => (
-  <filter id={id} x="-50%" y="-50%" width="200%" height="200%">
-    <feGaussianBlur stdDeviation="2.2" result="b" />
-    <feFlood floodColor={color} floodOpacity=".85" />
-    <feComposite in2="b" operator="in" result="c" />
-    <feMerge>
-      <feMergeNode in="c" />
-      <feMergeNode in="SourceGraphic" />
-    </feMerge>
-  </filter>
-);
-
-/** ナイト HUD の動かない絵: 下地と格子・テープの枠と三角・方位の札の枠・消えている輪とはしご・名前・DEST と START。 */
-const HudFace = memo(function HudFace() {
+type McTape = typeof MC_SPEED;
+/** 流れるテープの目盛りと数(今の値が真ん中。箱の近くの数は箱に隠れるので出さない)。 */
+function McTapeTicks({ tape, value, side }: { tape: McTape; value: number; side: "left" | "right" }) {
+  const cy = tape.y + tape.h / 2;
+  const half = tape.h / 2 / tape.px;
+  const first = Math.max(0, Math.ceil((value - half) / tape.minor) * tape.minor);
+  const ticks: number[] = [];
+  for (let v = first; v <= value + half; v += tape.minor) ticks.push(v);
+  const edge = side === "left" ? tape.x : tape.x + tape.w;
+  const dir = side === "left" ? 1 : -1;
   return (
-    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-      <defs>
-        <radialGradient id="mh-bg" cx=".5" cy=".5" r=".75">
-          <stop offset="0" stopColor="#03120b" />
-          <stop offset="1" stopColor={HUD.bg} />
-        </radialGradient>
-        <linearGradient id="mh-fade" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor={HUD.bg} />
-          <stop offset=".16" stopColor={HUD.bg} stopOpacity="0" />
-          <stop offset=".84" stopColor={HUD.bg} stopOpacity="0" />
-          <stop offset="1" stopColor={HUD.bg} />
-        </linearGradient>
-        <clipPath id="mh-tape">
-          <rect x={HT.x} y={HT.y} width={HT.w} height={HT.h} />
-        </clipPath>
-        <HudGlow id="mh-g" color={HUD.green} />
-        <HudGlow id="mh-r" color={HUD.red} />
-        <HudGlow id="mh-y" color={HUD.amber} />
-        <HudGlow id="mh-c" color={HUD.cyan} />
-        <HudGlow id="mh-b" color={HUD.blue} />
-        <HudGlow id="mh-l" color={HUD.lime} />
-        <HudGlow id="mh-w" color={HUD.white} />
-      </defs>
-      <rect width={BOARD_W} height={BOARD_H} fill="url(#mh-bg)" />
-      <g stroke={HUD.green} strokeOpacity=".035">
-        {Array.from({ length: 33 }, (_, i) => (
-          <line key={`x${i}`} x1={i * 32} y1="0" x2={i * 32} y2={BOARD_H} />
-        ))}
-        {Array.from({ length: 18 }, (_, i) => (
-          <line key={`y${i}`} x1="0" y1={i * 32} x2={BOARD_W} y2={i * 32} />
-        ))}
-      </g>
-      {/* 方位のテープの上の線と、真ん中の三角(今の向き) */}
-      <line x1={HT.x} y1={HT.y} x2={HT.x + HT.w} y2={HT.y} stroke={HUD.green} strokeOpacity=".6" />
-      <polygon points={`${HT.cx},${HT.y - 4} ${HT.cx - 9},${HT.y - 18} ${HT.cx + 9},${HT.y - 18}`} fill={HUD.green} filter="url(#mh-g)" />
-      {/* 六つのメーターの輪(消えている所。回転の 6000 からは赤)と、下のすき間の色の札と名前 */}
-      {HUD_RINGS.map((ring, k) => (
-        <g key={ring.key} fill={ring.color} opacity=".13">
-          {HRING_PATHS[k].map((d, i) => (ring.key === "rpm" && i >= HRING.hot ? null : <path key={i} d={d} />))}
-        </g>
-      ))}
-      <g fill={HUD.red} opacity=".22">
-        {HRING_PATHS[0].slice(HRING.hot).map((d, i) => (
-          <path key={i} d={d} />
-        ))}
-      </g>
-      {HUD_RINGS.map((ring, k) => {
-        const { x, y } = hudLegend(k);
+    <g clipPath={`url(#mc-clip-${side})`}>
+      {ticks.map((v) => {
+        const y = r2(cy - (v - value) * tape.px);
+        const big = v % tape.major === 0;
         return (
-          <g key={ring.key}>
-            <rect x={x - 48} y={y - 9} width="9" height="9" rx="2" fill={ring.color} />
-            <text x={x - 34} y={y} fill={HUD.dim} fontSize="11" fontWeight="700" className="mh-jp">
-              {ring.name}
-            </text>
+          <g key={v}>
+            <line x1={edge} y1={y} x2={edge + dir * (big ? 16 : 9)} y2={y} stroke={MC.white} strokeWidth={big ? 2.4 : 1.6} />
+            {big && Math.abs(y - cy) > 30 ? (
+              <text x={side === "left" ? tape.x + 22 : tape.x + tape.w - 22} y={y + 6} textAnchor={side === "left" ? "start" : "end"} fill={MC.white} fontSize="16" className="mc-mono">
+                {v}
+              </text>
+            ) : null}
           </g>
         );
       })}
-      {/* 輪の内側: 方位の札の枠と、速さの単位 */}
-      <rect x={HRING.cx - 55} y="186" width="110" height="32" rx="4" fill={HUD.bg} stroke={HUD.green} strokeWidth="1.6" filter="url(#mh-g)" />
-      <text x={HRING.cx} y="400" textAnchor="middle" fill={HUD.dim} fontSize="14" fontWeight="700" letterSpacing="4">
-        km/h
-      </text>
-      {/* 左: ガソリンのはしご(消えている段)と F・½・E */}
-      <text x="32" y="38" fill={HUD.dim} fontSize="13" fontWeight="700" letterSpacing="2" className="mh-jp">
-        ガソリン
-      </text>
-      {Array.from({ length: HL.cells }, (_, i) => (
-        <rect key={i} x={HL.x} y={ladderY(i)} width="44" height={r2(HL.h / HL.cells - 4)} fill={HUD.faint} />
+    </g>
+  );
+}
+
+/** グラスコックピットの動かない絵: 縁と画面・押しボタンの目印・見出し・目盛りの枠・名前・DEST と START の枠。 */
+const CockpitFace = memo(function CockpitFace() {
+  const label = (x: number, y: number, text: string, opts: { size?: number; color?: string; anchor?: "start" | "middle" | "end"; jp?: boolean; spacing?: number } = {}) => (
+    <text x={x} y={y} fill={opts.color ?? MC.dim} fontSize={opts.size ?? 12} textAnchor={opts.anchor ?? "start"} letterSpacing={opts.spacing ?? 0} className={opts.jp ? "mc-jp" : undefined}>
+      {text}
+    </text>
+  );
+  return (
+    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+      <defs>
+        <clipPath id="mc-clip-left">
+          <rect x={MC_SPEED.x} y={MC_SPEED.y} width={MC_SPEED.w} height={MC_SPEED.h} />
+        </clipPath>
+        <clipPath id="mc-clip-right">
+          <rect x={MC_RPM.x} y={MC_RPM.y} width={MC_RPM.w} height={MC_RPM.h} />
+        </clipPath>
+        <clipPath id="mc-clip-heading">
+          <rect x={MC_HT.cx - MC_HT.w / 2} y={MC_HT.y} width={MC_HT.w} height="52" />
+        </clipPath>
+      </defs>
+      <rect width={BOARD_W} height={BOARD_H} fill={MC.bg} />
+      {/* 3枚の画面: 縁(押しボタンの目印つき)と黒い画面・見出し */}
+      {MC_SCREENS.map((s) => (
+        <g key={s.title}>
+          <rect x={s.x - 7} y={MC_Y - 7} width={s.w + 14} height={MC_H + 14} rx="10" fill={MC.bezel} stroke="#33393e" strokeWidth="1.5" />
+          <rect x={s.x} y={MC_Y} width={s.w} height={MC_H} rx="4" fill={MC.screen} stroke="#0f1513" strokeWidth="2" />
+          {Array.from({ length: 5 }, (_, i) => (
+            <rect key={i} x={r2(s.x + 14 + i * ((s.w - 28) / 5) + 6)} y={MC_Y - 6} width={r2((s.w - 28) / 5 - 12)} height="4" rx="1" fill="#454c52" />
+          ))}
+          {label(s.x + s.w / 2, MC_Y + 17, s.title, { size: 11, anchor: "middle", spacing: 3 })}
+        </g>
       ))}
-      <text x="98" y={HL.y + 12} fill={HUD.green} fontSize="14" fontWeight="700" className="mh-mono">
-        F
-      </text>
-      <text x="98" y={HL.y + HL.h / 2 + 5} fill={HUD.dim} fontSize="14" fontWeight="700" className="mh-mono">
-        ½
-      </text>
-      <text x="98" y={HL.y + HL.h} fill={HUD.red} fontSize="14" fontWeight="700" className="mh-mono">
-        E
-      </text>
-      <text x="130" y="268" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
-        あと
-      </text>
-      {/* 右: 水温と電圧の名前 */}
-      <text x="842" y="216" fill={HUD.dim} fontSize="12" fontWeight="700" className="mh-jp">
-        水温
-      </text>
-      <text x="842" y="252" fill={HUD.dim} fontSize="12" fontWeight="700" className="mh-jp">
-        電圧
-      </text>
-      {/* 右下: DEST と START */}
-      <rect x={H_DEST.x} y={H_DEST.y} width={H_DEST.w} height={H_DEST.h} rx="4" fill={HUD.bg} stroke={HUD.green} strokeWidth="1.6" filter="url(#mh-g)" />
-      <text x={H_DEST.x + 18} y={H_DEST.y + 30} fill={HUD.dim} fontSize="11" fontWeight="700" className="mh-jp">
+      {/* 左: 時計と天気の仕切り・ガソリン */}
+      <line x1="178" y1="40" x2="178" y2="92" stroke={MC.frame} strokeWidth="2" />
+      {label(30, 150, "FUEL", { size: 13, spacing: 3 })}
+      <rect x={MC_FUEL.x} y={MC_FUEL.y} width={MC_FUEL.w} height={MC_FUEL.h} fill={MC.tape} stroke={MC.frame} strokeWidth="1.5" />
+      {Array.from({ length: 21 }, (_, i) => {
+        const v = i * 5;
+        const y = mcFuelY(v);
+        const big = v % 25 === 0;
+        return (
+          <g key={v}>
+            <line x1={MC_FUEL.x} y1={y} x2={MC_FUEL.x + (big ? 18 : 9)} y2={y} stroke={v <= 15 ? MC.red : MC.white} strokeWidth={big ? 2.4 : 1.6} />
+            {big ? (
+              <text x={MC_FUEL.x + 24} y={y + 6} fill={v === 0 ? MC.red : MC.white} fontSize="16" className="mc-mono">
+                {["E", "¼", "½", "¾", "F"][v / 25]}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+      {label(120, 196, "残り", { size: 13, jp: true })}
+      {label(214, 232, "L", { size: 16 })}
+      {label(120, 284, "あと", { size: 13, jp: true })}
+      {label(220, 330, "km", { size: 18, color: MC.amber })}
+      <line x1="120" y1="356" x2="300" y2="356" stroke={MC.frame} strokeWidth="1.5" />
+      {label(120, 386, "平均燃費", { jp: true })}
+      {label(120, 418, "今日", { jp: true })}
+      {/* 真ん中: 方位テープの上の線と三角・速さと回転のテープの枠・照準・ECO */}
+      <line x1={MC_HT.cx - MC_HT.w / 2} y1={MC_HT.y} x2={MC_HT.cx + MC_HT.w / 2} y2={MC_HT.y} stroke={MC.white} strokeWidth="2" />
+      <polygon points={`${MC_HT.cx},${MC_HT.y + 2} ${MC_HT.cx - 10},${MC_HT.y - 14} ${MC_HT.cx + 10},${MC_HT.y - 14}`} fill={MC.green} />
+      {[MC_SPEED, MC_RPM].map((t) => (
+        <rect key={t.x} x={t.x} y={t.y} width={t.w} height={t.h} fill={MC.tape} stroke={MC.frame} strokeWidth="1.5" />
+      ))}
+      {label(MC_SPEED.x + MC_SPEED.w / 2, 546, "km/h", { size: 11, anchor: "middle" })}
+      {label(MC_RPM.x + MC_RPM.w / 2, 546, "×100 rpm", { size: 11, anchor: "middle" })}
+      {label(512, 284, "km/h", { size: 13, anchor: "middle", spacing: 3 })}
+      <g stroke={MC.green} strokeWidth="3" fill="none">
+        <circle cx="512" cy="330" r="12" />
+        <path d="M466 330 H496 M528 330 H558 M512 318 V302" />
+      </g>
+      {label(512, 400, "ECO", { size: 22, color: MC.green, anchor: "middle", spacing: 6 })}
+      {label(512, 420, `≤${ECO_RPM} rpm`, { size: 11, anchor: "middle" })}
+      <rect x="452" y="440" width="120" height="10" fill="#0c2016" />
+      {/* 右: 水温・電圧の名前と単位・棒の下地、注意の欄の枠 */}
+      {label(724, 60, "水温", { size: 13, jp: true })}
+      {label(724, 82, "°C", { size: 11 })}
+      <rect x="724" y="90" width="268" height="8" fill="#0c1a14" />
+      {label(724, 128, "電圧", { size: 13, jp: true })}
+      {label(724, 150, "V", { size: 11 })}
+      <rect x="724" y="158" width="268" height="8" fill="#0c1a14" />
+      {/* 右下: DEST と START の枠と見出し */}
+      <rect x={MC_DEST.x} y={MC_DEST.y} width={MC_DEST.w} height={MC_DEST.h} rx="4" fill="#06120c" stroke={MC.green} strokeWidth="2.4" />
+      {label(MC_DEST.x + 16, MC_DEST.y + 24, "DEST", { size: 13, color: MC.green, spacing: 3 })}
+      <text x={MC_DEST.x + 16} y={MC_DEST.y + 68} fill={MC.white} fontSize="24" className="mc-jp">
         目的地
       </text>
-      <text x={H_DEST.x + 18} y={H_DEST.y + 72} fill={HUD.green} fontSize="26" fontWeight="700" letterSpacing="3" filter="url(#mh-g)">
-        DEST
-      </text>
-      <rect x={H_START.x} y={H_START.y} width={H_START.w} height={H_START.h} rx="4" fill={HUD.bg} stroke={HUD.amber} strokeWidth="1.6" filter="url(#mh-y)" />
-      <text x={H_START.x + 18} y={H_START.y + 30} fill={HUD.amber} fontSize="11" fontWeight="700" letterSpacing="3">
-        START
-      </text>
+      <path d={`M${MC_DEST.x + 146} ${MC_DEST.y + 50} l12 10 -12 10z`} fill={MC.green} />
+      <rect x={MC_START.x} y={MC_START.y} width={MC_START.w} height={MC_START.h} rx="4" fill="#1a1204" stroke={MC.amber} strokeWidth="2.4" />
+      {label(MC_START.x + 16, MC_START.y + 24, "START", { size: 13, color: MC.amber, spacing: 3 })}
     </svg>
   );
 });
 
-export function HudCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
+export function CockpitCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
   // 向きが分からないうちは、北を真ん中にしてテープを暗くする。
   const known = data.heading !== null;
   const heading = data.heading ?? 0;
-  // 見える窓は ±73°。大きく向きが変わってテープが流れている間も端が空かないよう、±180° 分を描いておく。
+  // 見える窓は ±53°。大きく向きが変わってテープが流れている間も端が空かないよう、±180° 分を描いておく。
   const first = Math.floor((heading - 180) / 5) * 5;
   const ticks = Array.from({ length: 73 }, (_, i) => first + i * 5);
-  const litFuel = Math.min(HL.cells, Math.round((clamp01(data.fuelPercent / 100) * HL.cells)));
-  // 六つのメーターの輪の値(0〜1)・下に出す字・速く点滅させるか。
-  const { s: second } = useClockTime(data.clock);
-  const fuelKnown = data.fuelLiters !== null;
-  const rings: Record<HudRingKey, { v: number; text: string; warn: boolean }> = {
-    rpm: { v: (data.rpm ?? 0) / RPM_MAX, text: data.rpm === null ? "—" : String(Math.round(data.rpm)), warn: false },
-    speed: { v: (data.speed ?? 0) / 120, text: data.speed === null ? "—" : `${Math.round(data.speed)}km/h`, warn: false },
-    fuel: { v: data.fuelPercent / 100, text: fuelKnown ? `${Math.round(data.fuelPercent)}%` : "—", warn: fuelKnown && data.fuelPercent <= 15 },
-    coolant: {
-      v: data.coolant === null ? 0 : (data.coolant - 40) / 80,
-      text: data.coolant === null ? "—" : `${Math.round(data.coolant)}°C`,
-      warn: data.coolant !== null && data.coolant >= 105,
-    },
-    volt: {
-      v: data.voltage === null ? 0 : (data.voltage - 10) / 5,
-      text: data.voltage === null ? "—" : `${data.voltage.toFixed(1)}V`,
-      warn: data.voltage !== null && data.voltage < 11.8,
-    },
-    sec: { v: second / 60, text: pad2(second), warn: false },
-  };
-  // 6000 回転を超えたら、回転の輪の赤い所を速く点滅(シフトアップの合図)。
-  const shiftUp = (data.rpm ?? 0) >= 6000;
   const kind = data.weather ? weatherKind(data.weather.code) : null;
+  const fuelKnown = data.fuelLiters !== null;
+  const fuelY = mcFuelY(data.fuelPercent);
+  const speed = data.speed === null ? null : Math.max(0, Math.round(data.speed));
+  const rpm100 = data.rpm === null ? null : Math.round(data.rpm / 100);
+  const eco = ecoLevel(data.rpm, data.speed);
+  // 注意の欄: 危ないものがあれば琥珀色で並べる(なければ ALL NORMAL)。
+  const cautions = [
+    fuelKnown && data.fuelPercent <= 15 ? "燃料が少ない" : null,
+    data.coolant !== null && data.coolant >= 105 ? "水温が高い" : null,
+    data.voltage !== null && data.voltage < 11.8 ? "電圧が低い" : null,
+    data.rpm !== null && data.rpm >= 6000 ? "回転が高い" : null,
+  ].filter((text): text is string => text !== null);
   const dest = data.destLabel ?? "目的地なし";
-  const glow = "url(#mh-g)";
-  const weekWidth = (162 - 6 * 3) / 7;
+  const weekWidth = (186 - 6 * 3) / 7;
+  const speedCy = MC_SPEED.y + MC_SPEED.h / 2;
+  const rpmCy = MC_RPM.y + MC_RPM.h / 2;
   return (
     <Board className="ms-hud">
-      <HudFace />
+      <CockpitFace />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
-        {/* 方位のテープ: 目盛りを今の向きの分だけ左右に動かす(なめらかに流れる) */}
-        <g clipPath="url(#mh-tape)" opacity={known ? 1 : 0.35}>
-          <g className="mh-tape" style={{ transform: `translateX(${r2(-heading * HT.px)}px)` }}>
+        {/* 左: 時計と、その右に天気予報・日付と一週間(出勤日は塗る) */}
+        <text x="30" y="82" fill={MC.white} fontSize="44" className="mc-mono">
+          {data.clock}
+        </text>
+        <text x="190" y="56" fill={MC.cyan} fontSize="24" className="mc-mono">
+          {data.weather ? `${Math.round(data.weather.temperature)}°` : "--°"}
+        </text>
+        <text x="190" y="75" fill={MC.cyan} fontSize="12" className="mc-jp">
+          {kind ? WEATHER_JA[kind] : "天気を読み込み中"}
+        </text>
+        <text x="190" y="92" fill={MC.dim} fontSize="11">
+          {forecastText(data.weather)}
+        </text>
+        <text x="30" y="112" fill={MC.dim} fontSize="15" className="mc-jp">
+          {`${data.month}/${data.day}(${WEEKDAYS[data.weekday]})`}
+        </text>
+        {WEEK_ORDER.map((dayIndex, i) => {
+          const work = data.workDays.includes(dayIndex);
+          const today = dayIndex === data.weekday;
+          const x = r2(118 + i * (weekWidth + 3));
+          return (
+            <g key={dayIndex} data-work={work ? "1" : undefined}>
+              <rect x={x} y="99" width={r2(weekWidth)} height="17" rx="2" fill={work ? "#1f8a4f" : "#121a17"} stroke={today ? MC.white : "none"} strokeWidth="2" />
+              <text x={r2(x + weekWidth / 2)} y="112" textAnchor="middle" fill={work ? "#ffffff" : MC.dim} fontSize="11" className="mc-jp">
+                {WEEKDAYS[dayIndex]}
+              </text>
+            </g>
+          );
+        })}
+        {/* 左: ガソリン(今の量の所に箱。下は琥珀色をうすく塗る)・残り・あと何km・平均・今日 */}
+        <g data-fuel={Math.round(data.fuelPercent)}>
+          {fuelKnown ? (
+            <rect x={MC_FUEL.x + 1} y={fuelY} width={MC_FUEL.w - 2} height={r2(MC_FUEL.y + MC_FUEL.h - fuelY)} fill={MC.amber} opacity=".16" />
+          ) : null}
+          <polygon points={mcBox(MC_FUEL.x, fuelY, MC_FUEL.w + 8, "left")} fill={MC.screen} stroke={MC.amber} strokeWidth="2.4" />
+          <text x={MC_FUEL.x + (MC_FUEL.w + 8) / 2} y={fuelY + 8} textAnchor="middle" fill={MC.amber} fontSize="22" className="mc-mono">
+            {fuelKnown ? `${Math.round(data.fuelPercent)}%` : "--"}
+          </text>
+        </g>
+        <text x="120" y="232" fill={MC.white} fontSize="34" className="mc-mono">
+          {fuelKnown && data.fuelLiters !== null ? data.fuelLiters.toFixed(1) : "--.-"}
+        </text>
+        <text x="120" y="330" fill={MC.amber} fontSize="50" className="mc-mono">
+          {Math.round(data.rangeKm)}
+        </text>
+        <text x="300" y="386" textAnchor="end" fill={MC.white} fontSize="18" className="mc-mono">
+          {`${data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)} km/L`}
+        </text>
+        <text x="300" y="418" textAnchor="end" fill={MC.white} fontSize="18" className="mc-mono">
+          {`${data.todayKm.toFixed(1)} km`}
+        </text>
+        {/* 真ん中: 方位のテープ(向きの分だけ左右に流れる)と方位の字 */}
+        <g clipPath="url(#mc-clip-heading)" opacity={known ? 1 : 0.35}>
+          <g className="mh-tape" style={{ transform: `translateX(${r2(-heading * MC_HT.px)}px)` }}>
             {ticks.map((d) => {
-              const x = r2(HT.cx + d * HT.px);
-              const deg = normalDeg(d);
+              const x = r2(MC_HT.cx + d * MC_HT.px);
+              const deg = mcNormal(d);
               const big = deg % 45 === 0;
               const mid = deg % 15 === 0;
               return (
                 <g key={d}>
-                  <line x1={x} y1={HT.y} x2={x} y2={HT.y + (big ? 18 : mid ? 12 : 7)} stroke={HUD.green} strokeWidth={big ? 2 : 1.2} opacity={big ? 1 : 0.7} />
+                  <line x1={x} y1={MC_HT.y} x2={x} y2={MC_HT.y + (big ? 18 : mid ? 12 : 7)} stroke={MC.white} strokeWidth={big ? 2.6 : 1.6} />
                   {big ? (
-                    <text x={x} y={HT.y + 44} textAnchor="middle" fill={deg === 0 ? HUD.red : HUD.green} fontSize="17" fontWeight="700" className="mh-jp" filter={deg === 0 ? "url(#mh-r)" : glow}>
-                      {HUD_DIRS[deg / 45]}
+                    <text x={x} y={MC_HT.y + 42} textAnchor="middle" fill={deg === 0 ? MC.red : MC.white} fontSize="19" className="mc-jp">
+                      {MC_DIRS[deg / 45]}
                     </text>
                   ) : mid ? (
-                    <text x={x} y={HT.y + 40} textAnchor="middle" fill={HUD.dim} fontSize="11" fontWeight="700" className="mh-mono">
+                    <text x={x} y={MC_HT.y + 38} textAnchor="middle" fill={MC.dim} fontSize="13" className="mc-mono">
                       {deg}
                     </text>
                   ) : null}
@@ -1640,146 +1672,75 @@ export function HudCluster({ data, onFuel, onDest, onStart }: ClusterProps) {
               );
             })}
           </g>
-          <rect x={HT.x} y={HT.y} width={HT.w} height={HT.h} fill="url(#mh-fade)" />
         </g>
-        {/* 六つのメーターの輪(光っている所)。光の先は1秒ごとに点滅、危ないときは輪(回転は赤い所)ごと速く点滅 */}
-        {HUD_RINGS.map((ring, k) => {
-          const value = rings[ring.key];
-          const lit = Math.round(clamp01(value.v) * HRING.segs);
-          const hotFrom = ring.key === "rpm" ? HRING.hot : HRING.segs;
-          const tip = lit - 1;
-          const tipHot = tip >= hotFrom;
-          // 速く点滅している所に光の先があるときは、先も一緒に点滅させる(別に点滅すると揃わないため)。
-          const tipAlone = tip >= 0 && !value.warn && !(tipHot && shiftUp);
-          const until = (end: number) => (tipAlone && tip < end ? tip : end);
-          const cool = HRING_PATHS[k].slice(0, until(Math.min(lit, hotFrom)));
-          const hot = lit > hotFrom ? HRING_PATHS[k].slice(hotFrom, tipAlone && tipHot ? tip : lit) : [];
-          return (
-            <g key={ring.key} data-ring={ring.key} data-lit={lit}>
-              {cool.length ? (
-                <g fill={ring.color} filter={ring.glow} className={value.warn ? "mh-blink-fast" : undefined}>
-                  {cool.map((d, i) => (
-                    <path key={i} d={d} />
-                  ))}
-                </g>
-              ) : null}
-              {hot.length ? (
-                <g fill={HUD.red} filter="url(#mh-r)" className={shiftUp ? "mh-blink-fast" : undefined}>
-                  {hot.map((d, i) => (
-                    <path key={i} d={d} />
-                  ))}
-                </g>
-              ) : null}
-              {tipAlone ? (
-                <path className="mh-blink" d={HRING_PATHS[k][tip]} fill={tipHot ? HUD.red : ring.color} filter={tipHot ? "url(#mh-r)" : ring.glow} />
-              ) : null}
-            </g>
-          );
-        })}
-        {HUD_RINGS.map((ring, k) => {
-          const { x, y } = hudLegend(k);
-          const value = rings[ring.key];
-          return (
-            <text key={ring.key} x={x + 50} y={y} textAnchor="end" fill={value.warn ? HUD.red : ring.color} fontSize="13" fontWeight="700" className="mh-mono">
-              {value.text}
-            </text>
-          );
-        })}
-        {/* 輪の内側の方位の札 */}
         {known ? (
-          <g data-heading={Math.round(normalDeg(heading))}>
-            <text x={HRING.cx - 7} y="209" textAnchor="end" fill={HUD.green} fontSize="19" fontWeight="700" className="mh-jp" filter={glow}>
-              {hudDir(heading)}
-            </text>
-            <text x={HRING.cx + 1} y="209" fill={HUD.green} fontSize="19" fontWeight="700" className="mh-mono" filter={glow}>
-              {`${Math.round(normalDeg(heading))}°`}
-            </text>
-          </g>
+          <text x="512" y="132" textAnchor="middle" fill={MC.green} fontSize="22" className="mc-jp" data-heading={Math.round(mcNormal(heading))}>
+            {`${mcDir(heading)} ${Math.round(mcNormal(heading))}°`}
+          </text>
         ) : (
-          <text x={HRING.cx} y="207" textAnchor="middle" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
+          <text x="512" y="130" textAnchor="middle" fill={MC.dim} fontSize="15" className="mc-jp">
             方位を確認中
           </text>
         )}
-        {/* 速さ(まだ分からないうちの -- は暗くして、光らせない) */}
-        <text
-          x={HRING.cx}
-          y="372"
-          textAnchor="middle"
-          fill={data.speed === null ? HUD.dim : HUD.green}
-          fontSize="132"
-          fontWeight="700"
-          className="mh-mono"
-          filter={data.speed === null ? undefined : glow}
-        >
-          {data.speed === null ? "--" : Math.round(data.speed)}
+        {/* 真ん中: 速さ(左)と回転(右)のテープ・今の値の箱・大きな速さ */}
+        <McTapeTicks tape={MC_SPEED} value={speed ?? 0} side="left" />
+        <McTapeTicks tape={MC_RPM} value={rpm100 ?? 0} side="right" />
+        <polygon points={mcBox(MC_SPEED.x, speedCy, MC_SPEED.w + 8, "left")} fill={MC.screen} stroke={MC.green} strokeWidth="2.4" />
+        <text x={MC_SPEED.x + (MC_SPEED.w + 8) / 2} y={speedCy + 9} textAnchor="middle" fill={MC.green} fontSize="26" className="mc-mono">
+          {speed === null ? "--" : speed}
         </text>
-        {/* 左: ガソリンのはしご(光っている段)と、%・L・あと何km・平均・今日 */}
-        <g data-fuel-lit={litFuel}>
-          {Array.from({ length: litFuel }, (_, i) => (
-            <rect key={i} x={HL.x} y={ladderY(i)} width="44" height={r2(HL.h / HL.cells - 4)} fill={ladderColor(i)} filter={ladderGlow(i)} />
-          ))}
-        </g>
-        <text x="128" y="182" fill={HUD.green} fontSize="54" fontWeight="700" className="mh-mono" filter={glow}>
-          {Math.round(data.fuelPercent)}
-          <tspan fontSize="20" dx="4">
-            %
-          </tspan>
+        <polygon points={mcBox(MC_RPM.x - 32, rpmCy, MC_RPM.w + 8, "right")} fill={MC.screen} stroke={MC.cyan} strokeWidth="2.4" />
+        <text x={MC_RPM.x - 8 + (MC_RPM.w + 8) / 2} y={rpmCy + 9} textAnchor="middle" fill={MC.cyan} fontSize="26" className="mc-mono">
+          {rpm100 === null ? "--" : rpm100}
         </text>
-        <text x="130" y="214" fill={HUD.green} fontSize="20" fontWeight="700" className="mh-mono">
-          {data.fuelLiters === null ? "— L" : `${data.fuelLiters.toFixed(1)} L`}
+        <text x="512" y="262" textAnchor="middle" fill={speed === null ? MC.dim : MC.white} fontSize="84" className="mc-mono">
+          {speed === null ? "--" : speed}
         </text>
-        <text x="130" y="302" fill={HUD.green} fontSize="34" fontWeight="700" className="mh-mono" filter={glow}>
-          {Math.round(data.rangeKm)}
-          <tspan fontSize="14" dx="4">
-            km
-          </tspan>
+        <rect x="452" y="440" width={r2(120 * eco)} height="10" fill={MC.green} data-eco={Math.round(eco * 100)} />
+        {/* 右: 水温・電圧(大きな数と棒) */}
+        <text x="992" y="64" textAnchor="end" fill={MC.white} fontSize="30" className="mc-mono">
+          {data.coolant === null ? "--" : Math.round(data.coolant)}
         </text>
-        <text x="130" y="342" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
-          {`平均 ${data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1)} km/L`}
+        <rect x="724" y="90" width={r2(268 * clamp01(((data.coolant ?? 40) - 40) / 80))} height="8" fill={data.coolant !== null && data.coolant >= 105 ? MC.red : MC.cyan} />
+        <text x="992" y="132" textAnchor="end" fill={MC.white} fontSize="30" className="mc-mono">
+          {data.voltage === null ? "--.-" : data.voltage.toFixed(1)}
         </text>
-        <text x="130" y="364" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
-          {`今日 ${data.todayKm.toFixed(1)} km`}
-        </text>
-        {/* 右: 時計・日付・一週間の帯(出勤日は塗る)・天気・水温・電圧 */}
-        <text x="1000" y="58" textAnchor="end" fill={HUD.green} fontSize="44" fontWeight="700" className="mh-mono" filter={glow}>
-          {data.clock}
-        </text>
-        <text x="1000" y="80" textAnchor="end" fill={HUD.dim} fontSize="13" fontWeight="700" className="mh-jp">
-          {`${data.month}/${data.day}(${WEEKDAYS[data.weekday]})`}
-        </text>
-        {WEEK_ORDER.map((dayIndex, i) => {
-          const work = data.workDays.includes(dayIndex);
-          const today = dayIndex === data.weekday;
-          const x = r2(838 + i * (weekWidth + 3));
-          return (
-            <g key={dayIndex} data-work={work ? "1" : undefined}>
-              <rect x={x} y="92" width={r2(weekWidth)} height="15" rx="3" fill={work ? HUD.work : HUD.faint} stroke={today ? HUD.green : "none"} strokeWidth="1.4" />
-              <text x={r2(x + weekWidth / 2)} y="103" textAnchor="middle" fill={work ? "#d9ffe9" : HUD.dim} fontSize="9" fontWeight="700" className="mh-jp">
-                {WEEKDAYS[dayIndex]}
+        <rect x="724" y="158" width={r2(268 * clamp01(((data.voltage ?? 10) - 10) / 5))} height="8" fill={data.voltage !== null && data.voltage < 11.8 ? MC.red : MC.green} />
+        {/* 右: 注意の欄(戦闘機のコーション欄のように。異常がなければ緑で ALL NORMAL) */}
+        <g data-caution={cautions.length}>
+          <rect x="724" y="190" width="268" height="112" fill={cautions.length ? "#1a1204" : "#05100a"} stroke={cautions.length ? MC.amber : "#1f5a3a"} strokeWidth="1.5" />
+          <text x="736" y="210" fill={cautions.length ? MC.amber : MC.dim} fontSize="11" letterSpacing="3" className={cautions.length ? "mh-blink" : undefined}>
+            CAUTION
+          </text>
+          {cautions.length ? (
+            cautions.slice(0, 3).map((text, i) => (
+              <text key={text} x="740" y={238 + i * 24} fill={MC.amber} fontSize="17" className="mc-jp">
+                {`▲ ${text}`}
               </text>
-            </g>
-          );
-        })}
-        <text x="1000" y="152" textAnchor="end" fill={HUD.green} fontSize="14" fontWeight="700" className="mh-jp">
-          {data.weather ? `${Math.round(data.weather.temperature)}° ${kind ? WEATHER_JA[kind] : ""}` : "天気を読み込み中"}
-        </text>
-        <text x="1000" y="170" textAnchor="end" fill={HUD.dim} fontSize="11" fontWeight="700">
-          {forecastText(data.weather)}
-        </text>
-        <text x="1000" y="218" textAnchor="end" fill={HUD.green} fontSize="20" fontWeight="700" className="mh-mono">
-          {data.coolant === null ? "— °C" : `${Math.round(data.coolant)} °C`}
-        </text>
-        <text x="1000" y="254" textAnchor="end" fill={HUD.green} fontSize="20" fontWeight="700" className="mh-mono">
-          {data.voltage === null ? "— V" : `${data.voltage.toFixed(1)} V`}
-        </text>
-        <text x={H_START.x + 18} y={H_START.y + 80} fill={HUD.amber} fontSize={dest.length <= 5 ? 26 : 19} fontWeight="700" className="mh-jp" filter="url(#mh-y)">
+            ))
+          ) : (
+            <>
+              <text x="858" y="252" textAnchor="middle" fill={MC.green} fontSize="22" letterSpacing="2">
+                ALL NORMAL
+              </text>
+              <text x="858" y="276" textAnchor="middle" fill={MC.green} fontSize="12" className="mc-jp">
+                異常なし
+              </text>
+            </>
+          )}
+        </g>
+        {/* 右下: START の行き先 */}
+        <text x={MC_START.x + 16} y={MC_START.y + 74} fill={data.destLabel ? MC.white : MC.dim} fontSize={dest.length <= 5 ? 30 : 20} className="mc-jp">
           {dest}
         </text>
+        {data.destLabel ? (
+          <path d={`M${MC_START.x + 136} ${MC_START.y + 56} l10 9 -10 9z M${MC_START.x + 150} ${MC_START.y + 56} l10 9 -10 9z`} fill={MC.amber} />
+        ) : null}
       </svg>
-      <Hit box={[H_FUEL.x, H_FUEL.y, H_FUEL.w, H_FUEL.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[H_DEST.x, H_DEST.y, H_DEST.w, H_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
+      <Hit box={[MC_FUEL_HIT.x, MC_FUEL_HIT.y, MC_FUEL_HIT.w, MC_FUEL_HIT.h]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[MC_DEST.x, MC_DEST.y, MC_DEST.w, MC_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
-        box={[H_START.x, H_START.y, H_START.w, H_START.h]}
+        box={[MC_START.x, MC_START.y, MC_START.w, MC_START.h]}
         label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
         onPress={onStart}
       />
@@ -1815,37 +1776,31 @@ export function MeterStyleThumb({ style }: { style: MeterStyle }) {
   if (style === "hud") {
     return (
       <svg viewBox="0 0 120 70" className="ms-thumb" aria-hidden="true">
-        <rect width="120" height="70" fill={HUD.bg} />
-        <line x1="34" y1="9" x2="86" y2="9" stroke={HUD.green} strokeOpacity=".6" />
-        {Array.from({ length: 11 }, (_, i) => (
-          <line key={i} x1={36 + i * 5} y1="9" x2={36 + i * 5} y2={i % 3 === 1 ? 15 : 12} stroke={HUD.green} strokeWidth=".8" />
+        <rect width="120" height="70" fill={MC.bg} />
+        {[4, 42, 82].map((x, i) => (
+          <rect key={x} x={x} y="5" width={i === 1 ? 36 : 34} height="60" rx="2" fill={MC.screen} stroke={MC.bezel} strokeWidth="2" />
         ))}
-        <polygon points="60,8 57,3 63,3" fill={HUD.green} />
-        {[
-          { r: 23, color: HUD.green, v: 0.3 },
-          { r: 19.5, color: HUD.cyan, v: 0.48 },
-          { r: 16, color: HUD.amber, v: 0.78 },
-        ].map(({ r, color, v }) => {
-          const arc = (to: number) => {
-            const [x0, y0] = pol(60, 42, r, -135);
-            const [x1, y1] = pol(60, 42, r, -135 + 270 * to);
-            return `M${x0} ${y0}A${r} ${r} 0 ${270 * to > 180 ? 1 : 0} 1 ${x1} ${y1}`;
-          };
-          return (
-            <g key={r} fill="none" stroke={color} strokeWidth="2.6" strokeDasharray="2.2 1">
-              <path d={arc(1)} opacity=".18" />
-              <path d={arc(v)} />
-            </g>
-          );
-        })}
-        <text x="60" y="47" textAnchor="middle" fill={HUD.green} fontSize="15" fontWeight="700" fontFamily="monospace">
+        <text x="21" y="20" textAnchor="middle" fill={MC.white} fontSize="9" fontWeight="700" fontFamily="monospace">
+          19:52
+        </text>
+        <rect x="9" y="27" width="7" height="33" fill={MC.tape} stroke={MC.frame} strokeWidth=".6" />
+        <rect x="9" y="35" width="7" height="25" fill={MC.amber} opacity=".35" />
+        <text x="20" y="48" fill={MC.amber} fontSize="8" fontWeight="700" fontFamily="monospace">
+          369
+        </text>
+        <line x1="46" y1="11" x2="74" y2="11" stroke={MC.white} strokeWidth=".8" />
+        <polygon points="60,11 57,7 63,7" fill={MC.green} />
+        <rect x="45" y="18" width="6" height="42" fill={MC.tape} stroke={MC.frame} strokeWidth=".6" />
+        <rect x="69" y="18" width="6" height="42" fill={MC.tape} stroke={MC.frame} strokeWidth=".6" />
+        <text x="60" y="42" textAnchor="middle" fill={MC.white} fontSize="13" fontWeight="700" fontFamily="monospace">
           58
         </text>
-        {Array.from({ length: 7 }, (_, i) => (
-          <rect key={i} x="8" y={58 - i * 7} width="10" height="5" fill={i < 4 ? (i < 1 ? HUD.red : HUD.green) : HUD.faint} />
-        ))}
-        <rect x="96" y="44" width="18" height="10" rx="1.5" fill="none" stroke={HUD.green} strokeWidth=".8" />
-        <rect x="96" y="57" width="18" height="10" rx="1.5" fill="none" stroke={HUD.amber} strokeWidth=".8" />
+        <rect x="44" y="36" width="9" height="6" fill="none" stroke={MC.green} strokeWidth=".8" />
+        <rect x="67" y="36" width="9" height="6" fill="none" stroke={MC.cyan} strokeWidth=".8" />
+        <rect x="86" y="10" width="26" height="3" fill={MC.cyan} />
+        <rect x="86" y="18" width="22" height="3" fill={MC.green} />
+        <rect x="86" y="42" width="26" height="9" rx="1" fill="none" stroke={MC.green} strokeWidth=".9" />
+        <rect x="86" y="53" width="26" height="9" rx="1" fill="none" stroke={MC.amber} strokeWidth=".9" />
       </svg>
     );
   }

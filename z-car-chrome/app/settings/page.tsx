@@ -613,7 +613,7 @@ export default function PhoneSettingsPage() {
     </form>
   );
 
-  // --- テーマ(近未来・80年代・デイライト・ナイト HUD) ---
+  // --- テーマ(近未来・80年代・デイライト・グラスコックピット) ---
   const activeStyle = meterStyleInfo(draft.meterStyle);
   const isFuture = activeStyle.id === "future";
   const chooseStyle = (id: MeterStyle) => {
