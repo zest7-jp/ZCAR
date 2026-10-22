@@ -1556,7 +1556,9 @@ const CockpitFace = memo(function CockpitFace() {
       {label(724, 128, "電圧", { size: 13, jp: true })}
       {label(724, 150, "V", { size: 11 })}
       <rect x="724" y="158" width="268" height="8" fill="#0c1a14" />
-      {/* 右下: DEST と START の枠と見出し */}
+      {/* 右下: ナビ中は Google マップの小さな画面がここに重なる(80年代のテーマの箱と同じ所)。DEST と START の枠と見出し */}
+      {label(MC_DEST.x, MC_DEST.y - 10, "GOOGLE MAPS", { size: 10, spacing: 2 })}
+      <line x1={MC_DEST.x + 96} y1={MC_DEST.y - 14} x2={MC_DEST.x + MC_DEST.w} y2={MC_DEST.y - 14} stroke={MC.frame} strokeWidth="1.5" />
       <rect x={MC_DEST.x} y={MC_DEST.y} width={MC_DEST.w} height={MC_DEST.h} rx="4" fill="#06120c" stroke={MC.green} strokeWidth="2.4" />
       {label(MC_DEST.x + 16, MC_DEST.y + 24, "DEST", { size: 13, color: MC.green, spacing: 3 })}
       <text x={MC_DEST.x + 16} y={MC_DEST.y + 68} fill={MC.white} fontSize="24" className="mc-jp">
