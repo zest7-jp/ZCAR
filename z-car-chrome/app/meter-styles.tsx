@@ -293,6 +293,20 @@ const SevenSeg = memo(function SevenSeg({
   );
 });
 
+/**
+ * スマホの画面に出す7セグメントの数字(1つの小さな絵)。車の80年代・デイライトの数字と同じ形で、
+ * 消えている線もうっすら見せる。色は currentColor、光らせ方は CSS で決める。
+ */
+export function SegNumber({ text, h, className }: { text: string; h: number; className?: string }) {
+  // ななめにした分だけ、右を広くとる。
+  const width = r2(segWidth(text, h) + h * 0.13);
+  return (
+    <svg className={className} width={width} height={h} viewBox={`0 0 ${width} ${h}`} aria-hidden="true">
+      <SevenSeg text={text} x={0} y={0} h={h} color="currentColor" glow={false} ghost={0.1} />
+    </svg>
+  );
+}
+
 /** 点で描いた天気の絵(12x10)。S は黄、C は白っぽい水色、R は雨、W は雪、. は消えている点。 */
 const DOT_ICONS: Record<string, string[]> = {
   sun: [".....SS.....", ".S...SS...S.", "..S......S..", "....SSSS....", "SS.SSSSSS.SS", "SS.SSSSSS.SS", "....SSSS....", "..S......S..", ".S...SS...S.", ".....SS....."],
