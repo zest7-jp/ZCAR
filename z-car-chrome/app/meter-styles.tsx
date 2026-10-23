@@ -183,6 +183,8 @@ function Hit({
 
 // ------------------------------------------------------------------
 // 80年代のデジタル: 光る7セグメントの数字と、右に上がる棒の回転計。
+// 本物の蛍光表示管のように、光る線は細い芯と広いにじみの二段で光り、前に細い網の目とガラスがある。
+// 細かくざらついた黒い樹脂の板に、縁取った3つの表示窓(左・真ん中・右の列)を置く。
 // ------------------------------------------------------------------
 
 const RETRO = {
@@ -462,7 +464,14 @@ const retroKey = (key: typeof RETRO_DEST, color: string) => (
   </g>
 );
 
-/** 80年代のデジタルの、動かない絵(下地・仕切り・説明の文字・消えている棒)。 */
+/** 表示窓(左の列・真ん中の列・右の列)。 */
+const RETRO_WINDOWS = [
+  { x: 10, y: 14, w: 248, h: 542 },
+  { x: 268, y: 14, w: 496, h: 542 },
+  { x: 772, y: 14, w: 242, h: 542 },
+];
+
+/** 80年代のデジタルの、動かない絵(樹脂の板と表示窓・仕切り・説明の文字・消えている棒)。 */
 const RetroFace = memo(function RetroFace() {
   const labels: ReactNode[] = [
     label("time", 22, 26, "TIME · JST"),
@@ -496,16 +505,37 @@ const RetroFace = memo(function RetroFace() {
     labels.push(label(`n${k}`, r2(GAUGE_L + k * 4 * TACHO_PITCH - (k === 8 ? 3 : 0)), 124, String(k), { color: k >= 7 ? RETRO.red : RETRO.soft, size: 10, anchor: "middle", spacing: 0 }));
   }
   return (
-    <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
       <defs>
-        <filter id="ms-vfd" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="1.6" result="blur" />
+        {/* 光る線: 細い芯と、広いにじみの二段(本物の蛍光表示管のように) */}
+        <filter id="ms-vfd" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="0.9" result="core" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="halo" />
+          <feColorMatrix in="halo" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .8 0" result="haloSoft" />
           <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="blur" />
+            <feMergeNode in="haloSoft" />
+            <feMergeNode in="core" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        {/* 黒い樹脂の細かいざらつきと、表示窓の縁(左上が光る) */}
+        <filter id="ms-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7" />
+          <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .07 0" />
+        </filter>
+        <linearGradient id="ms-bezel" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#6a7078" />
+          <stop offset=".45" stopColor="#1c1e21" />
+          <stop offset="1" stopColor="#3c4046" />
+        </linearGradient>
+        <filter id="ms-window-shade" x="-5%" y="-5%" width="110%" height="110%">
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+        {RETRO_WINDOWS.map((w, i) => (
+          <clipPath key={i} id={`ms-window-${i}`}>
+            <rect x={w.x} y={w.y} width={w.w} height={w.h} rx="14" />
+          </clipPath>
+        ))}
         <linearGradient id="ms-retro-sheen" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".06" />
           <stop offset=".28" stopColor="#fff" stopOpacity="0" />
@@ -513,7 +543,18 @@ const RetroFace = memo(function RetroFace() {
           <stop offset="1" stopColor="#fff" stopOpacity=".035" />
         </linearGradient>
       </defs>
-      <rect width={BOARD_W} height={BOARD_H} fill="#040506" />
+      <rect width={BOARD_W} height={BOARD_H} fill="#131416" />
+      <rect width={BOARD_W} height={BOARD_H} filter="url(#ms-grain)" />
+      {/* 表示窓: 光る縁と、黒いガラスの奥へ落ちる影 */}
+      {RETRO_WINDOWS.map((w, i) => (
+        <g key={i}>
+          <rect x={w.x - 2} y={w.y - 2} width={w.w + 4} height={w.h + 4} rx="16" fill="url(#ms-bezel)" />
+          <rect x={w.x} y={w.y} width={w.w} height={w.h} rx="14" fill="#030404" />
+          <g clipPath={`url(#ms-window-${i})`}>
+            <rect x={w.x} y={w.y} width={w.w} height={w.h} rx="14" fill="none" stroke="#000" strokeOpacity=".9" strokeWidth="12" filter="url(#ms-window-shade)" />
+          </g>
+        </g>
+      ))}
       <rect width={BOARD_W} height={BOARD_H} fill="url(#ms-retro-sheen)" />
       {/* 回転計の下と、速さ・平均の間の仕切りの線。地図の画面の縁。 */}
       <g stroke={RETRO.line} strokeWidth="1.2">
@@ -526,8 +567,6 @@ const RetroFace = memo(function RetroFace() {
       <rect y="3" width={BOARD_W} height="1.5" fill="#ff6b2b" opacity=".85" />
       <rect y="6" width={BOARD_W} height="1" fill={RETRO.red} opacity=".7" />
       <g stroke={RETRO.line} strokeWidth="1.2">
-        <line x1="262" y1="16" x2="262" y2="548" />
-        <line x1="762" y1="16" x2="762" y2="548" />
         <line x1="22" y1="184" x2="248" y2="184" />
         <line x1="22" y1="346" x2="248" y2="346" />
         <line x1="22" y1="470" x2="248" y2="470" />
@@ -587,6 +626,40 @@ const RetroFace = memo(function RetroFace() {
           <polyline key={i} points={startChevron(i)} />
         ))}
       </g>
+    </svg>
+  );
+});
+
+/**
+ * 表示管のガラス(いちばん上に重ねる): 光る線の前の細い網の目と、ななめの映り込み、まわりの暗がり。
+ * 網の目は地図と右下の箱の上にはかけない。
+ */
+const RetroGlass = memo(function RetroGlass() {
+  return (
+    <svg className="ms-layer ms-static ms-retro-glass" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+      <defs>
+        <pattern id="ms-mesh" width="3.2" height="3.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <path d="M0 0H3.2M0 0V3.2" stroke="#000" strokeWidth=".6" strokeOpacity=".6" />
+        </pattern>
+        <mask id="ms-mesh-mask">
+          <rect width={BOARD_W} height={BOARD_H} fill="#fff" />
+          <rect x={RETRO_CRT.x - 4} y={RETRO_CRT.y - 4} width={RETRO_CRT.w + 8} height={RETRO_CRT.h + 8} rx="20" fill="#000" />
+          <rect x={RETRO_MAP_BAY.x - 2} y={RETRO_MAP_BAY.y - 2} width={RETRO_MAP_BAY.w + 4} height={RETRO_MAP_BAY.h + 4} rx="16" fill="#000" />
+        </mask>
+        <linearGradient id="ms-glass-band" x1="0" y1="0" x2="1" y2=".6">
+          <stop offset="0" stopColor="#fff" stopOpacity=".08" />
+          <stop offset=".3" stopColor="#fff" stopOpacity=".025" />
+          <stop offset=".31" stopColor="#fff" stopOpacity=".05" />
+          <stop offset=".46" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id="ms-vignette" cx=".5" cy=".5" r=".75">
+          <stop offset=".6" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity=".45" />
+        </radialGradient>
+      </defs>
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#ms-mesh)" mask="url(#ms-mesh-mask)" />
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#ms-glass-band)" />
+      <rect width={BOARD_W} height={BOARD_H} fill="url(#ms-vignette)" />
     </svg>
   );
 });
@@ -720,7 +793,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
           ))}
         </g>
       </svg>
-      <i className="ms-retro-mesh" aria-hidden="true" />
+      <RetroGlass />
       <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[AVG_FUEL_X - 8, GAUGE_ROW_TOP + 4, GAUGE_R - AVG_FUEL_X + 8, RETRO_CRT.y - GAUGE_ROW_TOP - 10]} label="燃費の記録・確認を開く" onPress={onFuel} />
       <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />

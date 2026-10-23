@@ -9120,13 +9120,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   animation: ms-blink 1.2s steps(1, end) infinite;
 }
 /* 光る管の細かい網目(画面全体にうっすら)。 */
-.ms-retro-mesh {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle, rgba(0, 0, 0, .55) .55px, transparent .7px) 0 0 / 3px 3px;
-  opacity: .35;
-  pointer-events: none;
-}
 @keyframes ms-blink {
   50% { opacity: .2; }
 }
