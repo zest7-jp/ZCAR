@@ -32,7 +32,7 @@ import {
 } from "../settings-store";
 import { DEFAULT_GMAPS_KEY } from "../google-maps";
 import { MeterDesignGauge, SAMPLE_GAUGE_VALUES } from "../meter-designs";
-import { MeterStyleThumb } from "../meter-styles";
+import { MeterStyleThumb, SegNumber } from "../meter-styles";
 import {
   isSamePlace,
   issueShareToken,
@@ -667,6 +667,7 @@ export default function PhoneSettingsPage() {
     <main
       className={`zr${activeTheme.tinted ? ` is-tinted zt-${activeTheme.id}` : ""}`}
       data-theme={draft.meterTheme}
+      data-style={draft.meterStyle}
       aria-busy={!ready}
     >
       {pairedNotice ? (
@@ -828,7 +829,19 @@ export default function PhoneSettingsPage() {
               </em>
             </header>
             <p className="zr-hero-value">
-              <strong>{monthEconomy === null ? "—" : monthEconomy.toFixed(1)}</strong>
+              <strong>
+                {monthEconomy === null ? (
+                  "—"
+                ) : draft.meterStyle === "future" ? (
+                  monthEconomy.toFixed(1)
+                ) : (
+                  // 80年代・デイライトのテーマでは、車と同じ7セグメントの数字(読み上げ用の字も残す)。
+                  <>
+                    <SegNumber text={monthEconomy.toFixed(1)} h={60} className="zr-seg" />
+                    <span className="zr-sr">{monthEconomy.toFixed(1)}</span>
+                  </>
+                )}
+              </strong>
               <em>km/L</em>
             </p>
             {/* 最近の給油ごとの燃費。画面に余った高さはこのグラフが受け持つ。 */}
@@ -957,6 +970,7 @@ export default function PhoneSettingsPage() {
             key={draft.syncKey.trim()}
             syncKey={draft.syncKey.trim()}
             mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
+            look={draft.meterStyle}
             onRegister={registerPlace}
             onOpenList={() => {
               setTab("navi");

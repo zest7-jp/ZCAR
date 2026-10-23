@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../google-maps";
+import { SegNumber } from "../meter-styles";
+import type { MeterStyle } from "../settings-store";
 import { distanceMeters, fetchParking, type ParkedCar } from "../parking";
 import type { PlaceDraft } from "../place-import";
 
@@ -446,11 +448,14 @@ const isPhoneInCar = (phone: PhoneFix, park: ParkedCar, clock: number) => {
 export function CarLocationPanel({
   syncKey,
   mapsKey,
+  look,
   onRegister,
   onOpenList,
 }: {
   syncKey: string;
   mapsKey: string;
+  /** 車のテーマ。80年代・デイライトのときは、数字を車と同じ7セグメントで出す。 */
+  look: MeterStyle;
   /** 「現在地を登録」で作った場所を、目的地の一覧に足す。 */
   onRegister: (place: PlaceDraft) => void;
   /** 「地点リスト」: 目的地の一覧を開く。 */
@@ -630,6 +635,16 @@ export function CarLocationPanel({
   // 自宅として覚えた場所の近くに駐車している。
   const atHome =
     status === "parked" && park !== null && homeSpot !== null && distanceMeters(park, homeSpot) <= HOME_NEAR_METERS;
+  /** 数字: 80年代・デイライトのテーマでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
+  const segNumber = (text: string, height: number) =>
+    look === "future" ? (
+      text
+    ) : (
+      <>
+        <SegNumber text={text} h={height} className="zr-seg" />
+        <span className="zr-sr">{text}</span>
+      </>
+    );
   const shown = phoneInCar ? phoneFix : park;
   const shownLat = shown?.lat;
   const shownLng = shown?.lng;
@@ -866,7 +881,7 @@ export function CarLocationPanel({
                 {clock > 0
                   ? elapsedParts(clock - shownAt).map(([value, unit]) => (
                       <span key={unit}>
-                        {value}
+                        {segNumber(String(value), 46)}
                         <em>{unit}</em>
                       </span>
                     ))
@@ -877,7 +892,7 @@ export function CarLocationPanel({
               <div>
                 <dt>{shownLabel}</dt>
                 <dd>
-                  {clockText(shownAt)}
+                  {segNumber(clockText(shownAt), 18)}
                   <small>{sameDay ? "今日" : dateText(shownAt)}</small>
                 </dd>
               </div>
@@ -885,7 +900,7 @@ export function CarLocationPanel({
                 <div>
                   <dt>速度</dt>
                   <dd>
-                    {Math.round(kmh)}
+                    {segNumber(String(Math.round(kmh)), 18)}
                     <em>km/h</em>
                   </dd>
                 </div>
@@ -893,7 +908,7 @@ export function CarLocationPanel({
                 <div>
                   <dt>誤差</dt>
                   <dd>
-                    ±{Math.round(shownAccuracy)}
+                    ±{segNumber(String(Math.round(shownAccuracy)), 18)}
                     <em>m</em>
                   </dd>
                 </div>

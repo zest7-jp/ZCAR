@@ -8951,6 +8951,233 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   .zr-park-go button { min-height: 46px; }
 }
 
+/* 読み上げ用に残し、画面には出さない字(7セグメントの絵にした数字など)。 */
+.zr-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.zr-seg { display: block; overflow: visible; }
+main.zr:not([data-style="future"]) .zr-park-facts dt { white-space: nowrap; }
+/* 7セグメントの数字と単位(時間・分)を、下でそろえて横に並べる。 */
+main.zr:not([data-style="future"]) .zr-park-elapsed strong > span { display: inline-flex; align-items: flex-end; }
+
+/* ------------------------------------------------------------------
+   スマホの見た目を、車のテーマに合わせる(近未来は、この上のふつうの形)。
+   80年代: 黒い板と上の3本の線、縁取った窓、光る7セグメントの数字、光る管で縁取ったボタン、走査線の地図。
+   デイライト: カーボンの板、クロムの縁、液晶の窓の数字、オレンジのボタン。
+   ------------------------------------------------------------------ */
+main.zr[data-style="retro"] {
+  --zr-accent: #52ffd6;
+  --zr-accent-strong: #b9fff0;
+  --zr-accent-rgb: 82, 255, 214;
+  --zr-ink: #e6fff8;
+  --zr-muted: #7f9a96;
+  --zr-edge: #1c2a2a;
+  --zr-field: #020403;
+  --zr-panel: #020403;
+  --zr-amber: #ffb02e;
+  --zr-amber-rgb: 255, 176, 46;
+  background:
+    linear-gradient(#ffb02e 0 2px, transparent 2px 3px, #ff6b2b 3px 4.5px, transparent 4.5px 6px, #ff3c3c 6px 7px, transparent 7px) top / 100% 8px no-repeat,
+    #040506;
+}
+main.zr[data-style="retro"] .zr-brand b {
+  color: var(--zr-accent);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-weight: 800;
+  letter-spacing: .3em;
+  text-shadow: 0 0 6px rgba(82, 255, 214, .9), 0 0 20px rgba(82, 255, 214, .55);
+}
+main.zr[data-style="retro"] .zr-brand small { color: var(--zr-amber); text-shadow: 0 0 8px rgba(255, 176, 46, .8); }
+main.zr[data-style="retro"] .zr-reload-stamp { color: var(--zr-accent); opacity: .55; }
+/* 縁取った窓: 光る縁(左上)と、点の網の入った黒いガラス */
+main.zr[data-style="retro"] :is(.zr-panel, .zr-park-card, .zr-hero, .zr-link) {
+  border: 2px solid transparent;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle, rgba(0, 0, 0, .55) .55px, transparent .7px) 0 0 / 3px 3px padding-box,
+    linear-gradient(#020403, #020403) padding-box,
+    linear-gradient(135deg, #6a7078, #1c1e21 45%, #3c4046) border-box;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .6);
+}
+main.zr[data-style="retro"] .zr-park-map { border-radius: 14px 14px 0 0; }
+main.zr[data-style="retro"] .zr-park-canvas { filter: saturate(.4) sepia(.35) hue-rotate(110deg) brightness(.9); }
+main.zr[data-style="retro"] .zr-park-map::after {
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .3) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 50% 50%, transparent 58%, rgba(0, 0, 0, .6));
+  box-shadow: inset 0 0 0 1px rgba(82, 255, 214, .25), inset 0 0 30px rgba(82, 255, 214, .14);
+}
+main.zr[data-style="retro"] :is(.zr-theme, .zr-design, .zr-style) {
+  border: 1px solid #2a3534;
+  border-radius: 12px;
+  background: #020403;
+  box-shadow: none;
+}
+main.zr[data-style="retro"] :is(.zr-theme, .zr-design, .zr-style).is-active {
+  border-color: var(--zr-accent);
+  box-shadow: 0 0 14px rgba(82, 255, 214, .4), inset 0 0 12px rgba(82, 255, 214, .15);
+}
+main.zr[data-style="retro"] :is(.zr-panel-head b, .zr-park-elapsed small, .zr-park-facts dt, .zr-hero-stats dt) {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .08em;
+}
+/* 光る7セグメントの数字(停めてからの時間・時刻・燃費) */
+main.zr[data-style="retro"] .zr-park-elapsed strong,
+main.zr[data-style="retro"] .zr-hero-value strong {
+  align-items: flex-end;
+  color: var(--zr-accent);
+  transform: none;
+  text-shadow: none;
+}
+main.zr[data-style="retro"] .zr-seg { filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 8px currentColor); }
+main.zr[data-style="retro"] :is(.zr-park-elapsed, .zr-hero-value) em {
+  margin: 0 10px 3px 5px;
+  color: var(--zr-amber);
+  text-shadow: 0 0 8px rgba(255, 176, 46, .85);
+}
+main.zr[data-style="retro"] .zr-park-elapsed span:last-child em { margin-right: 0; }
+main.zr[data-style="retro"] .zr-park-facts { background: transparent; }
+main.zr[data-style="retro"] .zr-park-facts dd {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  color: var(--zr-amber);
+  text-shadow: 0 0 8px rgba(255, 176, 46, .7);
+}
+main.zr[data-style="retro"] .zr-park-facts dd :is(small, em) { color: var(--zr-muted); text-shadow: none; }
+main.zr[data-style="retro"] .zr-hero-stats dd { color: var(--zr-amber); text-shadow: 0 0 8px rgba(255, 176, 46, .6); }
+main.zr[data-style="retro"] .zr-park-state {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  box-shadow: 0 0 12px rgba(var(--zr-state-rgb), .4), inset 0 0 10px rgba(var(--zr-state-rgb), .15);
+  text-shadow: 0 0 6px rgba(var(--zr-state-rgb), .9);
+}
+/* 光る管で縁取ったボタン: 大事なボタンは琥珀色、ほかは水色 */
+main.zr[data-style="retro"] .zr-primary {
+  border: 2px solid var(--zr-amber);
+  border-radius: 14px;
+  background: rgba(255, 176, 46, .06);
+  box-shadow: 0 0 16px rgba(255, 176, 46, .5), inset 0 0 16px rgba(255, 176, 46, .25);
+  color: #ffc65e;
+  letter-spacing: .16em;
+  text-shadow: 0 0 10px rgba(255, 176, 46, .9);
+}
+main.zr[data-style="retro"] .zr-primary:disabled {
+  border-color: rgba(255, 176, 46, .25);
+  background: transparent;
+  box-shadow: none;
+  color: rgba(255, 198, 94, .35);
+  text-shadow: none;
+}
+main.zr[data-style="retro"] :is(.zr-ghost, .zr-park-tools button, .zr-sheet-head button) {
+  border: 2px solid rgba(82, 255, 214, .85);
+  border-radius: 14px;
+  background: rgba(82, 255, 214, .05);
+  box-shadow: 0 0 14px rgba(82, 255, 214, .4), inset 0 0 14px rgba(82, 255, 214, .2);
+  color: var(--zr-accent-strong);
+  text-shadow: 0 0 8px rgba(82, 255, 214, .8);
+}
+main.zr[data-style="retro"] .zr-sheet-head button { border-width: 1.5px; border-radius: 10px; }
+main.zr[data-style="retro"] .zr-park-tools button:is([aria-pressed="true"], .is-off) { border-color: var(--zr-amber); color: #ffc65e; box-shadow: 0 0 14px rgba(255, 176, 46, .5); }
+main.zr[data-style="retro"] .zr-add { border: 1.5px dashed rgba(82, 255, 214, .5); border-radius: 12px; background: transparent; color: var(--zr-accent-strong); }
+main.zr[data-style="retro"] .zr-field > div { border-color: rgba(82, 255, 214, .3); border-radius: 10px; background: #020403; }
+main.zr[data-style="retro"] .zr-tabs { border-top: 0; background: #040506; box-shadow: 0 -1px 0 #1c2a2a, 0 -3px 0 rgba(255, 176, 46, .5); }
+main.zr[data-style="retro"] .zr-tabs button { color: #4a5c59; }
+main.zr[data-style="retro"] .zr-tabs b { font-family: "SFMono-Regular", Consolas, monospace; letter-spacing: .04em; }
+main.zr[data-style="retro"] .zr-tabs button.is-active { color: var(--zr-accent); text-shadow: 0 0 8px rgba(82, 255, 214, .9); }
+main.zr[data-style="retro"] .zr-tabs button.is-active::before { filter: drop-shadow(0 0 4px #52ffd6) drop-shadow(0 0 10px rgba(82, 255, 214, .6)); }
+main.zr[data-style="retro"] .zr-sheet-card { border-top: 2px solid #3c4046; border-radius: 18px 18px 0 0; background: #020403; }
+main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-amber); background: rgba(2, 4, 3, .96); box-shadow: 0 0 16px rgba(255, 176, 46, .4), 0 12px 28px rgba(0, 0, 0, .6); }
+
+main.zr[data-style="day"] {
+  --zr-accent: #ff6b35;
+  --zr-accent-strong: #ffb08a;
+  --zr-accent-rgb: 255, 107, 53;
+  --zr-ink: #f4f5f6;
+  --zr-muted: #8d9399;
+  --zr-edge: rgba(255, 255, 255, .08);
+  --zr-field: #0c0d0f;
+  --zr-panel: #141518;
+  background:
+    radial-gradient(120% 46% at 50% -10%, rgba(255, 255, 255, .11), transparent 62%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cdefs%3E%3ClinearGradient id='v' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2334383d'/%3E%3Cstop offset='.5' stop-color='%231b1d20'/%3E%3Cstop offset='1' stop-color='%230d0e10'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%232c3034'/%3E%3Cstop offset='.5' stop-color='%2316181a'/%3E%3Cstop offset='1' stop-color='%230a0b0c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='10' height='10' fill='%230a0b0c'/%3E%3Crect x='.4' y='.4' width='4.2' height='4.2' fill='url(%23v)'/%3E%3Crect x='5.4' y='5.4' width='4.2' height='4.2' fill='url(%23v)'/%3E%3Crect x='5.4' y='.4' width='4.2' height='4.2' fill='url(%23h)'/%3E%3Crect x='.4' y='5.4' width='4.2' height='4.2' fill='url(%23h)'/%3E%3C/svg%3E") 0 0 / 10px 10px,
+    #0a0b0c;
+}
+/* クロムの字 */
+main.zr[data-style="day"] .zr-brand b {
+  background: linear-gradient(180deg, #ffffff 0%, #eef0f2 28%, #9aa0a6 47%, #2e3236 53%, #b8bdc2 63%, #f4f5f6 82%, #a3a9ae 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 600;
+  filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, .75));
+}
+/* クロムの縁の板 */
+main.zr[data-style="day"] :is(.zr-panel, .zr-park-card, .zr-hero, .zr-link, .zr-theme, .zr-design, .zr-style) {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgba(24, 26, 29, .95), rgba(9, 10, 11, .97)) padding-box,
+    linear-gradient(160deg, rgba(255, 255, 255, .62), rgba(255, 255, 255, .1) 26%, rgba(255, 255, 255, .03) 58%, rgba(255, 255, 255, .32)) border-box;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+main.zr[data-style="day"] :is(.zr-theme, .zr-design, .zr-style).is-active {
+  background:
+    linear-gradient(180deg, rgba(24, 26, 29, .95), rgba(9, 10, 11, .97)) padding-box,
+    linear-gradient(160deg, #ffb08a, #ff6b35 40%, #8a3010) border-box;
+  box-shadow: 0 0 16px rgba(255, 107, 53, .35);
+}
+/* 液晶の窓の数字(停めてからの時間・燃費): 緑がかった灰色の液晶に、黒い7セグメント */
+main.zr[data-style="day"] .zr-park-elapsed strong,
+main.zr[data-style="day"] .zr-hero-value strong {
+  align-items: flex-end;
+  width: fit-content;
+  padding: 6px 10px 5px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #b5bdac, #cbd2c3 16%, #c3cbba);
+  box-shadow: 0 0 0 3px #1c1e21, 0 0 0 4px #5b6065, inset 0 2px 4px rgba(0, 0, 0, .35);
+  color: #1b2019;
+  transform: none;
+  text-shadow: none;
+}
+/* 停めてからの時間の単位は液晶の中(黒い字)、燃費の単位は液晶の外(オレンジ) */
+main.zr[data-style="day"] .zr-park-elapsed em { margin: 0 9px 3px 4px; color: #1b2019; opacity: .8; }
+main.zr[data-style="day"] .zr-hero-value em { margin-left: 4px; color: var(--zr-accent); }
+main.zr[data-style="day"] .zr-park-elapsed span:last-child em { margin-right: 0; }
+main.zr[data-style="day"] .zr-park-facts dd { display: flex; align-items: flex-end; gap: 4px; color: #f4f5f6; }
+main.zr[data-style="day"] .zr-park-facts .zr-seg { color: #ffffff; }
+/* ボタン: 大事なボタンは車の START と同じオレンジのキー、ほかはクロムの縁 */
+main.zr[data-style="day"] .zr-primary {
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ff7b30, #dc4c06);
+  box-shadow: inset 0 1px 0 rgba(255, 210, 180, .7), 0 0 0 1px #8a3010, 0 10px 22px rgba(0, 0, 0, .55);
+  color: #ffffff;
+}
+main.zr[data-style="day"] .zr-primary:disabled { background: rgba(255, 255, 255, .08); box-shadow: none; color: rgba(255, 255, 255, .35); }
+main.zr[data-style="day"] :is(.zr-ghost, .zr-park-tools button, .zr-sheet-head button) {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, #23262a, #0e0f11) padding-box,
+    linear-gradient(160deg, #c9cdd1, #3a3e42 42%, #1c1e20 62%, #8d9298) border-box;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+main.zr[data-style="day"] .zr-sheet-head button { border-radius: 10px; }
+main.zr[data-style="day"] .zr-park-tools button:is([aria-pressed="true"], .is-off) {
+  background:
+    linear-gradient(180deg, #23262a, #0e0f11) padding-box,
+    linear-gradient(160deg, #ffb08a, #ff6b35 45%, #8a3010) border-box;
+  color: var(--zr-accent-strong);
+}
+main.zr[data-style="day"] .zr-field > div { border-color: rgba(255, 255, 255, .18); background: #0c0d0f; }
+main.zr[data-style="day"] .zr-tabs { border-top: 1px solid rgba(255, 255, 255, .22); background: rgba(12, 13, 15, .92); }
+main.zr[data-style="day"] .zr-tabs button.is-active { color: #ff8a5c; }
+main.zr[data-style="day"] .zr-sheet-card { background: linear-gradient(180deg, #1d1f23, #0e0f11); box-shadow: 0 -18px 40px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .25); }
+
 /* ORBIT NAVI: 大きな丸い地図(HTML)の上に、回転計の輪(SVG)を重ねる */
 .orbit-map-window {
   position: absolute;
@@ -9120,13 +9347,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   animation: ms-blink 1.2s steps(1, end) infinite;
 }
 /* 光る管の細かい網目(画面全体にうっすら)。 */
-.ms-retro-mesh {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle, rgba(0, 0, 0, .55) .55px, transparent .7px) 0 0 / 3px 3px;
-  opacity: .35;
-  pointer-events: none;
-}
 @keyframes ms-blink {
   50% { opacity: .2; }
 }
