@@ -422,7 +422,7 @@ const KEY_GAP = 10;
 const KEY_H = (RETRO_MAP_BAY.h - 16 - BAY_PAD - KEY_GAP) / 2;
 const RETRO_DEST = { x: RETRO_MAP_BAY.x + BAY_PAD, y: RETRO_MAP_BAY.y + 16, w: RETRO_MAP_BAY.w - BAY_PAD * 2, h: KEY_H };
 const RETRO_START = { ...RETRO_DEST, y: RETRO_DEST.y + KEY_H + KEY_GAP };
-/** DEST はねらいの印(点線の輪と4本の目盛り)、START は3つの矢印(行き先があると、光が左から右へ流れる)。 */
+/** DEST はねらいの印(点線の輪と4本の目盛り)、START は3つの矢印(行き先があると光って点いたまま。点滅はしない)。 */
 const DEST_CX = RETRO_DEST.x + RETRO_DEST.w / 2;
 const DEST_CY = RETRO_DEST.y + RETRO_DEST.h / 2;
 const START_CX = RETRO_START.x + RETRO_START.w / 2 + 3;
@@ -634,7 +634,7 @@ const RetroFace = memo(function RetroFace() {
         <circle cx={DEST_CX} cy={DEST_CY} r="4.5" fill={RETRO.amber} stroke="none" />
       </g>
       {retroKey(RETRO_START, RETRO.cyan)}
-      {/* START の矢印(消えている方。光が流れる方は動く絵で、行き先があるときだけ出す)。 */}
+      {/* START の矢印(消えている方。点いている方は動く絵で、行き先があるときだけ出す)。 */}
       <g stroke={RETRO.cyan} fill="none" strokeWidth="7" opacity=".1">
         {[0, 1, 2].map((i) => (
           <polyline key={i} points={startChevron(i)} />
@@ -794,7 +794,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={RETRO_RIGHT.coolant} h={30} color={RETRO.cyan} align="end" />
         <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={RETRO_RIGHT.battery} h={30} color={RETRO.green} align="end" />
         {onStart ? (
-          <g className="ms-retro-flow" stroke={RETRO.cyan} fill="none" strokeWidth="7" filter="url(#ms-vfd)">
+          <g className="ms-retro-start-lit" stroke={RETRO.cyan} fill="none" strokeWidth="7" filter="url(#ms-vfd)">
             {[0, 1, 2].map((i) => (
               <polyline key={i} points={startChevron(i)} />
             ))}
