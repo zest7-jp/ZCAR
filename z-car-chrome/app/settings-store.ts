@@ -290,8 +290,23 @@ export const saveNavChoice = (
 ): Settings => {
   const destination = draft.destination.trim().slice(0, MAX_DESTINATION_TEXT);
   const label = draft.label.trim().slice(0, MAX_DESTINATION_LABEL);
-  if (key === START_TARGET_WORK) return { ...settings, storeDest: destination };
-  if (key === START_TARGET_HOME) return { ...settings, homeDest: destination };
+  if (key === START_TARGET_WORK || key === START_TARGET_HOME) {
+    const work = key === START_TARGET_WORK;
+    const next: Settings = work ? { ...settings, storeDest: destination } : { ...settings, homeDest: destination };
+    if (destination) return next;
+    // 消したときは、代わりに使っていた住所(listNavChoices)でまた埋まらないようにする。
+    // 出発は店の名前も空にする。前のバージョンの1番・2番の枠は id を新しくしてつながりを切る
+    // (場所は一覧にそのまま残す)。★がその行き先なら、目的地を消したときと同じく出発に戻す。
+    const slot = work ? "slot-1" : "slot-2";
+    const id = createPlaceId();
+    return {
+      ...next,
+      storeName: work ? "" : next.storeName,
+      places: next.places.map((place) => (place.id === slot ? { ...place, id } : place)),
+      startTarget:
+        next.startTarget === slot ? id : next.startTarget === START_TARGET_HOME && !work ? START_TARGET_WORK : next.startTarget,
+    };
+  }
   // 出発・帰宅が未入力で、前のバージョンの1番・2番の住所を代わりに使っていた場合は、
   // その場所を直したり消したりする前に、いまの住所を出発・帰宅に写しておく
   // (一覧の「自宅」を消したら帰宅まで消えた、とならないように)。
@@ -515,19 +530,29 @@ export const mergeChangedPlaces = (
     left.label === right.label && left.destination === right.destination;
   const beforeById = new Map(before.map((place) => [place.id, place]));
   const mineById = new Map(mine.map((place) => [place.id, place]));
+  const added = mine.filter((place) => !beforeById.has(place.id));
   const merged: NavPlace[] = [];
+  const known = new Set<string>();
+  const keep = (place: NavPlace) => {
+    if (known.has(place.id)) return;
+    known.add(place.id);
+    merged.push(place);
+  };
   for (const place of latest) {
     const was = beforeById.get(place.id);
     const now = mineById.get(place.id);
     // 自分で消した場所は外し、自分で直した場所は自分の内容にする。
-    if (was && !now) continue;
-    merged.push(was && now && !same(was, now) ? now : place);
+    // 中身はそのままで id だけ新しくした場所(出発・帰宅を消して前のバージョンの枠との
+    // つながりを切ったとき)は、元の位置に置く。
+    if (was && !now) {
+      const renamed = added.find((other) => !known.has(other.id) && same(other, was));
+      if (renamed) keep(renamed);
+      continue;
+    }
+    keep(was && now && !same(was, now) ? now : place);
   }
   // 自分で足した場所を後ろに足す。
-  const known = new Set(merged.map((place) => place.id));
-  for (const place of mine) {
-    if (!beforeById.has(place.id) && !known.has(place.id)) merged.push(place);
-  }
+  for (const place of added) keep(place);
   return merged.slice(0, MAX_PLACES);
 };
 
