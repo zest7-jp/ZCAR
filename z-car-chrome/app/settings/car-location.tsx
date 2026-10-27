@@ -903,7 +903,8 @@ export function CarLocationPanel({
             <dl>
               <div>
                 <dt>{shownLabel}</dt>
-                <dd>
+                {/* 日付は時刻の下に置く(横に並べると、iPhone では右の端で切れるため)。 */}
+                <dd className="is-when">
                   {segNumber(clockText(shownAt), 18)}
                   <small>{sameDay ? "今日" : dateText(shownAt)}</small>
                 </dd>

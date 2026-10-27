@@ -128,13 +128,13 @@ function Big({ reading, look, h, kind }: { reading: Reading; look: MeterStyle; h
   );
 }
 
-/** 自宅に駐車中のボタン。車検・オイル・給油の数字も並べ、押すと車両情報を開く。 */
+/** 自宅に駐車中のボタン。給油・オイル・車検の数字も(大事な順に)並べ、押すと車両情報を開く。 */
 export function VehicleButton({ record, onOpen }: { record: VehicleRecord; onOpen: () => void }) {
   const status = vehicleStatus(record, japanToday());
   const items = [
-    ["車検", status.inspection],
-    ["オイル", status.oil],
     ["給油", status.fuel],
+    ["オイル", status.oil],
+    ["車検", status.inspection],
   ] as const;
   return (
     <button
@@ -160,8 +160,9 @@ export function VehicleButton({ record, onOpen }: { record: VehicleRecord; onOpe
 }
 
 /**
- * 車両情報(下から出るシート)。光る数字のタイルで、車検まで・オイル交換まで・最終給油からを出す。
- * 車検とオイル交換のタイルを押すと日付を入れられ(車とスマホで共有)、給油のタイルは給油の記録を開く。
+ * 車両情報(下から出るシート)。光る数字のタイルで、大事な順に最終給油から(横いっぱい)・
+ * オイル交換まで・車検までを出す。給油のタイルは給油の記録を開き、
+ * オイル交換と車検のタイルを押すと日付を入れられる(車とスマホで共有)。
  */
 export function VehicleSheet({
   record,
@@ -218,17 +219,27 @@ export function VehicleSheet({
         </header>
         <div className="zr-sheet-body">
           <div className="zr-car-tiles">
-            <button
-              type="button"
-              className={`zr-car-tile is-wide${editing === "inspection" ? " is-editing" : ""}`}
-              aria-expanded={editing === "inspection"}
-              onClick={() => open("inspection")}
-            >
+            <button type="button" className="zr-car-tile is-wide" onClick={onOpenFuel}>
               <small>
-                INSPECTION<span>{status.inspection.unit === "日過ぎ" ? "車検の満了日から" : "車検まで"}</span>
+                FUEL<span>最終給油</span>
               </small>
-              <Big reading={status.inspection} look={look} h={46} kind="inspection" />
-              <p>{record.inspectionDue ? `満了日 ${dotted(record.inspectionDue)}` : "押して満了日を入れてください"}</p>
+              <Big reading={status.fuel} look={look} h={46} kind="fuel" />
+              <p>
+                {latest ? (
+                  <>
+                    {shortDay(latest.date, today)}・{latest.liters.toFixed(1)}L
+                    {latest.amountYen > 0 ? `・${number(latest.amountYen)}円` : ""}
+                    {latest.distanceKm > 0 ? (
+                      <>
+                        <br />
+                        {number(latest.distanceKm)}km 走行・{(latest.distanceKm / latest.liters).toFixed(1)}km/L
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  "押すと給油の記録を開きます"
+                )}
+              </p>
             </button>
             <button
               type="button"
@@ -252,27 +263,17 @@ export function VehicleSheet({
                 )}
               </p>
             </button>
-            <button type="button" className="zr-car-tile" onClick={onOpenFuel}>
+            <button
+              type="button"
+              className={`zr-car-tile${editing === "inspection" ? " is-editing" : ""}`}
+              aria-expanded={editing === "inspection"}
+              onClick={() => open("inspection")}
+            >
               <small>
-                FUEL<span>最終給油</span>
+                INSPECTION<span>{status.inspection.unit === "日過ぎ" ? "期限切れ" : "車検まで"}</span>
               </small>
-              <Big reading={status.fuel} look={look} h={32} kind="fuel" />
-              <p>
-                {latest ? (
-                  <>
-                    {shortDay(latest.date, today)}・{latest.liters.toFixed(1)}L
-                    {latest.amountYen > 0 ? `・${number(latest.amountYen)}円` : ""}
-                    {latest.distanceKm > 0 ? (
-                      <>
-                        <br />
-                        {number(latest.distanceKm)}km 走行・{(latest.distanceKm / latest.liters).toFixed(1)}km/L
-                      </>
-                    ) : null}
-                  </>
-                ) : (
-                  "押すと給油の記録を開きます"
-                )}
-              </p>
+              <Big reading={status.inspection} look={look} h={32} kind="inspection" />
+              <p>{record.inspectionDue ? `満了日 ${dotted(record.inspectionDue)}` : "押して満了日を入れてください"}</p>
             </button>
           </div>
           {editing ? (
@@ -300,8 +301,8 @@ export function VehicleSheet({
             </form>
           ) : null}
           <p className="zr-note">
-            車検とオイル交換は、押すと日付を入れられます。オイル交換の目安は {number(OIL_INTERVAL_KM)}km か{" "}
-            {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。給油を押すと記録を開きます。
+            給油を押すと記録を開きます。オイル交換と車検は、押すと日付を入れられます。オイル交換の目安は{" "}
+            {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。
           </p>
         </div>
       </section>

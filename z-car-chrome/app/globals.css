@@ -8913,6 +8913,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 700;
 }
 .zr-park-facts dd small { margin-left: 6px; font-family: system-ui, sans-serif; }
+/* 停めた時刻: 日付は時刻の下(テーマの決まりより強くする)。 */
+main.zr[data-style] .zr-park-facts dd.is-when { display: grid; justify-items: end; align-items: end; gap: 2px; }
+main.zr[data-style] .zr-park-facts dd.is-when small { margin-left: 0; }
 
 /* 地図アプリで道案内(歩き)。 */
 .zr-park-go {
