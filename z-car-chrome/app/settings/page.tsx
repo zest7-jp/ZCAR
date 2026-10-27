@@ -173,6 +173,8 @@ export default function PhoneSettingsPage() {
   const [editDraft, setEditDraft] = useState({ label: "", destination: "" });
   // 一覧の右の削除を1回押したところ(もう一度押すと消える。3秒で元に戻る)。
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
+  // 行を押して開いた、目的地のメニュー(カーナビタイム・Google マップ・直す)。
+  const [menuKey, setMenuKey] = useState<string | null>(null);
   // Google マップのコピーを読み取っているところ。
   const [pasting, setPasting] = useState(false);
   // 「Google マップから直接送る」(ショートカットの作り方)を開いているところ。
@@ -542,6 +544,49 @@ export default function PhoneSettingsPage() {
     if (editKey === choice.key) setEditKey(null);
     setDraft((current) => saveNavChoice(current, choice.key, { label: "", destination: "" }));
     setToast(`「${choice.label}」${choice.fixed ? "の住所" : ""}を消しました${sendNote}`);
+  };
+
+  /**
+   * 目的地の行を押したとき。住所があれば、下からメニュー(カーナビタイム・Google マップ・直す)を出す。
+   * 住所が未登録なら直す欄を開き、直している途中なら閉じる。
+   */
+  const openChoice = (choice: NavChoice) => {
+    if (!choice.destination || editKey === choice.key) {
+      openEditor(choice);
+      return;
+    }
+    setMenuKey(choice.key);
+  };
+  const menuChoice = choices.find((choice) => choice.key === menuKey && choice.destination) ?? null;
+
+  /**
+   * iPhone の共有メニューに住所を出す。そこでカーナビタイムを選ぶと、その場所を探して開く
+   * (ナビタイムは、目的地を渡して直接開く方法を出していない)。
+   * 共有メニューが無い端末や開けなかったときは、住所をコピーする。閉じただけならメニューに戻る。
+   */
+  const shareToNavi = (choice: NavChoice) => {
+    const copy = async () => {
+      setMenuKey(null);
+      try {
+        await navigator.clipboard.writeText(choice.destination);
+        setToast("住所をコピーしました。ナビのアプリの検索に貼り付けてください");
+      } catch {
+        setToast("開けませんでした。もう一度押してください");
+      }
+    };
+    if (typeof navigator.share !== "function") {
+      void copy();
+      return;
+    }
+    // Google マップの共有と同じく、住所と場所の URL を渡す(URL しか受け取らないアプリにも出るように)。
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(choice.destination)}`;
+    navigator
+      .share({ text: choice.destination, url })
+      .then(() => setMenuKey(null))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        void copy();
+      });
   };
 
   /** 直した(足した)場所を保存する。clear のときは、その場所を消す。 */
@@ -971,11 +1016,19 @@ export default function PhoneSettingsPage() {
             syncKey={draft.syncKey.trim()}
             mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
             look={draft.meterStyle}
+            vehicle={{
+              carId: draft.carId,
+              inspectionDue: draft.inspectionDue,
+              oilChangedOn: draft.oilChangedOn,
+              fuelEntries: draft.fuelEntries,
+            }}
             onRegister={registerPlace}
             onOpenList={() => {
               setTab("navi");
               setEditKey(null);
             }}
+            onOpenFuel={() => setTab("fuel")}
+            onVehicleChange={(dates) => setDraft((current) => ({ ...current, ...dates }))}
           />
         ) : (
           <section className="zr-panel" aria-label="車両位置">
@@ -1004,6 +1057,9 @@ export default function PhoneSettingsPage() {
               START
             </em>
           </header>
+          <p className="zr-navi-hint">
+            行を押すとメニュー。<b>カーナビタイム</b>や<b>Google マップ</b>で開けます。
+          </p>
           <ul className="zr-places">
             {choices.map((choice) => {
               const starred = startChoice?.key === choice.key;
@@ -1027,8 +1083,9 @@ export default function PhoneSettingsPage() {
                     <button
                       type="button"
                       className="zr-place"
+                      aria-haspopup={choice.destination && !editing ? "dialog" : undefined}
                       aria-expanded={editing}
-                      onClick={() => openEditor(choice)}
+                      onClick={() => openChoice(choice)}
                     >
                       <span className="zr-place-name">
                         <b>{choice.label}</b>
@@ -1202,6 +1259,58 @@ export default function PhoneSettingsPage() {
             色と形は、近未来のテーマで使います。
           </p>
         </section>
+      ) : null}
+
+      {/* 目的地のメニュー。行を押すと下から出て、iPhone でナビを開く。 */}
+      {menuChoice ? (
+        <div className="zr-sheet" role="presentation" onClick={() => setMenuKey(null)}>
+          <section
+            className="zr-sheet-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${menuChoice.label} のメニュー`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="zr-sheet-head">
+              <span>
+                <small>DESTINATION</small>
+                <b>{menuChoice.label}</b>
+              </span>
+              <button type="button" onClick={() => setMenuKey(null)}>
+                CLOSE
+              </button>
+            </header>
+            <p className="zr-go-addr">{menuChoice.destination}</p>
+            <div className="zr-go-actions">
+              <button type="button" className="zr-primary" onClick={() => shareToNavi(menuChoice)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3.5 11.2 20.5 3.5l-7.7 17-2.3-7-7-2.3Z" />
+                </svg>
+                カーナビタイムで開く
+              </button>
+              {/* Google マップは直接開ける(車の START と同じく、すぐ道案内を始める)。 */}
+              <a
+                className="zr-ghost"
+                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(menuChoice.destination)}&travelmode=driving&dir_action=navigate`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuKey(null)}
+              >
+                Google マップで開く
+              </a>
+              <button
+                type="button"
+                className="zr-ghost"
+                onClick={() => {
+                  setMenuKey(null);
+                  openEditor(menuChoice);
+                }}
+              >
+                この目的地を直す
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
 
       {/* 給油の記録(履歴)。今月の燃費のカードを押すと下から出る。 */}

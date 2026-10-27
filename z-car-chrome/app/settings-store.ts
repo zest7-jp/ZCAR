@@ -50,6 +50,10 @@ export const MAX_FUEL_ENTRIES = 120;
 /** 給油記録の保存先(この機能より前のバージョンが使っていたキー)。 */
 export const LEGACY_FUEL_LOG_KEY = "zcar-fuel-log-v1";
 
+/** YYYY-MM-DD の日付か(給油日・車検の満了日など)。 */
+export const isDateKey = (value: unknown): value is string =>
+  typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
 export const isValidFuelEntry = (entry: unknown): entry is FuelEntry => {
   if (!entry || typeof entry !== "object") return false;
   const { id, date, liters, distanceKm, amountYen } = entry as Partial<FuelEntry>;
@@ -372,6 +376,10 @@ export type Settings = {
   startTarget: string;
   /** 満タン法の給油記録。車とスマホのどちらで記録しても共有する。 */
   fuelEntries: FuelEntry[];
+  /** 車検の満了日(YYYY-MM-DD)。空なら未登録。車とスマホで共有する。 */
+  inspectionDue: string;
+  /** 前回オイルを替えた日(YYYY-MM-DD)。空なら未登録。車とスマホで共有する。 */
+  oilChangedOn: string;
 };
 
 export const defaults: Settings = {
@@ -394,6 +402,8 @@ export const defaults: Settings = {
   places: placesFromSlots(defaultMapDestinations),
   startTarget: START_TARGET_WORK,
   fuelEntries: [],
+  inspectionDue: "",
+  oilChangedOn: "",
 };
 
 /** サーバーと共有する項目。走行状態やAPIキーは端末ごとなので送らない。 */
@@ -409,6 +419,8 @@ export const SYNCED_FIELDS = [
   "places",
   "startTarget",
   "fuelEntries",
+  "inspectionDue",
+  "oilChangedOn",
 ] as const;
 
 export type SyncedSettings = Pick<Settings, (typeof SYNCED_FIELDS)[number]>;
@@ -484,6 +496,11 @@ export const sanitizeSyncedSettings = (
   }
   if (!isMeterDesign(cleaned.meterDesign)) delete cleaned.meterDesign;
   if (!isMeterStyle(cleaned.meterStyle)) delete cleaned.meterStyle;
+  // 車検・オイル交換の日は、日付の形だけ受け取る(空は「未登録に戻した」)。
+  for (const field of ["inspectionDue", "oilChangedOn"] as const) {
+    const day = cleaned[field];
+    if (day !== undefined && day !== "" && !isDateKey(day)) delete cleaned[field];
+  }
   // サーバーにまだ一覧が無ければ、前のバージョンの1〜5の枠から移す。
   const legacy = value as { places?: unknown; mapDestinations?: unknown };
   if (Array.isArray(legacy.places) || Array.isArray(legacy.mapDestinations)) {
@@ -512,6 +529,8 @@ export const SHARED_EDIT_FIELDS = [
   "homeDest",
   "places",
   "startTarget",
+  "inspectionDue",
+  "oilChangedOn",
 ] as const;
 export type SharedEditField = (typeof SHARED_EDIT_FIELDS)[number];
 
@@ -765,6 +784,8 @@ export const readSettings = (): Settings => {
         typeof stored.startTarget === "string" && stored.startTarget
           ? stored.startTarget
           : START_TARGET_WORK,
+      inspectionDue: isDateKey(stored.inspectionDue) ? stored.inspectionDue : "",
+      oilChangedOn: isDateKey(stored.oilChangedOn) ? stored.oilChangedOn : "",
       // 古いバージョンは給油記録を別のキーに置いていたので、そこからも拾う。
       fuelEntries: mergeFuelEntries(
         sanitizeFuelEntries(stored.fuelEntries),
