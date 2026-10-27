@@ -1016,11 +1016,18 @@ export default function PhoneSettingsPage() {
             syncKey={draft.syncKey.trim()}
             mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
             look={draft.meterStyle}
+            vehicle={{
+              carId: draft.carId,
+              inspectionDue: draft.inspectionDue,
+              oilChangedOn: draft.oilChangedOn,
+              fuelEntries: draft.fuelEntries,
+            }}
             onRegister={registerPlace}
             onOpenList={() => {
               setTab("navi");
               setEditKey(null);
             }}
+            onVehicleChange={(dates) => setDraft((current) => ({ ...current, ...dates }))}
           />
         ) : (
           <section className="zr-panel" aria-label="車両位置">

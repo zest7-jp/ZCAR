@@ -6,6 +6,7 @@ import { SegNumber } from "../meter-styles";
 import type { MeterStyle } from "../settings-store";
 import { distanceMeters, fetchParking, type ParkedCar } from "../parking";
 import type { PlaceDraft } from "../place-import";
+import { VehicleSheet, type VehicleDates, type VehicleRecord } from "./vehicle-info";
 
 /** 車両位置を読み直す間隔(画面に戻ってきたときは、すぐ読み直す)。 */
 const PARK_POLL_MS = 30_000;
@@ -449,17 +450,23 @@ export function CarLocationPanel({
   syncKey,
   mapsKey,
   look,
+  vehicle,
   onRegister,
   onOpenList,
+  onVehicleChange,
 }: {
   syncKey: string;
   mapsKey: string;
   /** 車のテーマ。80年代・デイライトのときは、数字を車と同じ7セグメントで出す。 */
   look: MeterStyle;
+  /** 自宅に駐車中に出す車両情報(車検・オイル交換・給油の記録)。 */
+  vehicle: VehicleRecord;
   /** 「現在地を登録」で作った場所を、目的地の一覧に足す。 */
   onRegister: (place: PlaceDraft) => void;
   /** 「地点リスト」: 目的地の一覧を開く。 */
   onOpenList: () => void;
+  /** 車両情報で、車検・オイル交換の日を入れた(消した)。 */
+  onVehicleChange: (dates: VehicleDates) => void;
 }) {
   // まだ読んでいなければ null。offset は「サーバーの時計 - スマホの時計」。
   const [loaded, setLoaded] = useState<{ park: ParkedCar | null; offset: number } | null>(null);
@@ -491,6 +498,8 @@ export function CarLocationPanel({
     typeof window === "undefined" ? null : readParkMemo(),
   );
   const [memoDraft, setMemoDraft] = useState<string | null>(null);
+  // 車両情報(自宅に駐車中の「車両情報」から開く)。
+  const [vehicleOpen, setVehicleOpen] = useState(false);
   // 自宅として覚えた場所(駐車メモと同じく、この端末に置く)。
   const [homeSpot, setHomeSpot] = useState<HomeSpot | null>(() =>
     typeof window === "undefined" ? null : readHomeSpot(),
@@ -941,6 +950,19 @@ export function CarLocationPanel({
             地点リスト
           </button>
         </div>
+      ) : park && atHome ? (
+        // 自宅に駐車中は、車まで歩く・駐車メモの代わりに、車両情報(車検・オイル交換・給油)だけ。
+        <div className="zr-park-go is-single">
+          <button type="button" className="zr-primary zr-park-car" onClick={() => setVehicleOpen(true)}>
+            <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
+              <path d="M4 16.5V11l2.2-5.3c.3-.7.9-1.2 1.7-1.2h8.2c.8 0 1.4.5 1.7 1.2L20 11v5.5" />
+              <path d="M4 11h16M3.5 16.5h17" />
+              <circle cx="7.5" cy="18" r="1.6" />
+              <circle cx="16.5" cy="18" r="1.6" />
+            </svg>
+            車両情報
+          </button>
+        </div>
       ) : park ? (
         // 駐車中は、車まで歩く道案内(Google マップ)と、駐車メモ。
         <div className="zr-park-go">
@@ -975,6 +997,9 @@ export function CarLocationPanel({
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
         {carOn ? "登録した場所は、目的地として車の DEST から選べます。" : null}
       </p>
+      {vehicleOpen ? (
+        <VehicleSheet record={vehicle} onSave={onVehicleChange} onClose={() => setVehicleOpen(false)} />
+      ) : null}
       {memoDraft !== null ? (
         // 駐車メモを書くシート(下から出る)。
         <div className="zr-sheet" role="presentation" onClick={() => setMemoDraft(null)}>

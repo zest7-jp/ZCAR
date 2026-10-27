@@ -42,6 +42,9 @@ const ALLOWED_FIELDS = [
     'homeDest'    => 200,
     'carId'       => 40,
     'startTarget' => 40,
+    // 車検の満了日・前回オイルを替えた日(YYYY-MM-DD。空なら未登録)。
+    'inspectionDue' => 10,
+    'oilChangedOn'  => 10,
 ];
 
 function fail(int $status, string $message): void
@@ -128,6 +131,12 @@ foreach (ALLOWED_FIELDS as $field => $maxLength) {
         $value = mb_substr($value, 0, $maxLength, 'UTF-8');
     }
     $clean[$field] = $value;
+}
+// 車検・オイル交換の日は、日付の形(か空)だけ残す。
+foreach (['inspectionDue', 'oilChangedOn'] as $field) {
+    if (isset($clean[$field]) && $clean[$field] !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $clean[$field])) {
+        unset($clean[$field]);
+    }
 }
 // 前のバージョンの目的地(1〜5の決まった枠)。古い画面が送ってきたときのために残す。
 if (isset($incoming['mapDestinations']) && is_array($incoming['mapDestinations'])) {
