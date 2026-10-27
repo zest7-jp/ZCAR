@@ -1027,6 +1027,7 @@ export default function PhoneSettingsPage() {
               setTab("navi");
               setEditKey(null);
             }}
+            onOpenFuel={() => setTab("fuel")}
             onVehicleChange={(dates) => setDraft((current) => ({ ...current, ...dates }))}
           />
         ) : (

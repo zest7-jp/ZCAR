@@ -8559,53 +8559,55 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .zr-log-month h3 small { color: var(--zr-muted); font-size: 11px; font-weight: 700; }
 .zr-sheet-body > .zr-note { margin: 16px 2px 4px; }
-/* 車両情報(車検・オイル交換・最終給油)。車検とオイル交換は、押すと日付を入れる欄が開く。 */
-.zr-car-list { margin: 4px 0 0; padding: 0; list-style: none; }
-.zr-car-list li { border-bottom: 1px solid var(--zr-edge); }
-.zr-car-row {
+/* 車両情報(車検まで・オイル交換まで・最終給油から)。大きい数字のタイルで、車検は横いっぱい。 */
+.zr-car-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0 0; }
+.zr-car-tile {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px 2px;
-  border: 0;
-  background: transparent;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1.5px solid var(--zr-edge);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .03);
   color: var(--zr-ink);
   font-family: inherit;
   text-align: left;
+  cursor: pointer;
 }
-button.zr-car-row { cursor: pointer; }
-.zr-car-row > i {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1.5px solid rgba(var(--zr-accent-rgb), .6);
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(var(--zr-accent-rgb), .3);
-  color: var(--zr-accent-strong);
-}
-.zr-car-row > i svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.zr-car-row > span { display: grid; gap: 3px; min-width: 0; }
-.zr-car-row b { font-size: 15px; font-weight: 800; }
-.zr-car-row small { color: var(--zr-muted); font-size: 11.5px; line-height: 1.4; }
-.zr-car-list li.is-editing .zr-car-row b { color: var(--zr-accent-strong); }
-.zr-car-chip {
-  padding: 5px 9px;
-  border: 1.5px solid rgba(var(--zr-accent-rgb), .6);
-  border-radius: 999px;
-  color: var(--zr-accent-strong);
+.zr-car-tile.is-wide { grid-column: 1 / -1; }
+.zr-car-tile.is-editing { border-color: rgba(var(--zr-accent-rgb), .8); box-shadow: 0 0 0 3px rgba(var(--zr-accent-rgb), .12); }
+.zr-car-tile > small {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--zr-accent);
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
-  font-style: normal;
+  font-size: 9px;
   font-weight: 900;
-  white-space: nowrap;
+  letter-spacing: .22em;
 }
-.zr-car-chip.is-info { border-color: rgba(255, 255, 255, .2); color: var(--zr-ink); }
-.zr-car-chip.is-soon { border-color: rgba(255, 107, 90, .85); color: #ff9a8c; }
-.zr-car-chip.is-over { border-color: #ff6b5a; background: rgba(255, 107, 90, .2); color: #ffb3a8; }
-.zr-car-chip.is-none { border-style: dashed; border-color: rgba(255, 255, 255, .22); color: var(--zr-muted); }
+.zr-car-tile > small span { color: var(--zr-muted); font-family: system-ui, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+.zr-car-tile > p { margin: 0; color: var(--zr-muted); font-size: 11.5px; line-height: 1.45; }
+.zr-car-big { display: flex; align-items: flex-end; gap: 6px; min-height: 46px; color: var(--zr-accent-strong); }
+.zr-car-tile:not(.is-wide) .zr-car-big { min-height: 32px; }
+.zr-car-big b { font-family: "SFMono-Regular", Consolas, monospace; font-size: 40px; font-weight: 900; line-height: 1; }
+.zr-car-tile:not(.is-wide) .zr-car-big b { font-size: 28px; }
+.zr-car-big.is-text b { align-self: center; font-family: inherit; font-size: 17px; }
+.zr-car-big em { padding-bottom: 2px; color: var(--zr-muted); font-size: 13px; font-style: normal; font-weight: 800; }
+.zr-car-big:is(.is-soon, .is-over) { color: #ff8a7a; }
+.zr-car-big.is-none { color: var(--zr-muted); }
+/* 自宅に駐車中のボタン: 左に「車両情報」、右に車検・オイル・給油の数字。 */
+.zr-park-go .zr-park-car { justify-content: space-between; min-height: 64px; padding: 0 16px; }
+.zr-park-car > span:first-child { display: grid; gap: 2px; text-align: left; }
+.zr-park-car > span:first-child small { color: var(--zr-accent); font-family: "SFMono-Regular", Consolas, monospace; font-size: 8px; font-weight: 900; letter-spacing: .26em; }
+.zr-park-car > span:first-child b { font-size: 15px; letter-spacing: .1em; }
+.zr-park-car-stats { display: flex; gap: 12px; }
+.zr-park-car-stats > span { display: grid; justify-items: end; gap: 2px; color: var(--zr-muted); font-size: 9px; font-weight: 800; text-shadow: none; }
+.zr-park-car-stats b { color: var(--zr-accent-strong); font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; font-weight: 900; }
+.zr-park-car-stats b:is(.is-soon, .is-over) { color: #ff8a7a; }
+.zr-park-car-stats b.is-none { color: var(--zr-muted); font-family: inherit; font-size: 12px; }
 .zr-car-edit { display: grid; gap: 10px; padding: 0 2px 14px; }
 .zr-car-edit input[type="date"] { color-scheme: dark; font-family: "SFMono-Regular", Consolas, monospace; }
 @keyframes zr-sheet-up {
@@ -8942,7 +8944,6 @@ button.zr-car-row { cursor: pointer; }
 .zr-park-go svg .is-dot { stroke-width: 3; }
 /* 自宅に駐車中は「車両情報」1つだけ(横いっぱい)。 */
 .zr-park-go.is-single { grid-template-columns: 1fr; }
-.zr-park-go .zr-park-car svg { width: 22px; height: 22px; }
 /* 駐車メモ。書いたあとは、ボタンにメモの文字を出す。 */
 .zr-park-go .zr-park-memo { min-width: 0; }
 .zr-park-go .zr-park-memo.has-memo {
@@ -9162,8 +9163,14 @@ main.zr[data-style="retro"] .zr-tabs b { font-family: "SFMono-Regular", Consolas
 main.zr[data-style="retro"] .zr-tabs button.is-active { color: var(--zr-accent); text-shadow: 0 0 8px rgba(82, 255, 214, .9); }
 main.zr[data-style="retro"] .zr-tabs button.is-active::before { filter: drop-shadow(0 0 4px #52ffd6) drop-shadow(0 0 10px rgba(82, 255, 214, .6)); }
 main.zr[data-style="retro"] .zr-sheet-card { border-top: 2px solid #3c4046; border-radius: 18px 18px 0 0; background: #020403; }
-main.zr[data-style="retro"] .zr-car-chip.is-ok { border-color: rgba(255, 176, 46, .8); box-shadow: 0 0 10px rgba(255, 176, 46, .3); color: #ffc65e; text-shadow: 0 0 8px rgba(255, 176, 46, .8); }
-main.zr[data-style="retro"] .zr-car-chip.is-info { border-color: rgba(82, 255, 214, .6); color: var(--zr-accent-strong); text-shadow: 0 0 8px rgba(82, 255, 214, .8); }
+/* 車両情報のタイル: 黒い窓に光る7セグメント(オイルはアンバー)。ボタンの数字もアンバー。 */
+main.zr[data-style="retro"] .zr-car-tile { border-color: #2a3033; background: linear-gradient(180deg, #060a09, #020403); box-shadow: inset 0 0 18px rgba(0, 0, 0, .8); }
+main.zr[data-style="retro"] .zr-car-big { color: var(--zr-accent); }
+main.zr[data-style="retro"] .zr-car-big.is-oil { color: var(--zr-amber); }
+main.zr[data-style="retro"] .zr-car-big:is(.is-soon, .is-over) { color: #ff5a4a; }
+main.zr[data-style="retro"] .zr-car-big.is-none { color: var(--zr-muted); }
+main.zr[data-style="retro"] .zr-park-car-stats b:not(.is-none) { color: #ffc65e; text-shadow: 0 0 8px rgba(255, 176, 46, .8); }
+main.zr[data-style="retro"] .zr-park-car-stats b:is(.is-soon, .is-over) { color: #ff6a5a; text-shadow: 0 0 8px rgba(255, 90, 74, .8); }
 main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-amber); background: rgba(2, 4, 3, .96); box-shadow: 0 0 16px rgba(255, 176, 46, .4), 0 12px 28px rgba(0, 0, 0, .6); }
 
 main.zr[data-style="day"] {
@@ -9222,6 +9229,16 @@ main.zr[data-style="day"] .zr-hero-value em { margin-left: 4px; color: var(--zr-
 main.zr[data-style="day"] .zr-park-elapsed span:last-child em { margin-right: 0; }
 main.zr[data-style="day"] .zr-park-facts dd { display: flex; align-items: flex-end; gap: 4px; color: #f4f5f6; }
 main.zr[data-style="day"] .zr-park-facts .zr-seg { color: #ffffff; }
+main.zr[data-style="day"] .zr-car-big:not(.is-text) {
+  width: fit-content;
+  padding: 5px 9px 4px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #b5bdac, #cbd2c3 16%, #c3cbba);
+  box-shadow: 0 0 0 3px #1c1e21, 0 0 0 4px #5b6065, inset 0 2px 4px rgba(0, 0, 0, .35);
+  color: #1b2019;
+}
+main.zr[data-style="day"] .zr-car-big:not(.is-text) em { color: #1b2019; opacity: .8; }
+main.zr[data-style="day"] .zr-car-big:is(.is-soon, .is-over):not(.is-text) { color: #a3160a; }
 /* ボタン: 大事なボタンは車の START と同じオレンジのキー、ほかはクロムの縁 */
 main.zr[data-style="day"] .zr-primary {
   border-radius: 14px;

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { isDateKey, type FuelEntry } from "../settings-store";
+import { useState } from "react";
+import { SegNumber } from "../meter-styles";
+import { isDateKey, type FuelEntry, type MeterStyle } from "../settings-store";
 
 /** オイル交換の目安(どちらか早いほう)。 */
 const OIL_INTERVAL_KM = 5000;
 const OIL_INTERVAL_MONTHS = 6;
-/** 車検の満了日がこれより近づいたら、札の色を変える(日)。 */
+/** 車検の満了日がこれより近づいたら、数字の色を変える(日)。 */
 const INSPECTION_SOON_DAYS = 30;
-/** オイル交換の目安の、この割合を過ぎたら札の色を変える。 */
+/** オイル交換の目安の、この割合を過ぎたら数字の色を変える。 */
 const OIL_SOON_RATIO = 0.9;
 
 /** 車両情報に出すもの。車検・オイル交換の日は、未登録なら空。 */
@@ -20,10 +21,13 @@ export type VehicleRecord = {
 };
 export type VehicleDates = Partial<Pick<VehicleRecord, "inspectionDue" | "oilChangedOn">>;
 
-type RowId = "inspection" | "oil" | "fuel";
-/** 札の色。ok: まだ先 / soon: 近い / over: 過ぎた / info: 給油 / none: 未登録。 */
+/** 数字の色。ok: まだ先 / soon: 近い / over: 過ぎた / info: 給油 / none: 未登録。 */
 type Tone = "ok" | "soon" | "over" | "info" | "none";
-type Row = { id: RowId; title: string; lines: string[]; chip: string; tone: Tone };
+/**
+ * 1つ分の数字と単位。digits なら7セグメントの数字で出す(80年代・デイライト)。
+ * short はボタンに並べる短い字。
+ */
+type Reading = { value: string; unit: string; digits: boolean; short: string; tone: Tone };
 
 /** 日本時間の今日(YYYY-MM-DD)。 */
 const japanToday = () => {
@@ -50,115 +54,133 @@ const dotted = (day: string) => day.replace(/-/g, ".");
 const shortDay = (day: string, today: string) =>
   day.slice(0, 4) === today.slice(0, 4) ? dotted(day.slice(5)) : dotted(day);
 const number = (value: number) => Math.round(value).toLocaleString("ja-JP");
+const text = (value: string, tone: Tone): Reading => ({ value, unit: "", digits: false, short: value, tone });
 
-/** 車検・オイル交換・最終給油の3行を作る。 */
-const vehicleRows = (record: VehicleRecord, today: string): Row[] => {
-  const rows: Row[] = [];
-
-  if (record.inspectionDue) {
-    const left = daysBetween(today, record.inspectionDue);
-    rows.push({
-      id: "inspection",
-      title: "車検",
-      lines: [`満了日 ${dotted(record.inspectionDue)}`],
-      chip: left > 0 ? `あと${left}日` : left === 0 ? "今日まで" : `${-left}日過ぎ`,
-      tone: left < 0 ? "over" : left <= INSPECTION_SOON_DAYS ? "soon" : "ok",
-    });
+/** 車検・オイル交換・最終給油の、いまの様子。 */
+const vehicleStatus = (record: VehicleRecord, today: string) => {
+  let inspection: Reading;
+  if (!record.inspectionDue) {
+    inspection = text("未登録", "none");
   } else {
-    rows.push({ id: "inspection", title: "車検", lines: ["押して満了日を入れてください"], chip: "未登録", tone: "none" });
+    const left = daysBetween(today, record.inspectionDue);
+    const tone = left < 0 ? "over" : left <= INSPECTION_SOON_DAYS ? "soon" : "ok";
+    inspection =
+      left === 0
+        ? text("今日まで", "soon")
+        : left > 0
+          ? { value: String(left), unit: "日", digits: true, short: `${left}日`, tone }
+          : { value: String(-left), unit: "日過ぎ", digits: true, short: `${-left}日過ぎ`, tone };
   }
 
-  if (record.oilChangedOn) {
-    // 給油の記録の距離は「前の給油からその給油まで」なので、交換した日より後の給油を足す(だいたいの距離)。
-    const driven = record.fuelEntries
-      .filter((entry) => entry.date > record.oilChangedOn)
-      .reduce((total, entry) => total + entry.distanceKm, 0);
+  let oil: Reading;
+  // 給油の記録の距離は「前の給油からその給油まで」なので、交換した日より後の給油を足す(だいたいの距離)。
+  const driven = record.oilChangedOn
+    ? record.fuelEntries
+        .filter((entry) => entry.date > record.oilChangedOn)
+        .reduce((total, entry) => total + entry.distanceKm, 0)
+    : 0;
+  if (!record.oilChangedOn) {
+    oil = text("未登録", "none");
+  } else {
     const due = addMonths(record.oilChangedOn, OIL_INTERVAL_MONTHS);
-    const span = daysBetween(record.oilChangedOn, due);
     const passed = Math.max(0, daysBetween(record.oilChangedOn, today));
-    const kmLeft = OIL_INTERVAL_KM - driven;
+    const kmLeft = Math.round(OIL_INTERVAL_KM - driven);
     const daysLeft = daysBetween(today, due);
     const kmRatio = driven / OIL_INTERVAL_KM;
-    const timeRatio = passed / span;
-    const over = kmLeft <= 0 || daysLeft <= 0;
-    rows.push({
-      id: "oil",
-      title: "オイル交換",
-      lines: [
-        `前回 ${dotted(record.oilChangedOn)}・そこから約${number(driven)}km`,
-        `目安 ${number(OIL_INTERVAL_KM)}km か ${dotted(due)}`,
-      ],
-      // 距離と日にちの、目安に近いほうを出す。
-      chip: over ? "交換の時期" : kmRatio >= timeRatio ? `あと約${number(kmLeft)}km` : `あと${daysLeft}日`,
-      tone: over ? "over" : Math.max(kmRatio, timeRatio) >= OIL_SOON_RATIO ? "soon" : "ok",
-    });
-  } else {
-    rows.push({ id: "oil", title: "オイル交換", lines: ["押して前回の交換日を入れてください"], chip: "未登録", tone: "none" });
+    const timeRatio = passed / daysBetween(record.oilChangedOn, due);
+    const tone = Math.max(kmRatio, timeRatio) >= OIL_SOON_RATIO ? "soon" : "ok";
+    // 距離と日にちの、目安に近いほうを出す。
+    oil =
+      kmLeft <= 0 || daysLeft <= 0
+        ? { ...text("交換の時期", "over"), short: "交換時期" }
+        : kmRatio >= timeRatio
+          ? { value: String(kmLeft), unit: "km", digits: true, short: `${number(kmLeft)}km`, tone }
+          : { value: String(daysLeft), unit: "日", digits: true, short: `${daysLeft}日`, tone };
   }
 
   const latest = [...record.fuelEntries].sort(
     (left, right) => right.date.localeCompare(left.date) || right.createdAt - left.createdAt,
   )[0];
-  if (latest) {
-    const ago = Math.max(0, daysBetween(latest.date, today));
-    const price = latest.amountYen > 0 ? `・${number(latest.amountYen)}円(${number(latest.amountYen / latest.liters)}円/L)` : "";
-    rows.push({
-      id: "fuel",
-      title: "最終給油",
-      lines: [
-        `${shortDay(latest.date, today)}・${latest.liters.toFixed(1)}L${price}`,
-        ...(latest.distanceKm > 0
-          ? [`${number(latest.distanceKm)}km 走行・${(latest.distanceKm / latest.liters).toFixed(1)}km/L`]
-          : []),
-      ],
-      chip: ago === 0 ? "今日" : `${ago}日前`,
-      tone: "info",
-    });
+  let fuel: Reading;
+  if (!latest) {
+    fuel = { ...text("記録なし", "none"), short: "なし" };
   } else {
-    rows.push({ id: "fuel", title: "最終給油", lines: ["給油の記録はまだありません"], chip: "", tone: "none" });
+    const ago = Math.max(0, daysBetween(latest.date, today));
+    fuel = ago === 0 ? text("今日", "info") : { value: String(ago), unit: "日前", digits: true, short: `${ago}日前`, tone: "info" };
   }
-  return rows;
+  return { inspection, oil, fuel, driven, latest };
 };
 
-const ICONS: Record<RowId, ReactNode> = {
-  inspection: (
-    <svg viewBox="0 0 24 24">
-      <path d="M12 3.2 19 6v5.3c0 4.4-3 7.9-7 9.5-4-1.6-7-5.1-7-9.5V6l7-2.8Z" />
-      <path d="m8.7 12 2.3 2.3 4.4-4.6" />
-    </svg>
-  ),
-  oil: (
-    <svg viewBox="0 0 24 24">
-      <path d="M3 11h8l3 2.5h4.5l2.5-2v2.3L17 18H6.5L3 14.5V11Z" />
-      <path d="M6 11V8.5h3V11M4 8.5h7" />
-      <path d="M20.5 6.3c0 .9-.7 1.6-1.6 1.6s-1.6-.7-1.6-1.6c0-.9 1.6-2.8 1.6-2.8s1.6 1.9 1.6 2.8Z" />
-    </svg>
-  ),
-  fuel: (
-    <svg viewBox="0 0 24 24">
-      <path d="M5 20.5V5.2C5 4.5 5.5 4 6.2 4h6.6c.7 0 1.2.5 1.2 1.2v15.3M3.8 20.5h11.4M7.5 8h4" />
-      <path d="M14 9.5h1.8l2.2 2.2v5.6a1.5 1.5 0 0 0 3 0V9.2l-2.7-2.7" />
-    </svg>
-  ),
-};
+/** 大きい数字。80年代・デイライトでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
+function Big({ reading, look, h, kind }: { reading: Reading; look: MeterStyle; h: number; kind: string }) {
+  return (
+    <span className={`zr-car-big is-${kind} is-${reading.tone}${reading.digits ? "" : " is-text"}`}>
+      {reading.digits && look !== "future" ? (
+        <>
+          <SegNumber text={reading.value} h={h} className="zr-seg" />
+          <span className="zr-sr">{reading.value}</span>
+        </>
+      ) : (
+        <b>{reading.digits ? number(Number(reading.value)) : reading.value}</b>
+      )}
+      {reading.unit ? <em>{reading.unit}</em> : null}
+    </span>
+  );
+}
+
+/** 自宅に駐車中のボタン。車検・オイル・給油の数字も並べ、押すと車両情報を開く。 */
+export function VehicleButton({ record, onOpen }: { record: VehicleRecord; onOpen: () => void }) {
+  const status = vehicleStatus(record, japanToday());
+  const items = [
+    ["車検", status.inspection],
+    ["オイル", status.oil],
+    ["給油", status.fuel],
+  ] as const;
+  return (
+    <button
+      type="button"
+      className="zr-ghost zr-park-car"
+      aria-label={`車両情報を開く(${items.map(([label, reading]) => `${label} ${reading.short}`).join("・")})`}
+      onClick={onOpen}
+    >
+      <span>
+        <small>VEHICLE</small>
+        <b>車両情報</b>
+      </span>
+      <span className="zr-park-car-stats" aria-hidden="true">
+        {items.map(([label, reading]) => (
+          <span key={label}>
+            {label}
+            <b className={`is-${reading.tone}`}>{reading.short}</b>
+          </span>
+        ))}
+      </span>
+    </button>
+  );
+}
 
 /**
- * 車両情報(下から出るシート)。自宅に駐車中に、車両位置の「車両情報」から開く。
- * 車検とオイル交換は、行を押すと日付を入れられる(車とスマホで共有)。最終給油は給油の記録から。
+ * 車両情報(下から出るシート)。光る数字のタイルで、車検まで・オイル交換まで・最終給油からを出す。
+ * 車検とオイル交換のタイルを押すと日付を入れられ(車とスマホで共有)、給油のタイルは給油の記録を開く。
  */
 export function VehicleSheet({
   record,
+  look,
   onSave,
+  onOpenFuel,
   onClose,
 }: {
   record: VehicleRecord;
+  look: MeterStyle;
   onSave: (dates: VehicleDates) => void;
+  onOpenFuel: () => void;
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState<"inspection" | "oil" | null>(null);
   const [draft, setDraft] = useState("");
   const today = japanToday();
-  const rows = vehicleRows(record, today);
+  const status = vehicleStatus(record, today);
+  const current = editing === "inspection" ? record.inspectionDue : editing === "oil" ? record.oilChangedOn : "";
 
   const open = (id: "inspection" | "oil") => {
     if (editing === id) {
@@ -173,6 +195,7 @@ export function VehicleSheet({
     onSave(editing === "inspection" ? { inspectionDue: day } : { oilChangedOn: day });
     setEditing(null);
   };
+  const latest = status.latest;
 
   return (
     <div className="zr-sheet" role="presentation" onClick={onClose}>
@@ -194,73 +217,91 @@ export function VehicleSheet({
           </button>
         </header>
         <div className="zr-sheet-body">
-          <ul className="zr-car-list">
-            {rows.map((row) => {
-              const content = (
-                <>
-                  <i aria-hidden="true">{ICONS[row.id]}</i>
-                  <span>
-                    <b>{row.title}</b>
-                    {row.lines.map((line) => (
-                      <small key={line}>{line}</small>
-                    ))}
-                  </span>
-                  {row.chip ? <em className={`zr-car-chip is-${row.tone}`}>{row.chip}</em> : null}
-                </>
-              );
-              const id = row.id;
-              if (id === "fuel") {
-                return (
-                  <li key={id}>
-                    <div className="zr-car-row">{content}</div>
-                  </li>
-                );
-              }
-              const current = id === "inspection" ? record.inspectionDue : record.oilChangedOn;
-              return (
-                <li key={id} className={editing === id ? "is-editing" : undefined}>
-                  <button
-                    type="button"
-                    className="zr-car-row"
-                    aria-expanded={editing === id}
-                    onClick={() => open(id)}
-                  >
-                    {content}
-                  </button>
-                  {editing === id ? (
-                    <form
-                      className="zr-car-edit"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (isDateKey(draft)) save(draft);
-                      }}
-                    >
-                      <label className="zr-field zr-field-wide">
-                        <span>{id === "inspection" ? "車検の満了日(車検証に書いてある日)" : "前回オイルを替えた日"}</span>
-                        <div>
-                          <input type="date" value={draft} onChange={(event) => setDraft(event.target.value)} />
-                        </div>
-                      </label>
-                      <div className="zr-editor-actions">
-                        <button
-                          type="button"
-                          className="zr-ghost"
-                          onClick={() => (current ? save("") : setEditing(null))}
-                        >
-                          {current ? "消す" : "やめる"}
-                        </button>
-                        <button type="submit" className="zr-primary" disabled={!isDateKey(draft)}>
-                          保存する
-                        </button>
-                      </div>
-                    </form>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+          <div className="zr-car-tiles">
+            <button
+              type="button"
+              className={`zr-car-tile is-wide${editing === "inspection" ? " is-editing" : ""}`}
+              aria-expanded={editing === "inspection"}
+              onClick={() => open("inspection")}
+            >
+              <small>
+                INSPECTION<span>{status.inspection.unit === "日過ぎ" ? "車検の満了日から" : "車検まで"}</span>
+              </small>
+              <Big reading={status.inspection} look={look} h={46} kind="inspection" />
+              <p>{record.inspectionDue ? `満了日 ${dotted(record.inspectionDue)}` : "押して満了日を入れてください"}</p>
+            </button>
+            <button
+              type="button"
+              className={`zr-car-tile${editing === "oil" ? " is-editing" : ""}`}
+              aria-expanded={editing === "oil"}
+              onClick={() => open("oil")}
+            >
+              <small>
+                OIL<span>交換まで</span>
+              </small>
+              <Big reading={status.oil} look={look} h={32} kind="oil" />
+              <p>
+                {record.oilChangedOn ? (
+                  <>
+                    前回 {dotted(record.oilChangedOn)}
+                    <br />
+                    そこから約{number(status.driven)}km
+                  </>
+                ) : (
+                  "押して前回の交換日を入れてください"
+                )}
+              </p>
+            </button>
+            <button type="button" className="zr-car-tile" onClick={onOpenFuel}>
+              <small>
+                FUEL<span>最終給油</span>
+              </small>
+              <Big reading={status.fuel} look={look} h={32} kind="fuel" />
+              <p>
+                {latest ? (
+                  <>
+                    {shortDay(latest.date, today)}・{latest.liters.toFixed(1)}L
+                    {latest.amountYen > 0 ? `・${number(latest.amountYen)}円` : ""}
+                    {latest.distanceKm > 0 ? (
+                      <>
+                        <br />
+                        {number(latest.distanceKm)}km 走行・{(latest.distanceKm / latest.liters).toFixed(1)}km/L
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  "押すと給油の記録を開きます"
+                )}
+              </p>
+            </button>
+          </div>
+          {editing ? (
+            <form
+              className="zr-car-edit"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (isDateKey(draft)) save(draft);
+              }}
+            >
+              <label className="zr-field zr-field-wide">
+                <span>{editing === "inspection" ? "車検の満了日(車検証に書いてある日)" : "前回オイルを替えた日"}</span>
+                <div>
+                  <input type="date" value={draft} onChange={(event) => setDraft(event.target.value)} />
+                </div>
+              </label>
+              <div className="zr-editor-actions">
+                <button type="button" className="zr-ghost" onClick={() => (current ? save("") : setEditing(null))}>
+                  {current ? "消す" : "やめる"}
+                </button>
+                <button type="submit" className="zr-primary" disabled={!isDateKey(draft)}>
+                  保存する
+                </button>
+              </div>
+            </form>
+          ) : null}
           <p className="zr-note">
-            車検とオイル交換は、押すと日付を入れられます。オイル交換からの距離は、給油の記録から数えます。
+            車検とオイル交換は、押すと日付を入れられます。オイル交換の目安は {number(OIL_INTERVAL_KM)}km か{" "}
+            {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。給油を押すと記録を開きます。
           </p>
         </div>
       </section>
