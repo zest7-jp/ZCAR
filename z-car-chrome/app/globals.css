@@ -7696,6 +7696,45 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .zr-places li.is-editing .zr-place i { transform: rotate(45deg); border-color: var(--zr-accent); }
 .zr-places li.is-editing .zr-place-name b { color: var(--zr-accent-strong); }
+/* 行の右の矢印: 行を押すと共有メニューが出て、カーナビタイムなどのナビで開ける。 */
+.zr-place-go {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid rgba(var(--zr-accent-rgb), .75);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(var(--zr-accent-rgb), .35), inset 0 0 10px rgba(var(--zr-accent-rgb), .15);
+  color: var(--zr-accent-strong);
+}
+.zr-place-go svg { width: 16px; height: 16px; fill: currentColor; filter: drop-shadow(0 0 4px rgba(var(--zr-accent-rgb), .9)); }
+.zr-place:active .zr-place-go { background: rgba(var(--zr-accent-rgb), .18); }
+/* 鉛筆: 押すと、その場所を直す欄が開く(もう一度押すと閉じる)。 */
+.zr-edit {
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--zr-muted);
+  cursor: pointer;
+}
+.zr-edit svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.zr-places li.is-editing .zr-edit { color: var(--zr-accent-strong); }
+.zr-navi-hint { margin: 2px 2px 12px; color: var(--zr-muted); font-size: 12px; }
+.zr-navi-hint b { color: var(--zr-accent-strong); }
+/* 名前の行は1行に収める(長い名前は … で切る)。 */
+.zr-place-name b,
+.zr-place-name small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zr-place-name em { flex: none; }
+@media (max-width: 400px) {
+  /* 幅の狭い iPhone では、START の札は出さない(左の★で分かる)。 */
+  .zr-place-name em { display: none; }
+}
 /* 左の★: 押すと、その場所が車の START の行き先になる(1つだけ)。 */
 .zr-place-row { display: flex; align-items: stretch; }
 .zr-place-row .zr-place { flex: 1; min-width: 0; }

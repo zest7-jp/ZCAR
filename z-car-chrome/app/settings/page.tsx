@@ -544,6 +544,37 @@ export default function PhoneSettingsPage() {
     setToast(`「${choice.label}」${choice.fixed ? "の住所" : ""}を消しました${sendNote}`);
   };
 
+  /**
+   * 目的地の行を押したとき。iPhone の共有メニューに住所を出し、そこでカーナビタイムを選ぶと
+   * その場所を探して開く(ナビタイムは、目的地を渡して直接開く方法を出していない)。
+   * 共有メニューが無い端末では住所をコピーする。住所が未登録なら、直す欄を開く。
+   */
+  const openChoice = (choice: NavChoice) => {
+    if (!choice.destination) {
+      openEditor(choice);
+      return;
+    }
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(choice.destination);
+        setToast("住所をコピーしました。ナビのアプリの検索に貼り付けてください");
+      } catch {
+        setToast("開けませんでした。もう一度押してください");
+      }
+    };
+    if (typeof navigator.share !== "function") {
+      void copy();
+      return;
+    }
+    // Google マップの共有と同じく、住所と場所の URL を渡す(URL しか受け取らないアプリにも出るように)。
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(choice.destination)}`;
+    navigator.share({ text: choice.destination, url }).catch((error: unknown) => {
+      // 共有メニューを閉じただけなら、何もしない。
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      void copy();
+    });
+  };
+
   /** 直した(足した)場所を保存する。clear のときは、その場所を消す。 */
   const saveEditor = (clear = false) => {
     const key = editKey;
@@ -1004,6 +1035,9 @@ export default function PhoneSettingsPage() {
               START
             </em>
           </header>
+          <p className="zr-navi-hint">
+            行を押すと<b>共有メニュー → カーナビタイム</b>。直すときは鉛筆。
+          </p>
           <ul className="zr-places">
             {choices.map((choice) => {
               const starred = startChoice?.key === choice.key;
@@ -1027,8 +1061,13 @@ export default function PhoneSettingsPage() {
                     <button
                       type="button"
                       className="zr-place"
-                      aria-expanded={editing}
-                      onClick={() => openEditor(choice)}
+                      aria-label={
+                        choice.destination
+                          ? `${choice.label}(${choice.destination})を共有メニューで開く`
+                          : undefined
+                      }
+                      aria-expanded={choice.destination ? undefined : editing}
+                      onClick={() => openChoice(choice)}
                     >
                       <span className="zr-place-name">
                         <b>{choice.label}</b>
@@ -1036,7 +1075,27 @@ export default function PhoneSettingsPage() {
                         {starred ? <em>START</em> : null}
                       </span>
                       <span className="zr-place-addr">{choice.destination || "未登録"}</span>
-                      <i aria-hidden="true" />
+                      {choice.destination ? (
+                        <span className="zr-place-go" aria-hidden="true">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M3.5 11.2 20.5 3.5l-7.7 17-2.3-7-7-2.3Z" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <i aria-hidden="true" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="zr-edit"
+                      aria-label={`${choice.label} を直す`}
+                      aria-expanded={editing}
+                      onClick={() => openEditor(choice)}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4.5 19.5h3.8L19 8.8 15.2 5 4.5 15.7v3.8Z" />
+                        <path d="m13.4 6.8 3.8 3.8" />
+                      </svg>
                     </button>
                     {choice.destination ? (
                       <button
