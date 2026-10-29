@@ -176,6 +176,8 @@ export default function PhoneSettingsPage() {
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
   // 行を押して開いた、目的地のメニュー(カーナビタイム・Google マップ・直す)。
   const [menuKey, setMenuKey] = useState<string | null>(null);
+  // 車両のタブの、メーターの見た目(テーマ・色・形)を開いているところ。ふだんは閉じておく。
+  const [themesOpen, setThemesOpen] = useState(false);
   // Google マップのコピーを読み取っているところ。
   const [pasting, setPasting] = useState(false);
   // 「Google マップから直接送る」(ショートカットの作り方)を開いているところ。
@@ -1188,93 +1190,110 @@ export default function PhoneSettingsPage() {
         />
       ) : null}
 
-      {/* 車両のタブの下: メーターのテーマ・色・形。 */}
+      {/* 車両のタブの下: メーターのテーマ・色・形。ふだんは1行に格納し、押すと開く。 */}
       {tab === "vehicle" ? (
         <section className="zr-themes" aria-label="メーターのテーマと色と形">
-          {/* テーマ・色・形は小さな見本を並べ、1画面に収める。選んでいる名前は見出しに出す。 */}
-          <p className="zr-new-head">
-            <b>THEME</b>
-            <small>
-              {activeStyle.name} · {activeStyle.caption}
-            </small>
-          </p>
-          <div className="zr-styles">
-            {METER_STYLES.map((style) => {
-              const active = activeStyle.id === style.id;
-              return (
-                <button
-                  key={style.id}
-                  type="button"
-                  className={`zr-style${active ? " is-active" : ""}`}
-                  aria-pressed={active}
-                  aria-label={`${style.name}(${style.caption})`}
-                  onClick={() => chooseStyle(style.id)}
-                >
-                  <i aria-hidden="true">
-                    <MeterStyleThumb style={style.id} />
-                  </i>
-                  <b>{style.shortJa}</b>
-                  <em>{active ? "ACTIVE" : "SELECT"}</em>
-                </button>
-              );
-            })}
-          </div>
-          {/* 色と形は、近未来のテーマのもの(選ぶと近未来のテーマになる)。 */}
-          <p className="zr-new-head">
-            <b>COLOR</b>
-            <small>{activeTheme.name}</small>
-          </p>
-          <div className="zr-swatches">
-            {METER_THEMES.map((theme) => {
-              const active = isFuture && draft.meterTheme === theme.id;
-              return (
-                <button
-                  key={theme.id}
-                  type="button"
-                  className={`zr-theme is-${theme.id}${theme.tinted ? ` is-tinted zt-${theme.id}` : ""}${active ? " is-active" : ""}`}
-                  aria-pressed={active}
-                  aria-label={`${theme.name}(${theme.caption})`}
-                  onClick={() => chooseTheme(theme.id)}
-                >
-                  <i aria-hidden="true" />
-                  <b>{theme.shortEn}</b>
-                  <small>{theme.shortJa}</small>
-                  <em>{active ? "ACTIVE" : "SELECT"}</em>
-                </button>
-              );
-            })}
-          </div>
-          <p className="zr-new-head">
-            <b>DESIGN</b>
-            <small>
-              {activeDesign.name} · {activeDesign.caption}
-            </small>
-          </p>
-          <div className="zr-designs">
-            {METER_DESIGNS.map((design) => {
-              const active = isFuture && activeDesign.id === design.id;
-              return (
-                <button
-                  key={design.id}
-                  type="button"
-                  className={`zr-design${active ? " is-active" : ""}`}
-                  aria-pressed={active}
-                  aria-label={`${design.name}(${design.caption})`}
-                  onClick={() => chooseDesign(design.id)}
-                >
-                  <i className={designThumbClass} aria-hidden="true">
-                    <MeterDesignGauge design={design.id} values={SAMPLE_GAUGE_VALUES} />
-                  </i>
-                  <b>{design.name}</b>
-                  <small>{design.caption}</small>
-                  <em>{active ? "ACTIVE" : "SELECT"}</em>
-                </button>
-              );
-            })}
-          </div>
-          <p className="zr-note">
-            色と形は、近未来のテーマで使います。
-          </p>
+          <button
+            type="button"
+            className="zr-themes-toggle"
+            aria-expanded={themesOpen}
+            onClick={() => setThemesOpen((open) => !open)}
+          >
+            <span>
+              <small>METER</small>
+              <b>メーターの見た目</b>
+            </span>
+            <em>{activeStyle.shortJa}</em>
+            <i aria-hidden="true" />
+          </button>
+          {themesOpen ? (
+            <>
+              {/* テーマ・色・形は小さな見本を並べ、1画面に収める。選んでいる名前は見出しに出す。 */}
+              <p className="zr-new-head">
+                <b>THEME</b>
+                <small>
+                  {activeStyle.name} · {activeStyle.caption}
+                </small>
+              </p>
+              <div className="zr-styles">
+                {METER_STYLES.map((style) => {
+                  const active = activeStyle.id === style.id;
+                  return (
+                    <button
+                      key={style.id}
+                      type="button"
+                      className={`zr-style${active ? " is-active" : ""}`}
+                      aria-pressed={active}
+                      aria-label={`${style.name}(${style.caption})`}
+                      onClick={() => chooseStyle(style.id)}
+                    >
+                      <i aria-hidden="true">
+                        <MeterStyleThumb style={style.id} />
+                      </i>
+                      <b>{style.shortJa}</b>
+                      <em>{active ? "ACTIVE" : "SELECT"}</em>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* 色と形は、近未来のテーマのもの(選ぶと近未来のテーマになる)。 */}
+              <p className="zr-new-head">
+                <b>COLOR</b>
+                <small>{activeTheme.name}</small>
+              </p>
+              <div className="zr-swatches">
+                {METER_THEMES.map((theme) => {
+                  const active = isFuture && draft.meterTheme === theme.id;
+                  return (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      className={`zr-theme is-${theme.id}${theme.tinted ? ` is-tinted zt-${theme.id}` : ""}${active ? " is-active" : ""}`}
+                      aria-pressed={active}
+                      aria-label={`${theme.name}(${theme.caption})`}
+                      onClick={() => chooseTheme(theme.id)}
+                    >
+                      <i aria-hidden="true" />
+                      <b>{theme.shortEn}</b>
+                      <small>{theme.shortJa}</small>
+                      <em>{active ? "ACTIVE" : "SELECT"}</em>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="zr-new-head">
+                <b>DESIGN</b>
+                <small>
+                  {activeDesign.name} · {activeDesign.caption}
+                </small>
+              </p>
+              <div className="zr-designs">
+                {METER_DESIGNS.map((design) => {
+                  const active = isFuture && activeDesign.id === design.id;
+                  return (
+                    <button
+                      key={design.id}
+                      type="button"
+                      className={`zr-design${active ? " is-active" : ""}`}
+                      aria-pressed={active}
+                      aria-label={`${design.name}(${design.caption})`}
+                      onClick={() => chooseDesign(design.id)}
+                    >
+                      <i className={designThumbClass} aria-hidden="true">
+                        <MeterDesignGauge design={design.id} values={SAMPLE_GAUGE_VALUES} />
+                      </i>
+                      <b>{design.name}</b>
+                      <small>{design.caption}</small>
+                      <em>{active ? "ACTIVE" : "SELECT"}</em>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="zr-note">
+                色と形は、近未来のテーマで使います。
+              </p>
+            </>
+          ) : null}
         </section>
       ) : null}
 
