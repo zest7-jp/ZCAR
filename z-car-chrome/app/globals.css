@@ -8564,8 +8564,36 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 下のタブ「車両」のページでは、見出しのすぐ下からタイルを並べる。 */
 .zr-car-panel .zr-car-tiles { margin-top: 2px; }
 .zr-car-panel > .zr-note { margin-top: 14px; }
-/* 車両のタブでは、車両情報の下にメーターのテーマ・色・形を続ける。 */
+/* 車両のタブでは、車両情報の下にメーターのテーマ・色・形を続ける。ふだんは1行に格納し、押すと開く。 */
 .zr-car-panel + .zr-themes { margin-top: 18px; }
+.zr-themes-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--zr-edge);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .03);
+  color: var(--zr-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.zr-themes-toggle > span { display: grid; gap: 3px; margin-right: auto; }
+.zr-themes-toggle small { color: var(--zr-accent); font-family: "SFMono-Regular", Consolas, monospace; font-size: 9px; font-weight: 900; letter-spacing: .26em; }
+.zr-themes-toggle b { font-size: 15px; font-weight: 800; }
+.zr-themes-toggle em { color: var(--zr-accent-strong); font-size: 13px; font-style: normal; font-weight: 800; }
+.zr-themes-toggle i {
+  width: 8px;
+  height: 8px;
+  margin: 0 4px 4px 2px;
+  border-right: 2px solid var(--zr-muted);
+  border-bottom: 2px solid var(--zr-muted);
+  transform: rotate(45deg);
+  transition: transform .15s ease;
+}
+.zr-themes-toggle[aria-expanded="true"] i { margin-bottom: -2px; border-color: var(--zr-accent); transform: rotate(-135deg); }
 .zr-car-tile {
   display: grid;
   align-content: start;
@@ -9172,7 +9200,7 @@ main.zr[data-style="retro"] .zr-tabs button.is-active { color: var(--zr-accent);
 main.zr[data-style="retro"] .zr-tabs button.is-active::before { filter: drop-shadow(0 0 4px #52ffd6) drop-shadow(0 0 10px rgba(82, 255, 214, .6)); }
 main.zr[data-style="retro"] .zr-sheet-card { border-top: 2px solid #3c4046; border-radius: 18px 18px 0 0; background: #020403; }
 /* 車両情報のタイル: 黒い窓に光る7セグメント(オイルはアンバー)。ボタンの数字もアンバー。 */
-main.zr[data-style="retro"] .zr-car-tile { border-color: #2a3033; background: linear-gradient(180deg, #060a09, #020403); box-shadow: inset 0 0 18px rgba(0, 0, 0, .8); }
+main.zr[data-style="retro"] :is(.zr-car-tile, .zr-themes-toggle) { border-color: #2a3033; background: linear-gradient(180deg, #060a09, #020403); box-shadow: inset 0 0 18px rgba(0, 0, 0, .8); }
 main.zr[data-style="retro"] .zr-car-big { color: var(--zr-accent); }
 main.zr[data-style="retro"] .zr-car-big.is-oil { color: var(--zr-amber); }
 main.zr[data-style="retro"] .zr-car-big:is(.is-soon, .is-over) { color: #ff5a4a; }

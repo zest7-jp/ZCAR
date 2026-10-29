@@ -5,7 +5,7 @@ import { SegNumber } from "../meter-styles";
 import { isDateKey, type FuelEntry, type MeterStyle } from "../settings-store";
 
 /** オイル交換の目安(どちらか早いほう)。 */
-const OIL_INTERVAL_KM = 5000;
+const OIL_INTERVAL_KM = 3000;
 const OIL_INTERVAL_MONTHS = 6;
 /** 車検の満了日がこれより近づいたら、数字の色を変える(日)。 */
 const INSPECTION_SOON_DAYS = 30;
@@ -233,7 +233,7 @@ function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
               <>
                 前回 {dotted(record.oilChangedOn)}
                 <br />
-                そこから約{number(status.driven)}km
+                交換から約{number(status.driven)}km
               </>
             ) : (
               "押して前回の交換日を入れてください"
