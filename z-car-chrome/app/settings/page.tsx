@@ -43,6 +43,7 @@ import {
 } from "../place-import";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
+import { VehiclePanel } from "./vehicle-info";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -86,13 +87,14 @@ const emptyFuelDraft = () => ({
   amountYen: "",
 });
 
-type Tab = "park" | "navi" | "fuel" | "theme";
+type Tab = "park" | "navi" | "fuel" | "vehicle" | "theme";
 
 /** 並びは使う順。開いたときは車両位置(いちばん左)を出す。 */
 const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
   { id: "fuel", ja: "給油", en: "FUEL" },
+  { id: "vehicle", ja: "車両", en: "VEHICLE" },
   { id: "theme", ja: "メーター", en: "THEME" },
 ];
 
@@ -1170,6 +1172,21 @@ export default function PhoneSettingsPage() {
             </button>
           </p>
         </section>
+      ) : null}
+
+      {/* 車両情報(給油・オイル交換・車検)。車がどこにあっても、いつでも見られる。 */}
+      {tab === "vehicle" ? (
+        <VehiclePanel
+          record={{
+            carId: draft.carId,
+            inspectionDue: draft.inspectionDue,
+            oilChangedOn: draft.oilChangedOn,
+            fuelEntries: draft.fuelEntries,
+          }}
+          look={draft.meterStyle}
+          onSave={(dates) => setDraft((current) => ({ ...current, ...dates }))}
+          onOpenFuel={() => setTab("fuel")}
+        />
       ) : null}
 
       {tab === "theme" ? (

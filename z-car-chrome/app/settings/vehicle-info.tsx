@@ -159,24 +159,19 @@ export function VehicleButton({ record, onOpen }: { record: VehicleRecord; onOpe
   );
 }
 
-/**
- * 車両情報(下から出るシート)。光る数字のタイルで、大事な順に最終給油から(横いっぱい)・
- * オイル交換まで・車検までを出す。給油のタイルは給油の記録を開き、
- * オイル交換と車検のタイルを押すと日付を入れられる(車とスマホで共有)。
- */
-export function VehicleSheet({
-  record,
-  look,
-  onSave,
-  onOpenFuel,
-  onClose,
-}: {
+type DetailsProps = {
   record: VehicleRecord;
   look: MeterStyle;
   onSave: (dates: VehicleDates) => void;
   onOpenFuel: () => void;
-  onClose: () => void;
-}) {
+};
+
+/**
+ * 車両情報の中身。光る数字のタイルで、大事な順に最終給油から(横いっぱい)・
+ * オイル交換まで・車検までを出す。給油のタイルは給油の記録を開き、
+ * オイル交換と車検のタイルを押すと日付を入れられる(車とスマホで共有)。
+ */
+function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
   const [editing, setEditing] = useState<"inspection" | "oil" | null>(null);
   const [draft, setDraft] = useState("");
   const today = japanToday();
@@ -199,6 +194,100 @@ export function VehicleSheet({
   const latest = status.latest;
 
   return (
+    <>
+      <div className="zr-car-tiles">
+        <button type="button" className="zr-car-tile is-wide" onClick={onOpenFuel}>
+          <small>
+            FUEL<span>最終給油</span>
+          </small>
+          <Big reading={status.fuel} look={look} h={46} kind="fuel" />
+          <p>
+            {latest ? (
+              <>
+                {shortDay(latest.date, today)}・{latest.liters.toFixed(1)}L
+                {latest.amountYen > 0 ? `・${number(latest.amountYen)}円` : ""}
+                {latest.distanceKm > 0 ? (
+                  <>
+                    <br />
+                    {number(latest.distanceKm)}km 走行・{(latest.distanceKm / latest.liters).toFixed(1)}km/L
+                  </>
+                ) : null}
+              </>
+            ) : (
+              "押すと給油の記録を開きます"
+            )}
+          </p>
+        </button>
+        <button
+          type="button"
+          className={`zr-car-tile${editing === "oil" ? " is-editing" : ""}`}
+          aria-expanded={editing === "oil"}
+          onClick={() => open("oil")}
+        >
+          <small>
+            OIL<span>交換まで</span>
+          </small>
+          <Big reading={status.oil} look={look} h={32} kind="oil" />
+          <p>
+            {record.oilChangedOn ? (
+              <>
+                前回 {dotted(record.oilChangedOn)}
+                <br />
+                そこから約{number(status.driven)}km
+              </>
+            ) : (
+              "押して前回の交換日を入れてください"
+            )}
+          </p>
+        </button>
+        <button
+          type="button"
+          className={`zr-car-tile${editing === "inspection" ? " is-editing" : ""}`}
+          aria-expanded={editing === "inspection"}
+          onClick={() => open("inspection")}
+        >
+          <small>
+            INSPECTION<span>{status.inspection.unit === "日過ぎ" ? "期限切れ" : "車検まで"}</span>
+          </small>
+          <Big reading={status.inspection} look={look} h={32} kind="inspection" />
+          <p>{record.inspectionDue ? `満了日 ${dotted(record.inspectionDue)}` : "押して満了日を入れてください"}</p>
+        </button>
+      </div>
+      {editing ? (
+        <form
+          className="zr-car-edit"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (isDateKey(draft)) save(draft);
+          }}
+        >
+          <label className="zr-field zr-field-wide">
+            <span>{editing === "inspection" ? "車検の満了日(車検証に書いてある日)" : "前回オイルを替えた日"}</span>
+            <div>
+              <input type="date" value={draft} onChange={(event) => setDraft(event.target.value)} />
+            </div>
+          </label>
+          <div className="zr-editor-actions">
+            <button type="button" className="zr-ghost" onClick={() => (current ? save("") : setEditing(null))}>
+              {current ? "消す" : "やめる"}
+            </button>
+            <button type="submit" className="zr-primary" disabled={!isDateKey(draft)}>
+              保存する
+            </button>
+          </div>
+        </form>
+      ) : null}
+      <p className="zr-note">
+        給油を押すと記録を開きます。オイル交換と車検は、押すと日付を入れられます。オイル交換の目安は{" "}
+        {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。
+      </p>
+    </>
+  );
+}
+
+/** 自宅に駐車中の「車両情報」から開く、下から出るシート。 */
+export function VehicleSheet({ onClose, ...props }: DetailsProps & { onClose: () => void }) {
+  return (
     <div className="zr-sheet" role="presentation" onClick={onClose}>
       <section
         className="zr-sheet-card"
@@ -212,100 +301,31 @@ export function VehicleSheet({
             <small>VEHICLE</small>
             <b>車両情報</b>
           </span>
-          <em>{record.carId.toUpperCase()}</em>
+          <em>{props.record.carId.toUpperCase()}</em>
           <button type="button" onClick={onClose}>
             CLOSE
           </button>
         </header>
         <div className="zr-sheet-body">
-          <div className="zr-car-tiles">
-            <button type="button" className="zr-car-tile is-wide" onClick={onOpenFuel}>
-              <small>
-                FUEL<span>最終給油</span>
-              </small>
-              <Big reading={status.fuel} look={look} h={46} kind="fuel" />
-              <p>
-                {latest ? (
-                  <>
-                    {shortDay(latest.date, today)}・{latest.liters.toFixed(1)}L
-                    {latest.amountYen > 0 ? `・${number(latest.amountYen)}円` : ""}
-                    {latest.distanceKm > 0 ? (
-                      <>
-                        <br />
-                        {number(latest.distanceKm)}km 走行・{(latest.distanceKm / latest.liters).toFixed(1)}km/L
-                      </>
-                    ) : null}
-                  </>
-                ) : (
-                  "押すと給油の記録を開きます"
-                )}
-              </p>
-            </button>
-            <button
-              type="button"
-              className={`zr-car-tile${editing === "oil" ? " is-editing" : ""}`}
-              aria-expanded={editing === "oil"}
-              onClick={() => open("oil")}
-            >
-              <small>
-                OIL<span>交換まで</span>
-              </small>
-              <Big reading={status.oil} look={look} h={32} kind="oil" />
-              <p>
-                {record.oilChangedOn ? (
-                  <>
-                    前回 {dotted(record.oilChangedOn)}
-                    <br />
-                    そこから約{number(status.driven)}km
-                  </>
-                ) : (
-                  "押して前回の交換日を入れてください"
-                )}
-              </p>
-            </button>
-            <button
-              type="button"
-              className={`zr-car-tile${editing === "inspection" ? " is-editing" : ""}`}
-              aria-expanded={editing === "inspection"}
-              onClick={() => open("inspection")}
-            >
-              <small>
-                INSPECTION<span>{status.inspection.unit === "日過ぎ" ? "期限切れ" : "車検まで"}</span>
-              </small>
-              <Big reading={status.inspection} look={look} h={32} kind="inspection" />
-              <p>{record.inspectionDue ? `満了日 ${dotted(record.inspectionDue)}` : "押して満了日を入れてください"}</p>
-            </button>
-          </div>
-          {editing ? (
-            <form
-              className="zr-car-edit"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (isDateKey(draft)) save(draft);
-              }}
-            >
-              <label className="zr-field zr-field-wide">
-                <span>{editing === "inspection" ? "車検の満了日(車検証に書いてある日)" : "前回オイルを替えた日"}</span>
-                <div>
-                  <input type="date" value={draft} onChange={(event) => setDraft(event.target.value)} />
-                </div>
-              </label>
-              <div className="zr-editor-actions">
-                <button type="button" className="zr-ghost" onClick={() => (current ? save("") : setEditing(null))}>
-                  {current ? "消す" : "やめる"}
-                </button>
-                <button type="submit" className="zr-primary" disabled={!isDateKey(draft)}>
-                  保存する
-                </button>
-              </div>
-            </form>
-          ) : null}
-          <p className="zr-note">
-            給油を押すと記録を開きます。オイル交換と車検は、押すと日付を入れられます。オイル交換の目安は{" "}
-            {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。
-          </p>
+          <VehicleDetails {...props} />
         </div>
       </section>
     </div>
+  );
+}
+
+/** 下のタブ「車両」のページ。車がどこにあっても、いつでも車両情報を見られる。 */
+export function VehiclePanel(props: DetailsProps) {
+  return (
+    <section className="zr-panel zr-car-panel" aria-label="車両情報">
+      <header className="zr-panel-head">
+        <span>
+          <small>VEHICLE</small>
+          <b>車両情報</b>
+        </span>
+        <em>{props.record.carId.toUpperCase()}</em>
+      </header>
+      <VehicleDetails {...props} />
+    </section>
   );
 }
