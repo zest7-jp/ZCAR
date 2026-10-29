@@ -87,15 +87,14 @@ const emptyFuelDraft = () => ({
   amountYen: "",
 });
 
-type Tab = "park" | "navi" | "fuel" | "vehicle" | "theme";
+type Tab = "park" | "navi" | "fuel" | "vehicle";
 
-/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。 */
+/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。メーターの見た目は「車両」の中。 */
 const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
   { id: "fuel", ja: "給油", en: "FUEL" },
   { id: "vehicle", ja: "車両", en: "VEHICLE" },
-  { id: "theme", ja: "メーター", en: "THEME" },
 ];
 
 /** 接続まわりの案内。英語を大きく、日本語は小さく添える。 */
@@ -1189,7 +1188,8 @@ export default function PhoneSettingsPage() {
         />
       ) : null}
 
-      {tab === "theme" ? (
+      {/* 車両のタブの下: メーターのテーマ・色・形。 */}
+      {tab === "vehicle" ? (
         <section className="zr-themes" aria-label="メーターのテーマと色と形">
           {/* テーマ・色・形は小さな見本を並べ、1画面に収める。選んでいる名前は見出しに出す。 */}
           <p className="zr-new-head">
