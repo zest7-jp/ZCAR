@@ -43,6 +43,7 @@ import {
 } from "../place-import";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
+import { VehiclePanel } from "./vehicle-info";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -86,14 +87,14 @@ const emptyFuelDraft = () => ({
   amountYen: "",
 });
 
-type Tab = "park" | "navi" | "fuel" | "theme";
+type Tab = "park" | "navi" | "fuel" | "vehicle";
 
-/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。 */
+/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。メーターの見た目は「車両」の中。 */
 const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
   { id: "fuel", ja: "給油", en: "FUEL" },
-  { id: "theme", ja: "メーター", en: "THEME" },
+  { id: "vehicle", ja: "車両", en: "VEHICLE" },
 ];
 
 /** 接続まわりの案内。英語を大きく、日本語は小さく添える。 */
@@ -1172,7 +1173,23 @@ export default function PhoneSettingsPage() {
         </section>
       ) : null}
 
-      {tab === "theme" ? (
+      {/* 車両情報(給油・オイル交換・車検)。車がどこにあっても、いつでも見られる。 */}
+      {tab === "vehicle" ? (
+        <VehiclePanel
+          record={{
+            carId: draft.carId,
+            inspectionDue: draft.inspectionDue,
+            oilChangedOn: draft.oilChangedOn,
+            fuelEntries: draft.fuelEntries,
+          }}
+          look={draft.meterStyle}
+          onSave={(dates) => setDraft((current) => ({ ...current, ...dates }))}
+          onOpenFuel={() => setTab("fuel")}
+        />
+      ) : null}
+
+      {/* 車両のタブの下: メーターのテーマ・色・形。 */}
+      {tab === "vehicle" ? (
         <section className="zr-themes" aria-label="メーターのテーマと色と形">
           {/* テーマ・色・形は小さな見本を並べ、1画面に収める。選んでいる名前は見出しに出す。 */}
           <p className="zr-new-head">
