@@ -89,7 +89,7 @@ const emptyFuelDraft = () => ({
 
 type Tab = "park" | "navi" | "fuel" | "vehicle";
 
-/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。メーターの見た目は「車両」の中。 */
+/** 並びは使う順。開いたときは車両位置(いちばん左)を出す。メーター設定は「車両」の中。 */
 const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
@@ -176,7 +176,7 @@ export default function PhoneSettingsPage() {
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
   // 行を押して開いた、目的地のメニュー(カーナビタイム・Google マップ・直す)。
   const [menuKey, setMenuKey] = useState<string | null>(null);
-  // 車両のタブの、メーターの見た目(テーマ・色・形)を開いているところ。ふだんは閉じておく。
+  // 車両のタブの、メーター設定(テーマ・色・形)を開いているところ。ふだんは閉じておく。
   const [themesOpen, setThemesOpen] = useState(false);
   // Google マップのコピーを読み取っているところ。
   const [pasting, setPasting] = useState(false);
@@ -1201,7 +1201,7 @@ export default function PhoneSettingsPage() {
           >
             <span>
               <small>METER</small>
-              <b>メーターの見た目</b>
+              <b>メーター設定</b>
             </span>
             <em>{activeStyle.shortJa}</em>
             <i aria-hidden="true" />
