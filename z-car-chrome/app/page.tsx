@@ -137,6 +137,9 @@ const markSharedSyncReady = () => {
 // 接続用QRを出しておく秒数。合言葉そのものなので出しっぱなしにしない。
 const PAIRING_AUTO_CLOSE_S = 10;
 
+// 起動画面で、押さなくてもメーターへ進むまでの時間(押せばすぐ)。
+const AUTO_START_MS = 5000;
+
 const DAILY_TRIP_STORAGE_KEY = "zcar-daily-trip-v1";
 const IMPORTED_FUEL_ENTRIES: FuelEntry[] = [
   { id: "import-2026-07-05", date: "2026-07-05", liters: 19.33, distanceKm: 300, amountYen: 3131, createdAt: Date.parse("2026-07-05T12:00:00+09:00") },
@@ -811,6 +814,26 @@ export default function Home() {
     setHasStarted(true);
     goFullscreen();
   };
+
+  // 押さなくても、5秒たったらメーターへ進む。全画面は画面に触れたときしか頼めないので、
+  // 自動で進んだときは、そのあと最初に画面に触れたときに頼む。
+  useEffect(() => {
+    if (hasStarted) return;
+    const timer = window.setTimeout(() => {
+      setHasStarted(true);
+      window.addEventListener(
+        "pointerdown",
+        () => {
+          if (document.fullscreenElement) return;
+          void document.documentElement.requestFullscreen().catch(() => {
+            // 全画面にできないブラウザでも、そのまま使える。
+          });
+        },
+        { once: true, capture: true },
+      );
+    }, AUTO_START_MS);
+    return () => window.clearTimeout(timer);
+  }, [hasStarted]);
 
   // 「戻る」でメーターに帰れるよう、最初の履歴に印を付けておく。
   useEffect(() => {
@@ -1601,6 +1624,10 @@ export default function Home() {
             />
             <span className="launch-vignette" aria-hidden="true" />
             <span className="launch-hint" aria-hidden="true">TOUCH TO START</span>
+            {/* 押さなくても5秒で進む。そのあいだ、細い線が伸びる。 */}
+            <span className="launch-timer" aria-hidden="true">
+              <i style={{ animationDuration: `${AUTO_START_MS}ms` }} />
+            </span>
             {BUILD_STAMP ? (
               <span className="build-stamp" aria-hidden="true">
                 {BUILD_STAMP}
