@@ -8658,7 +8658,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-car-big em { padding-bottom: 2px; color: var(--zr-muted); font-size: 13px; font-style: normal; font-weight: 800; }
 .zr-car-big:is(.is-soon, .is-over) { color: #ff8a7a; }
 .zr-car-big.is-none { color: var(--zr-muted); }
-/* オイルのコンディション: 最高・普通・低下の3つのランプ(上に ◎ ○ △、下にことば)。今のところだけ光る(緑・オレンジ・赤)。 */
+/* オイルのコンディション: HIGH・MID・LOW の3つのランプ(上に ◎ ○ △、下にことば)。今のところだけ光る(緑・オレンジ・赤)。 */
 .zr-oil-cond { display: grid; gap: 5px; }
 .zr-oil-cond > small { color: var(--zr-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 8px; font-weight: 900; letter-spacing: .22em; }
 .zr-oil-lamps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
@@ -8672,9 +8672,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   border-radius: 4px;
   background: rgba(0, 0, 0, .3);
   color: rgba(var(--lamp), .3);
-  font-size: 10px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
   font-style: normal;
   font-weight: 900;
+  letter-spacing: .06em;
   line-height: 1.1;
   text-align: center;
   white-space: nowrap;

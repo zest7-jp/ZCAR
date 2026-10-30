@@ -11,8 +11,8 @@ const OIL_INTERVAL_MONTHS = 3;
 const INSPECTION_SOON_DAYS = 30;
 /** オイル交換の目安の、この割合を過ぎたら数字の色を変える。 */
 const OIL_SOON_RATIO = 0.9;
-/** オイルのコンディション。交換からの距離が1つ目の区切りまでは最高、2つ目までは普通、その先は低下(km)。 */
-const OIL_CONDITIONS = ["最高", "普通", "低下"] as const;
+/** オイルのコンディション。交換からの距離が1つ目の区切りまでは HIGH(最高)、2つ目までは MID(普通)、その先は LOW(低下)(km)。 */
+const OIL_CONDITIONS = ["HIGH", "MID", "LOW"] as const;
 const OIL_CONDITION_LIMITS_KM = [1000, 2000];
 
 /** 車両情報に出すもの。車検・オイル交換の日は、未登録なら空。 */
@@ -133,7 +133,7 @@ function Big({ reading, look, h, kind }: { reading: Reading; look: MeterStyle; h
   );
 }
 
-/** コンディションの印(最高 ◎ / 普通 ○ / 低下 △)。字だと機種のフォントで大きさがばらつくので、絵で描く。 */
+/** コンディションの印(HIGH ◎ / MID ○ / LOW △)。字だと機種のフォントで大きさがばらつくので、絵で描く。 */
 function ConditionMark({ index }: { index: number }) {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -309,7 +309,8 @@ function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
       <p className="zr-note">
         給油を押すと記録を開きます。オイル交換と車検は、押すと日付を入れられます。オイル交換の目安は{" "}
         {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。コンディションは交換からの距離で、
-        {number(OIL_CONDITION_LIMITS_KM[0])}kmまでは最高、{number(OIL_CONDITION_LIMITS_KM[1])}kmまでは普通、その先は低下です。
+        {number(OIL_CONDITION_LIMITS_KM[0])}kmまでは {OIL_CONDITIONS[0]}、{number(OIL_CONDITION_LIMITS_KM[1])}kmまでは{" "}
+        {OIL_CONDITIONS[1]}、その先は {OIL_CONDITIONS[2]} です。
       </p>
     </>
   );
