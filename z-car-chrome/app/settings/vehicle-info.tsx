@@ -11,6 +11,9 @@ const OIL_INTERVAL_MONTHS = 3;
 const INSPECTION_SOON_DAYS = 30;
 /** オイル交換の目安の、この割合を過ぎたら数字の色を変える。 */
 const OIL_SOON_RATIO = 0.9;
+/** オイルのコンディション。交換からの距離が1つ目の区切りまでは最高、2つ目までは普通、その先は低下(km)。 */
+const OIL_CONDITIONS = ["最高", "普通", "低下"] as const;
+const OIL_CONDITION_LIMITS_KM = [1000, 2000];
 
 /** 車両情報に出すもの。車検・オイル交換の日は、未登録なら空。 */
 export type VehicleRecord = {
@@ -79,6 +82,8 @@ const vehicleStatus = (record: VehicleRecord, today: string) => {
         .filter((entry) => entry.date > record.oilChangedOn)
         .reduce((total, entry) => total + entry.distanceKm, 0)
     : 0;
+  // コンディションは距離だけで決める(0: 最高 / 1: 普通 / 2: 低下)。交換日が未登録なら出さない。
+  const condition = record.oilChangedOn ? OIL_CONDITION_LIMITS_KM.filter((limit) => driven >= limit).length : null;
   if (!record.oilChangedOn) {
     oil = text("未登録", "none");
   } else {
@@ -108,7 +113,7 @@ const vehicleStatus = (record: VehicleRecord, today: string) => {
     const ago = Math.max(0, daysBetween(latest.date, today));
     fuel = ago === 0 ? text("今日", "info") : { value: String(ago), unit: "日前", digits: true, short: `${ago}日前`, tone: "info" };
   }
-  return { inspection, oil, fuel, driven, latest };
+  return { inspection, oil, condition, fuel, driven, latest };
 };
 
 /** 大きい数字。80年代・デイライトでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
@@ -228,6 +233,19 @@ function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
             OIL<span>交換まで</span>
           </small>
           <Big reading={status.oil} look={look} h={32} kind="oil" />
+          {status.condition !== null ? (
+            <span className="zr-oil-cond">
+              <small aria-hidden="true">CONDITION</small>
+              <span className="zr-oil-lamps" aria-hidden="true">
+                {OIL_CONDITIONS.map((label, index) => (
+                  <i key={label} className={index === status.condition ? "is-on" : undefined}>
+                    {label}
+                  </i>
+                ))}
+              </span>
+              <span className="zr-sr">コンディション {OIL_CONDITIONS[status.condition]}</span>
+            </span>
+          ) : null}
           <p>
             {record.oilChangedOn ? (
               <>
@@ -279,7 +297,8 @@ function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
       ) : null}
       <p className="zr-note">
         給油を押すと記録を開きます。オイル交換と車検は、押すと日付を入れられます。オイル交換の目安は{" "}
-        {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。
+        {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。コンディションは交換からの距離で、
+        {number(OIL_CONDITION_LIMITS_KM[0])}kmまでは最高、{number(OIL_CONDITION_LIMITS_KM[1])}kmまでは普通、その先は低下です。
       </p>
     </>
   );
