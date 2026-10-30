@@ -185,8 +185,9 @@ type DetailsProps = {
  * 車両情報の中身。光る数字のタイルで、大事な順に最終給油から(横いっぱい)・
  * オイル交換まで・車検までを出す。給油のタイルは給油の記録を開き、
  * オイル交換と車検のタイルを押すと日付を入れられる(車とスマホで共有)。
+ * note が false なら、下の説明の文は出さない(車両のタブでは ? を押したときだけ出す)。
  */
-function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
+function VehicleDetails({ record, look, onSave, onOpenFuel, note = true }: DetailsProps & { note?: boolean }) {
   const [editing, setEditing] = useState<"inspection" | "oil" | null>(null);
   const [draft, setDraft] = useState("");
   const today = japanToday();
@@ -306,12 +307,14 @@ function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
           </div>
         </form>
       ) : null}
-      <p className="zr-note">
-        給油を押すと記録を開きます。オイル交換と車検は、押すと日付を入れられます。オイル交換の目安は{" "}
-        {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。コンディションは交換からの距離で、
-        {number(OIL_CONDITION_LIMITS_KM[0])}kmまでは {OIL_CONDITIONS[0]}、{number(OIL_CONDITION_LIMITS_KM[1])}kmまでは{" "}
-        {OIL_CONDITIONS[1]}、その先は {OIL_CONDITIONS[2]} です。
-      </p>
+      {note ? (
+        <p className="zr-note">
+          給油を押すと記録を開きます。オイル交換と車検は、押すと日付を入れられます。オイル交換の目安は{" "}
+          {number(OIL_INTERVAL_KM)}km か {OIL_INTERVAL_MONTHS}か月の早いほうで、距離は給油の記録から数えます。コンディションは交換からの距離で、
+          {number(OIL_CONDITION_LIMITS_KM[0])}kmまでは {OIL_CONDITIONS[0]}、{number(OIL_CONDITION_LIMITS_KM[1])}kmまでは{" "}
+          {OIL_CONDITIONS[1]}、その先は {OIL_CONDITIONS[2]} です。
+        </p>
+      ) : null}
     </>
   );
 }
@@ -345,8 +348,12 @@ export function VehicleSheet({ onClose, ...props }: DetailsProps & { onClose: ()
   );
 }
 
-/** 下のタブ「車両」のページ。車がどこにあっても、いつでも車両情報を見られる。 */
+/**
+ * 下のタブ「車両」のページ。車がどこにあっても、いつでも車両情報を見られる。
+ * 大きい iPhone でメーター設定まで1画面に収まるよう、説明の文はふだん隠し、右上の ? で開く。
+ */
 export function VehiclePanel(props: DetailsProps) {
+  const [helpOpen, setHelpOpen] = useState(false);
   return (
     <section className="zr-panel zr-car-panel" aria-label="車両情報">
       <header className="zr-panel-head">
@@ -355,8 +362,17 @@ export function VehiclePanel(props: DetailsProps) {
           <b>車両情報</b>
         </span>
         <em>{props.record.carId.toUpperCase()}</em>
+        <button
+          type="button"
+          className="zr-car-help"
+          aria-label="説明"
+          aria-expanded={helpOpen}
+          onClick={() => setHelpOpen((open) => !open)}
+        >
+          ?
+        </button>
       </header>
-      <VehicleDetails {...props} />
+      <VehicleDetails {...props} note={helpOpen} />
     </section>
   );
 }

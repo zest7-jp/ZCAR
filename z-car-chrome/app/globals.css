@@ -8591,6 +8591,24 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 下のタブ「車両」のページでは、見出しのすぐ下からタイルを並べる。 */
 .zr-car-panel .zr-car-tiles { margin-top: 2px; }
 .zr-car-panel > .zr-note { margin-top: 14px; }
+/* 見出しの右(車の名前の横)の ? 。押すと下に説明の文を出す。押せる範囲は見た目より広くとる。 */
+.zr-car-panel .zr-panel-head > em { margin-left: auto; }
+.zr-car-help {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1.5px solid var(--zr-muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--zr-muted);
+  font: 900 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.zr-car-help::after { content: ""; position: absolute; inset: -10px; }
+.zr-car-help[aria-expanded="true"] { border-color: var(--zr-accent); background: var(--zr-accent); color: #04100c; }
 /* 車両のタブでは、車両情報の下にメーターのテーマ・色・形を続ける。ふだんは1行に格納し、押すと開く。 */
 .zr-car-panel + .zr-themes { margin-top: 18px; }
 .zr-themes-toggle {
