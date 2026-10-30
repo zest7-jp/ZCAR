@@ -8591,6 +8591,24 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 /* 下のタブ「車両」のページでは、見出しのすぐ下からタイルを並べる。 */
 .zr-car-panel .zr-car-tiles { margin-top: 2px; }
 .zr-car-panel > .zr-note { margin-top: 14px; }
+/* 見出しの右(車の名前の横)の ? 。押すと下に説明の文を出す。押せる範囲は見た目より広くとる。 */
+.zr-car-panel .zr-panel-head > em { margin-left: auto; }
+.zr-car-help {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1.5px solid var(--zr-muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--zr-muted);
+  font: 900 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.zr-car-help::after { content: ""; position: absolute; inset: -10px; }
+.zr-car-help[aria-expanded="true"] { border-color: var(--zr-accent); background: var(--zr-accent); color: #04100c; }
 /* 車両のタブでは、車両情報の下にメーターのテーマ・色・形を続ける。ふだんは1行に格納し、押すと開く。 */
 .zr-car-panel + .zr-themes { margin-top: 18px; }
 .zr-themes-toggle {
@@ -8685,6 +8703,42 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-oil-lamps i:nth-child(2) { --lamp: 255, 176, 46; }
 .zr-oil-lamps i:nth-child(3) { --lamp: 255, 90, 74; }
 .zr-oil-lamps i.is-on { border-color: rgb(var(--lamp)); background: rgb(var(--lamp)); color: #04100c; box-shadow: 0 0 12px rgba(var(--lamp), .75); }
+/*
+ * 数字の段: 左に大きい数字、右端に本物の車の警告灯のような印(給油機・オイル差し・車検の盾)。
+ * 印の列は残った幅だけ(最大26px)。数字が長くて狭いときは小さくなり、16px より狭ければ出さない。
+ */
+.zr-car-row { display: grid; grid-template-columns: auto minmax(0, 26px); justify-content: space-between; align-items: center; column-gap: 4px; min-width: 0; }
+.zr-car-icon-box { container-type: inline-size; display: grid; justify-items: end; min-width: 0; }
+@container (max-width: 15.5px) { .zr-car-icon { display: none; } }
+.zr-car-icon {
+  width: min(26px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  fill: none;
+  stroke: var(--zr-accent);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px rgba(var(--zr-accent-rgb), .9)) drop-shadow(0 0 8px rgba(var(--zr-accent-rgb), .55));
+}
+/* 80年代のメーターのような光るメモリ(オイル交換までの残り・車検までの残り)。 */
+.zr-car-bar { --bar: var(--zr-accent-rgb); display: grid; gap: 3px; }
+.zr-car-bar:is(.is-soon, .is-over) { --bar: 255, 90, 74; }
+.zr-car-bar > span { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 2px; height: 7px; }
+.zr-car-bar i { border-radius: 1px; background: rgba(var(--bar), .12); }
+.zr-car-bar i.is-on { background: rgb(var(--bar)); box-shadow: 0 0 5px rgba(var(--bar), .8); }
+.zr-car-bar small { display: flex; justify-content: space-between; color: var(--zr-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 7.5px; font-weight: 900; letter-spacing: .14em; }
+/* 給油: 右に最近の燃費の棒グラフ(1本が1回の給油。右端が最後)。 */
+.zr-car-tile.has-chart { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+.zr-car-tile.has-chart > small { grid-column: 1 / -1; }
+.zr-car-chart { display: grid; grid-column: 2; grid-row: 2 / span 2; align-self: end; justify-items: end; gap: 4px; }
+.zr-car-chart > small { color: var(--zr-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 8px; font-weight: 900; letter-spacing: .2em; }
+.zr-car-chart > span { display: flex; align-items: flex-end; gap: 3px; }
+.zr-car-chart > span > span { display: flex; flex-direction: column-reverse; gap: 2px; }
+.zr-car-chart i { width: 9px; height: 4px; border-radius: 1px; background: rgba(var(--zr-accent-rgb), .1); }
+.zr-car-chart i.is-on { background: rgba(var(--zr-accent-rgb), .55); box-shadow: 0 0 4px rgba(var(--zr-accent-rgb), .5); }
+.zr-car-chart .is-last i.is-on { background: var(--zr-accent); box-shadow: 0 0 6px var(--zr-accent); }
+.zr-car-chart em { color: var(--zr-accent); font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; font-style: normal; font-weight: 900; text-shadow: 0 0 6px rgba(var(--zr-accent-rgb), .8); }
 /* 自宅に駐車中のボタン: 左に「車両情報」、右に車検・オイル・給油の数字。 */
 .zr-park-go .zr-park-car { justify-content: space-between; min-height: 64px; padding: 0 16px; }
 .zr-park-car > span:first-child { display: grid; gap: 2px; text-align: left; }
@@ -9253,8 +9307,23 @@ main.zr[data-style="retro"] .zr-tabs b { font-family: "SFMono-Regular", Consolas
 main.zr[data-style="retro"] .zr-tabs button.is-active { color: var(--zr-accent); text-shadow: 0 0 8px rgba(82, 255, 214, .9); }
 main.zr[data-style="retro"] .zr-tabs button.is-active::before { filter: drop-shadow(0 0 4px #52ffd6) drop-shadow(0 0 10px rgba(82, 255, 214, .6)); }
 main.zr[data-style="retro"] .zr-sheet-card { border-top: 2px solid #3c4046; border-radius: 18px 18px 0 0; background: #020403; }
-/* 車両情報のタイル: 黒い窓に光る7セグメント(オイルはアンバー)。ボタンの数字もアンバー。 */
-main.zr[data-style="retro"] :is(.zr-car-tile, .zr-themes-toggle) { border-color: #2a3033; background: linear-gradient(180deg, #060a09, #020403); box-shadow: inset 0 0 18px rgba(0, 0, 0, .8); }
+/* 車両情報のタイル: 計器盤にはめたガラスの窓(左上に映り込み、下から数字の色がにじむ)に光る7セグメント(オイルはアンバー)。ボタンの数字もアンバー。 */
+main.zr[data-style="retro"] .zr-themes-toggle { border-color: #2a3033; background: linear-gradient(180deg, #060a09, #020403); box-shadow: inset 0 0 18px rgba(0, 0, 0, .8); }
+main.zr[data-style="retro"] .zr-car-tiles { gap: 12px; }
+main.zr[data-style="retro"] .zr-car-tile {
+  --glow: var(--zr-accent-rgb);
+  border: 1px solid #39433f;
+  background:
+    linear-gradient(162deg, rgba(255, 255, 255, .09) 0%, rgba(255, 255, 255, .02) 26%, transparent 27%) padding-box,
+    radial-gradient(120% 90% at 50% 120%, rgba(var(--glow), .07), transparent 60%) padding-box,
+    linear-gradient(180deg, #050908, #010202) padding-box;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, .9), inset 0 0 0 1px rgba(0, 0, 0, .8), 0 0 0 2px #0b0e0e, 0 0 0 3px #2b3134;
+}
+main.zr[data-style="retro"] .zr-car-tile.is-oil { --glow: var(--zr-amber-rgb); }
+main.zr[data-style="retro"] .zr-car-tile.is-editing { border-color: rgba(var(--zr-accent-rgb), .8); box-shadow: inset 0 2px 10px rgba(0, 0, 0, .9), 0 0 0 2px #0b0e0e, 0 0 0 3px rgba(var(--zr-accent-rgb), .7); }
+main.zr[data-style="retro"] :is(.zr-car-icon.is-oil, .zr-car-bar.is-oil) { --bar: var(--zr-amber-rgb); stroke: var(--zr-amber); filter: drop-shadow(0 0 3px rgba(255, 176, 46, .9)) drop-shadow(0 0 8px rgba(255, 176, 46, .55)); }
+main.zr[data-style="retro"] .zr-car-bar.is-oil { filter: none; }
+main.zr[data-style="retro"] .zr-car-bar.is-oil:is(.is-soon, .is-over) { --bar: 255, 90, 74; }
 main.zr[data-style="retro"] .zr-car-big { color: var(--zr-accent); }
 main.zr[data-style="retro"] .zr-car-big.is-oil { color: var(--zr-amber); }
 main.zr[data-style="retro"] .zr-car-big:is(.is-soon, .is-over) { color: #ff5a4a; }
