@@ -14,6 +14,14 @@ const OIL_SOON_RATIO = 0.9;
 /** オイルのコンディション。交換からの距離が1つ目の区切りまでは HIGH(最高)、2つ目までは MID(普通)、その先は LOW(低下)(km)。 */
 const OIL_CONDITIONS = ["HIGH", "MID", "LOW"] as const;
 const OIL_CONDITION_LIMITS_KM = [1000, 2000];
+/** 光るメモリの数(オイル交換までの残り・車検までの残り)。 */
+const BAR_STEPS = 15;
+/** 車検の間隔(日)。車検のメモリは2年のうちの残りを出す。 */
+const INSPECTION_CYCLE_DAYS = 730;
+/** 燃費の棒グラフ: 最近の何回分を出すか、1本を何段にするか(いちばん下の km/L から 1km/L ずつ)。 */
+const FUEL_CHART_COUNT = 8;
+const FUEL_CHART_STEPS = 10;
+const FUEL_CHART_MIN_KMPL = 10;
 
 /** 車両情報に出すもの。車検・オイル交換の日は、未登録なら空。 */
 export type VehicleRecord = {
@@ -62,10 +70,13 @@ const text = (value: string, tone: Tone): Reading => ({ value, unit: "", digits:
 /** 車検・オイル交換・最終給油の、いまの様子。 */
 const vehicleStatus = (record: VehicleRecord, today: string) => {
   let inspection: Reading;
+  // 車検のメモリ: 2年のうちの残り(0〜1)。未登録なら出さない。
+  let inspectionLife: number | null = null;
   if (!record.inspectionDue) {
     inspection = text("未登録", "none");
   } else {
     const left = daysBetween(today, record.inspectionDue);
+    inspectionLife = Math.min(1, Math.max(0, left / INSPECTION_CYCLE_DAYS));
     const tone = left < 0 ? "over" : left <= INSPECTION_SOON_DAYS ? "soon" : "ok";
     inspection =
       left === 0
@@ -84,6 +95,8 @@ const vehicleStatus = (record: VehicleRecord, today: string) => {
     : 0;
   // コンディションは距離だけで決める(0: 最高 / 1: 普通 / 2: 低下)。交換日が未登録なら出さない。
   const condition = record.oilChangedOn ? OIL_CONDITION_LIMITS_KM.filter((limit) => driven >= limit).length : null;
+  // オイルのメモリ(LIFE): 交換までの残り(距離と日にちの、目安に近いほう。0〜1)。
+  let oilLife: number | null = null;
   if (!record.oilChangedOn) {
     oil = text("未登録", "none");
   } else {
@@ -94,6 +107,7 @@ const vehicleStatus = (record: VehicleRecord, today: string) => {
     const kmRatio = driven / OIL_INTERVAL_KM;
     const timeRatio = passed / daysBetween(record.oilChangedOn, due);
     const tone = Math.max(kmRatio, timeRatio) >= OIL_SOON_RATIO ? "soon" : "ok";
+    oilLife = Math.min(1, Math.max(0, 1 - Math.max(kmRatio, timeRatio)));
     // 距離と日にちの、目安に近いほうを出す。
     oil =
       kmLeft <= 0 || daysLeft <= 0
@@ -113,7 +127,13 @@ const vehicleStatus = (record: VehicleRecord, today: string) => {
     const ago = Math.max(0, daysBetween(latest.date, today));
     fuel = ago === 0 ? text("今日", "info") : { value: String(ago), unit: "日前", digits: true, short: `${ago}日前`, tone: "info" };
   }
-  return { inspection, oil, condition, fuel, driven, latest };
+  // 燃費の棒グラフ: 走った距離が分かる給油の、最近の分(古い順)。
+  const kmpl = record.fuelEntries
+    .filter((entry) => entry.distanceKm > 0 && entry.liters > 0)
+    .sort((left, right) => left.date.localeCompare(right.date) || left.createdAt - right.createdAt)
+    .slice(-FUEL_CHART_COUNT)
+    .map((entry) => entry.distanceKm / entry.liters);
+  return { inspection, inspectionLife, oil, oilLife, condition, fuel, kmpl, driven, latest };
 };
 
 /** 大きい数字。80年代・デイライトでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
@@ -140,6 +160,86 @@ function ConditionMark({ index }: { index: number }) {
       {index === 2 ? <path d="M10 2.6 18.2 17H1.8Z" /> : <circle cx="10" cy="10" r="8" />}
       {index === 0 ? <circle cx="10" cy="10" r="3.6" /> : null}
     </svg>
+  );
+}
+
+/**
+ * 数字の右に光らせる、本物の車の警告灯のような印(給油機・オイル差し・車検の盾)。
+ * 数字が長くて場所が足りないときは小さくなり、それでも足りなければ出さない(CSS)。
+ */
+function TileIcon({ kind }: { kind: "fuel" | "oil" | "inspection" }) {
+  return (
+    <span className="zr-car-icon-box" aria-hidden="true">
+      <TileIconMark kind={kind} />
+    </span>
+  );
+}
+
+function TileIconMark({ kind }: { kind: "fuel" | "oil" | "inspection" }) {
+  return (
+    <svg className={`zr-car-icon is-${kind}`} viewBox="0 0 24 24">
+      {kind === "fuel" ? (
+        <>
+          <path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" />
+          <path d="M2.5 21h13" />
+          <path d="M6.5 6.5h5v4h-5z" />
+          <path d="M14 9h1.6a1.4 1.4 0 0 1 1.4 1.4v6.1a1.5 1.5 0 0 0 3 0V8l-2.6-2.6" />
+        </>
+      ) : kind === "oil" ? (
+        <>
+          <path d="M3.5 10.5h11.5l5.5-3v1.6l-5.2 6.4H6.3a2.8 2.8 0 0 1-2.8-2.8z" />
+          <path d="M3.5 11.2 1.8 9.6" />
+          <path d="M8.2 10.5V8.6h3.2v1.9" />
+          <path d="M7 8.6h5.6" />
+          <path d="M21.4 13.6a1 1 0 0 1-2 0c0-.8 1-2 1-2s1 1.2 1 2z" />
+        </>
+      ) : (
+        <>
+          <path d="M12 2.8 19 5.6v5.2c0 4.4-2.9 8.2-7 9.6-4.1-1.4-7-5.2-7-9.6V5.6z" />
+          <path d="m8.6 11.8 2.4 2.4 4.6-4.8" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** 80年代のメーターのような、光るメモリの横棒。share は光らせる割合(0〜1)。 */
+function MeterBar({ share, label, kind, tone }: { share: number; label: string; kind: string; tone: Tone }) {
+  const lit = Math.round(share * BAR_STEPS);
+  return (
+    <span className={`zr-car-bar is-${kind} is-${tone}`} aria-hidden="true">
+      <span>
+        {Array.from({ length: BAR_STEPS }, (_, index) => (
+          <i key={index} className={index < lit ? "is-on" : undefined} />
+        ))}
+      </span>
+      <small>
+        <span>{label}</span>
+        <span>{Math.round(share * 100)}%</span>
+      </small>
+    </span>
+  );
+}
+
+/** 最近の給油の燃費の棒グラフ(古い順。いちばん右が最後の給油)。 */
+function FuelChart({ kmpl }: { kmpl: number[] }) {
+  return (
+    <span className="zr-car-chart" aria-hidden="true">
+      <small>km/L</small>
+      <span>
+        {kmpl.map((value, index) => {
+          const lit = Math.min(FUEL_CHART_STEPS, Math.max(0, Math.round(value - FUEL_CHART_MIN_KMPL)));
+          return (
+            <span key={index} className={index === kmpl.length - 1 ? "is-last" : undefined}>
+              {Array.from({ length: FUEL_CHART_STEPS }, (_, step) => (
+                <i key={step} className={step < lit ? "is-on" : undefined} />
+              ))}
+            </span>
+          );
+        })}
+      </span>
+      <em>{kmpl[kmpl.length - 1].toFixed(1)}</em>
+    </span>
   );
 }
 
@@ -212,11 +312,18 @@ function VehicleDetails({ record, look, onSave, onOpenFuel, note = true }: Detai
   return (
     <>
       <div className="zr-car-tiles">
-        <button type="button" className="zr-car-tile is-wide" onClick={onOpenFuel}>
+        <button
+          type="button"
+          className={`zr-car-tile is-wide is-fuel${status.kmpl.length > 1 ? " has-chart" : ""}`}
+          onClick={onOpenFuel}
+        >
           <small>
             FUEL<span>最終給油</span>
           </small>
-          <Big reading={status.fuel} look={look} h={46} kind="fuel" />
+          <span className="zr-car-row">
+            <Big reading={status.fuel} look={look} h={46} kind="fuel" />
+            <TileIcon kind="fuel" />
+          </span>
           <p>
             {latest ? (
               <>
@@ -233,17 +340,24 @@ function VehicleDetails({ record, look, onSave, onOpenFuel, note = true }: Detai
               "押すと給油の記録を開きます"
             )}
           </p>
+          {status.kmpl.length > 1 ? <FuelChart kmpl={status.kmpl} /> : null}
         </button>
         <button
           type="button"
-          className={`zr-car-tile${editing === "oil" ? " is-editing" : ""}`}
+          className={`zr-car-tile is-oil${editing === "oil" ? " is-editing" : ""}`}
           aria-expanded={editing === "oil"}
           onClick={() => open("oil")}
         >
           <small>
             OIL<span>交換まで</span>
           </small>
-          <Big reading={status.oil} look={look} h={32} kind="oil" />
+          <span className="zr-car-row">
+            <Big reading={status.oil} look={look} h={32} kind="oil" />
+            <TileIcon kind="oil" />
+          </span>
+          {status.oilLife !== null ? (
+            <MeterBar share={status.oilLife} label="LIFE" kind="oil" tone={status.oil.tone} />
+          ) : null}
           {status.condition !== null ? (
             <span className="zr-oil-cond">
               <small aria-hidden="true">CONDITION</small>
@@ -272,14 +386,20 @@ function VehicleDetails({ record, look, onSave, onOpenFuel, note = true }: Detai
         </button>
         <button
           type="button"
-          className={`zr-car-tile${editing === "inspection" ? " is-editing" : ""}`}
+          className={`zr-car-tile is-inspection${editing === "inspection" ? " is-editing" : ""}`}
           aria-expanded={editing === "inspection"}
           onClick={() => open("inspection")}
         >
           <small>
             INSPECTION<span>{status.inspection.unit === "日過ぎ" ? "期限切れ" : "車検まで"}</span>
           </small>
-          <Big reading={status.inspection} look={look} h={32} kind="inspection" />
+          <span className="zr-car-row">
+            <Big reading={status.inspection} look={look} h={32} kind="inspection" />
+            <TileIcon kind="inspection" />
+          </span>
+          {status.inspectionLife !== null ? (
+            <MeterBar share={status.inspectionLife} label="2 YEARS" kind="inspection" tone={status.inspection.tone} />
+          ) : null}
           <p>{record.inspectionDue ? `満了日 ${dotted(record.inspectionDue)}` : "押して満了日を入れてください"}</p>
         </button>
       </div>
