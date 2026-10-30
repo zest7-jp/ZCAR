@@ -98,6 +98,32 @@ button { cursor: pointer; }
   animation: launchHint 2.4s ease-in-out infinite;
 }
 
+/* 押さなくても5秒で進む。そのあいだ、TOUCH TO START の下の細い線が伸びる。 */
+.launch-timer {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  width: 120px;
+  height: 2px;
+  margin-left: -60px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(207, 233, 236, .18);
+}
+.launch-timer i {
+  position: absolute;
+  inset: 0;
+  background: #cfe9ec;
+  box-shadow: 0 0 8px rgba(207, 233, 236, .8);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: launchTimer 5s linear forwards;
+}
+
+@keyframes launchTimer {
+  to { transform: scaleX(1); }
+}
+
 .launch-screen .build-stamp {
   right: 14px;
   bottom: 12px;
@@ -118,6 +144,7 @@ button { cursor: pointer; }
 
 @media (max-height: 520px) {
   .launch-hint { bottom: 30px; font-size: 9px; }
+  .launch-timer { bottom: 20px; }
 }
 
 /* 反映確認用のビルド時刻。上の状態バーの右端に薄く出す。 */
