@@ -8658,6 +8658,33 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-car-big em { padding-bottom: 2px; color: var(--zr-muted); font-size: 13px; font-style: normal; font-weight: 800; }
 .zr-car-big:is(.is-soon, .is-over) { color: #ff8a7a; }
 .zr-car-big.is-none { color: var(--zr-muted); }
+/* オイルのコンディション: HIGH・MID・LOW の3つのランプ(上に ◎ ○ △、下にことば)。今のところだけ光る(緑・オレンジ・赤)。 */
+.zr-oil-cond { display: grid; gap: 5px; }
+.zr-oil-cond > small { color: var(--zr-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 8px; font-weight: 900; letter-spacing: .22em; }
+.zr-oil-lamps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.zr-oil-lamps i {
+  --lamp: 82, 255, 214;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 5px 0 3px;
+  border: 1px solid rgba(var(--lamp), .22);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, .3);
+  color: rgba(var(--lamp), .3);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .06em;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+.zr-oil-lamps svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linejoin: round; }
+.zr-oil-lamps i:nth-child(2) { --lamp: 255, 176, 46; }
+.zr-oil-lamps i:nth-child(3) { --lamp: 255, 90, 74; }
+.zr-oil-lamps i.is-on { border-color: rgb(var(--lamp)); background: rgb(var(--lamp)); color: #04100c; box-shadow: 0 0 12px rgba(var(--lamp), .75); }
 /* 自宅に駐車中のボタン: 左に「車両情報」、右に車検・オイル・給油の数字。 */
 .zr-park-go .zr-park-car { justify-content: space-between; min-height: 64px; padding: 0 16px; }
 .zr-park-car > span:first-child { display: grid; gap: 2px; text-align: left; }
