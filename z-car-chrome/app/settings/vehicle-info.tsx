@@ -133,6 +133,16 @@ function Big({ reading, look, h, kind }: { reading: Reading; look: MeterStyle; h
   );
 }
 
+/** コンディションの印(最高 ◎ / 普通 ○ / 低下 △)。字だと機種のフォントで大きさがばらつくので、絵で描く。 */
+function ConditionMark({ index }: { index: number }) {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      {index === 2 ? <path d="M10 2.6 18.2 17H1.8Z" /> : <circle cx="10" cy="10" r="8" />}
+      {index === 0 ? <circle cx="10" cy="10" r="3.6" /> : null}
+    </svg>
+  );
+}
+
 /** 自宅に駐車中のボタン。給油・オイル・車検の数字も(大事な順に)並べ、押すと車両情報を開く。 */
 export function VehicleButton({ record, onOpen }: { record: VehicleRecord; onOpen: () => void }) {
   const status = vehicleStatus(record, japanToday());
@@ -239,6 +249,7 @@ function VehicleDetails({ record, look, onSave, onOpenFuel }: DetailsProps) {
               <span className="zr-oil-lamps" aria-hidden="true">
                 {OIL_CONDITIONS.map((label, index) => (
                   <i key={label} className={index === status.condition ? "is-on" : undefined}>
+                    <ConditionMark index={index} />
                     {label}
                   </i>
                 ))}
