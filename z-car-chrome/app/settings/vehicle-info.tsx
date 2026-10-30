@@ -6,7 +6,7 @@ import { isDateKey, type FuelEntry, type MeterStyle } from "../settings-store";
 
 /** オイル交換の目安(どちらか早いほう)。 */
 const OIL_INTERVAL_KM = 3000;
-const OIL_INTERVAL_MONTHS = 6;
+const OIL_INTERVAL_MONTHS = 3;
 /** 車検の満了日がこれより近づいたら、数字の色を変える(日)。 */
 const INSPECTION_SOON_DAYS = 30;
 /** オイル交換の目安の、この割合を過ぎたら数字の色を変える。 */
