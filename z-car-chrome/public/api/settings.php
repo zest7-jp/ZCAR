@@ -22,8 +22,9 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-const MAX_BODY_BYTES = 65536;
-const MAX_FUEL_ENTRIES = 120;
+const MAX_BODY_BYTES = 262144;
+// 給油記録の上限(過去の記録をまとめて入れても数年分は残る数)。
+const MAX_FUEL_ENTRIES = 500;
 const MAP_DESTINATION_COUNT = 5;
 const MAX_DESTINATION_LABEL = 8;
 const MAX_DESTINATION_TEXT = 200;

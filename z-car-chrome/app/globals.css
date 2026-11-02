@@ -7682,6 +7682,28 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 700;
   text-align: right;
 }
+/* 過去の給油の記録をまとめて入れる: 貼り付けた文を読み取り、入れる前に中身を見せる。 */
+.zr-fuel-import { display: grid; gap: 10px; }
+.zr-fuel-import > .zr-note { margin: 0; }
+.zr-fuel-import textarea {
+  width: 100%;
+  min-height: 112px;
+  padding: 10px 12px;
+  border: 1px solid var(--zr-edge);
+  border-radius: 12px;
+  background: var(--zr-field);
+  color: var(--zr-ink);
+  font: 16px/1.45 "SFMono-Regular", Consolas, monospace;
+  resize: vertical;
+}
+.zr-fuel-import-sum { margin: 0; color: var(--zr-muted); font-size: 12px; line-height: 1.6; }
+.zr-fuel-import-sum b { color: var(--zr-accent-strong); font-size: 16px; }
+.zr-history.is-import { max-height: 38dvh; overflow-y: auto; }
+.zr-history.is-import li { grid-template-columns: 74px 1fr auto auto; padding: 8px 2px; }
+.zr-history.is-import strong { font-size: 16px; }
+.zr-history li.is-in { opacity: .4; }
+.zr-history time small { display: block; color: #ffb02e; font-size: 9px; letter-spacing: .06em; }
+.zr-fuel-import-open { width: 100%; margin-top: 14px; }
 
 /* --- 目的地 --- */
 .zr-places { margin: 0 0 12px; padding: 0; list-style: none; }
