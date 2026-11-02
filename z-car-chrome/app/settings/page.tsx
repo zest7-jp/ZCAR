@@ -684,7 +684,7 @@ export default function PhoneSettingsPage() {
     </form>
   );
 
-  // --- テーマ(近未来・80年代・デイライト) ---
+  // --- テーマ(近未来・80年代) ---
   const activeStyle = meterStyleInfo(draft.meterStyle);
   const isFuture = activeStyle.id === "future";
   const chooseStyle = (id: MeterStyle) => {
@@ -883,7 +883,7 @@ export default function PhoneSettingsPage() {
                 ) : draft.meterStyle === "future" ? (
                   monthEconomy.toFixed(1)
                 ) : (
-                  // 80年代・デイライトのテーマでは、車と同じ7セグメントの数字(読み上げ用の字も残す)。
+                  // 80年代のテーマでは、車と同じ7セグメントの数字(読み上げ用の字も残す)。
                   <>
                     <SegNumber text={monthEconomy.toFixed(1)} h={60} className="zr-seg" />
                     <span className="zr-sr">{monthEconomy.toFixed(1)}</span>

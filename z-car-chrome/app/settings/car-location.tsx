@@ -458,7 +458,7 @@ export function CarLocationPanel({
 }: {
   syncKey: string;
   mapsKey: string;
-  /** 車のテーマ。80年代・デイライトのときは、数字を車と同じ7セグメントで出す。 */
+  /** 車のテーマ。80年代のときは、数字を車と同じ7セグメントで出す。 */
   look: MeterStyle;
   /** 自宅に駐車中に出す車両情報(車検・オイル交換・給油の記録)。 */
   vehicle: VehicleRecord;
@@ -647,7 +647,7 @@ export function CarLocationPanel({
   // 自宅として覚えた場所の近くに駐車している。
   const atHome =
     status === "parked" && park !== null && homeSpot !== null && distanceMeters(park, homeSpot) <= HOME_NEAR_METERS;
-  /** 数字: 80年代・デイライトのテーマでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
+  /** 数字: 80年代のテーマでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
   const segNumber = (text: string, height: number) =>
     look === "future" ? (
       text
