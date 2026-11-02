@@ -35,7 +35,7 @@ export type VehicleDates = Partial<Pick<VehicleRecord, "inspectionDue" | "oilCha
 /** 数字の色。ok: まだ先 / soon: 近い / over: 過ぎた / info: 給油 / none: 未登録。 */
 type Tone = "ok" | "soon" | "over" | "info" | "none";
 /**
- * 1つ分の数字と単位。digits なら7セグメントの数字で出す(80年代・デイライト)。
+ * 1つ分の数字と単位。digits なら7セグメントの数字で出す(80年代)。
  * short はボタンに並べる短い字。
  */
 type Reading = { value: string; unit: string; digits: boolean; short: string; tone: Tone };
@@ -136,7 +136,7 @@ const vehicleStatus = (record: VehicleRecord, today: string) => {
   return { inspection, inspectionLife, oil, oilLife, condition, fuel, kmpl, driven, latest };
 };
 
-/** 大きい数字。80年代・デイライトでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
+/** 大きい数字。80年代では車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
 function Big({ reading, look, h, kind }: { reading: Reading; look: MeterStyle; h: number; kind: string }) {
   return (
     <span className={`zr-car-big is-${kind} is-${reading.tone}${reading.digits ? "" : " is-text"}`}>
