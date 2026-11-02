@@ -44,8 +44,8 @@ export type FuelEntry = {
   createdAt: number;
 };
 
-/** 同期に載せる上限。古いものから落とす(通信量とサーバーの制限のため)。 */
-export const MAX_FUEL_ENTRIES = 120;
+/** 同期に載せる上限。古いものから落とす(通信量とサーバーの制限のため)。過去の記録をまとめて入れても数年分は残る数。 */
+export const MAX_FUEL_ENTRIES = 500;
 
 /** 給油記録の保存先(この機能より前のバージョンが使っていたキー)。 */
 export const LEGACY_FUEL_LOG_KEY = "zcar-fuel-log-v1";

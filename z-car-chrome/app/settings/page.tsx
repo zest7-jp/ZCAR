@@ -43,6 +43,7 @@ import {
 } from "../place-import";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
+import { parseFuelLog, toFuelEntries } from "./fuel-import";
 import { VehiclePanel } from "./vehicle-info";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -159,6 +160,8 @@ export default function PhoneSettingsPage() {
   const [fuelDraft, setFuelDraft] = useState(emptyFuelDraft);
   // 今月の燃費のカードを押すと開く、給油の記録(履歴)。
   const [logOpen, setLogOpen] = useState(false);
+  // 記録の中の「過去の記録をまとめて入れる」に貼り付けた文(null なら閉じている)。
+  const [importText, setImportText] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   // 読み取った瞬間に出す「接続完了」の知らせ。
   const [pairedNotice, setPairedNotice] = useState(false);
@@ -444,6 +447,31 @@ export default function PhoneSettingsPage() {
     }));
     setFuelDraft(emptyFuelDraft());
     setToast(linked ? "記録しました・車に送ります" : "記録しました");
+  };
+
+  // --- 過去の給油の記録をまとめて入れる(メモの文を貼り付けて読み取る) ---
+  const closeLog = () => {
+    setLogOpen(false);
+    setImportText(null);
+  };
+  const imported = importText ? parseFuelLog(importText, todayKey()) : [];
+  // 同じ日に同じ量の給油がもうあれば、入っているものとして飛ばす。
+  const alreadyIn = (entry: { date: string; liters: number }) =>
+    draft.fuelEntries.some((saved) => saved.date === entry.date && Math.abs(saved.liters - entry.liters) < 0.005);
+  const importable = imported.filter((entry) => !alreadyIn(entry));
+  const pasteImport = async () => {
+    try {
+      setImportText(await navigator.clipboard.readText());
+    } catch {
+      setToast(PASTE_NOTES.clipboard);
+    }
+  };
+  const importFuel = () => {
+    if (!importable.length) return;
+    const entries = toFuelEntries(importable);
+    setDraft((current) => ({ ...current, fuelEntries: mergeFuelEntries(current.fuelEntries, entries) }));
+    setImportText(null);
+    setToast(`${entries.length}件を入れました${linked ? "・車に送ります" : ""}`);
   };
 
   // --- 目的地(車の DEST と同じ並び) ---
@@ -1351,7 +1379,7 @@ export default function PhoneSettingsPage() {
 
       {/* 給油の記録(履歴)。今月の燃費のカードを押すと下から出る。 */}
       {logOpen ? (
-        <div className="zr-sheet" role="presentation" onClick={() => setLogOpen(false)}>
+        <div className="zr-sheet" role="presentation" onClick={closeLog}>
           <section
             className="zr-sheet-card"
             role="dialog"
@@ -1361,16 +1389,76 @@ export default function PhoneSettingsPage() {
           >
             <header className="zr-sheet-head">
               <span>
-                <small>FUEL LOG</small>
-                <b>給油の記録</b>
+                <small>{importText === null ? "FUEL LOG" : "IMPORT"}</small>
+                <b>{importText === null ? "給油の記録" : "過去の記録をまとめて入れる"}</b>
               </span>
               <em>{draft.fuelEntries.length} TOTAL</em>
-              <button type="button" onClick={() => setLogOpen(false)}>
+              <button type="button" onClick={closeLog}>
                 CLOSE
               </button>
             </header>
             <div className="zr-sheet-body">
-              {fuelMonths.length ? (
+              {importText !== null ? (
+                <section className="zr-fuel-import" aria-label="過去の記録をまとめて入れる">
+                  <p className="zr-note">
+                    メモの文をそのまま貼り付けてください。日付・給油量・金額・走行距離を読み取ります。年は並び順から決め、日付が空の記録は前後の給油の間の日にします。
+                  </p>
+                  <button type="button" className="zr-ghost" onClick={() => void pasteImport()}>
+                    コピーした文を貼り付け
+                  </button>
+                  <textarea
+                    value={importText}
+                    onChange={(event) => setImportText(event.target.value)}
+                    rows={5}
+                    placeholder={"8/5\n389km\n25.90ℓ\n\n日付:12/10\n給油量:14.24ℓ\n金額:2,207円\n走行距離:223.1km"}
+                    aria-label="給油のメモ"
+                  />
+                  {imported.length ? (
+                    <>
+                      <p className="zr-fuel-import-sum">
+                        <b>{importable.length}件</b>を入れます(
+                        {imported[0].date.replace(/-/g, ".")}〜{imported[imported.length - 1].date.replace(/-/g, ".")}
+                        ・平均{" "}
+                        {(
+                          imported.reduce((sum, entry) => sum + entry.distanceKm, 0) /
+                          imported.reduce((sum, entry) => sum + entry.liters, 0)
+                        ).toFixed(1)}{" "}
+                        km/L)
+                        {imported.length > importable.length ? `・入っている${imported.length - importable.length}件は飛ばします` : ""}
+                        {imported.some((entry) => entry.estimated)
+                          ? `・日付が空の${imported.filter((entry) => entry.estimated).length}件は推定`
+                          : ""}
+                      </p>
+                      <ol className="zr-history is-import">
+                        {imported.map((entry, index) => (
+                          <li key={`${entry.date}-${index}`} className={alreadyIn(entry) ? "is-in" : undefined}>
+                            <time dateTime={entry.date}>
+                              {entry.date.slice(2).replace(/-/g, ".")}
+                              {entry.estimated ? <small>推定</small> : null}
+                            </time>
+                            <strong>
+                              {entry.distanceKm ? (entry.distanceKm / entry.liters).toFixed(1) : "—"}
+                              <em>km/L</em>
+                            </strong>
+                            <span>{entry.liters.toFixed(2)}<em>L</em></span>
+                            <span>{entry.amountYen ? entry.amountYen.toLocaleString("ja-JP") : "—"}<em>円</em></span>
+                          </li>
+                        ))}
+                      </ol>
+                    </>
+                  ) : importText.trim() ? (
+                    <p className="zr-note">読み取れる給油の記録がありません。</p>
+                  ) : null}
+                  <div className="zr-editor-actions">
+                    <button type="button" className="zr-ghost" onClick={() => setImportText(null)}>
+                      やめる
+                    </button>
+                    <button type="button" className="zr-primary" disabled={!importable.length} onClick={importFuel}>
+                      {importable.length ? `${importable.length}件を入れる` : "入れる"}
+                    </button>
+                  </div>
+                </section>
+              ) : fuelMonths.length ? (
                 fuelMonths.map((group) => (
                   <section key={group.month} className="zr-log-month" aria-label={`${group.month} の給油`}>
                     <h3>
@@ -1397,6 +1485,11 @@ export default function PhoneSettingsPage() {
               ) : (
                 <p className="zr-note">まだ記録がありません。給油したら下の欄から記録してください。</p>
               )}
+              {importText === null ? (
+                <button type="button" className="zr-ghost zr-fuel-import-open" onClick={() => setImportText("")}>
+                  過去の記録をまとめて入れる
+                </button>
+              ) : null}
             </div>
           </section>
         </div>
