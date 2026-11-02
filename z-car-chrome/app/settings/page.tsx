@@ -454,7 +454,11 @@ export default function PhoneSettingsPage() {
     setLogOpen(false);
     setImportText(null);
   };
-  const imported = importText ? parseFuelLog(importText, todayKey()) : [];
+  const parsed = importText ? parseFuelLog(importText, todayKey()) : [];
+  // メモの中に同じ給油が2回書いてあれば1件にする(入れるときの id も同じになる)。
+  const imported = parsed.filter(
+    (entry, index) => parsed.findIndex((other) => other.date === entry.date && other.liters === entry.liters) === index,
+  );
   // 同じ日に同じ量の給油がもうあれば、入っているものとして飛ばす。
   const alreadyIn = (entry: { date: string; liters: number }) =>
     draft.fuelEntries.some((saved) => saved.date === entry.date && Math.abs(saved.liters - entry.liters) < 0.005);
@@ -1425,6 +1429,7 @@ export default function PhoneSettingsPage() {
                         ).toFixed(1)}{" "}
                         km/L)
                         {imported.length > importable.length ? `・入っている${imported.length - importable.length}件は飛ばします` : ""}
+                        {parsed.length > imported.length ? `・2回書いてある${parsed.length - imported.length}件は1件にします` : ""}
                         {imported.some((entry) => entry.estimated)
                           ? `・日付が空の${imported.filter((entry) => entry.estimated).length}件は推定`
                           : ""}
