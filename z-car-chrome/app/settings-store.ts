@@ -110,6 +110,35 @@ export const mergeFuelEntries = (
     .slice(0, MAX_FUEL_ENTRIES);
 };
 
+/**
+ * 燃費のまとめ(平均燃費・合計)に使う月(YYYY-MM)。今月の給油があれば今月、まだ無ければ
+ * 記録のある最後の月にする(月の初めに燃費が「—」にならないように)。記録が無ければ今月。
+ */
+export const fuelSummaryMonth = (entries: FuelEntry[], today: string): string => {
+  const thisMonth = today.slice(0, 7);
+  let latest = "";
+  for (const entry of entries) {
+    const month = entry.date.slice(0, 7);
+    if (month === thisMonth) return thisMonth;
+    if (month < thisMonth && month > latest) latest = month;
+  }
+  return latest || thisMonth;
+};
+
+/** まとめの月の呼び方。今月は「今月」、ほかは「10月」(去年より前は「2025年10月」)。英語は THIS MONTH・LAST MONTH・2026.08。 */
+export const fuelMonthName = (month: string, today: string) => {
+  const year = Number(today.slice(0, 4));
+  const thisMonth = Number(today.slice(5, 7));
+  const lastMonth = thisMonth === 1 ? `${year - 1}-12` : `${year}-${String(thisMonth - 1).padStart(2, "0")}`;
+  const monthYear = Number(month.slice(0, 4));
+  const monthNumber = Number(month.slice(5, 7));
+  if (month === today.slice(0, 7)) return { ja: "今月", en: "THIS MONTH" };
+  return {
+    ja: monthYear >= year - 1 && (monthYear === year || monthNumber > thisMonth) ? `${monthNumber}月` : `${monthYear}年${monthNumber}月`,
+    en: month === lastMonth ? "LAST MONTH" : month.replace("-", "."),
+  };
+};
+
 /** 前のバージョンの目的地(1〜5の決まった枠)の1件分。引き継ぎにだけ使う。 */
 type MapDestination = {
   /** ボタンに出す短い名前(例: ケーズ)。空なら未登録。 */

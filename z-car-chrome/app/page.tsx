@@ -22,6 +22,8 @@ import {
   MIN_SYNC_KEY_LENGTH,
   NEW_PLACE_KEY,
   PHONE_LONG_EDGE_MAX,
+  fuelMonthName,
+  fuelSummaryMonth,
   mergeFuelEntries,
   readSettings,
   resolveStartTarget,
@@ -1490,7 +1492,9 @@ export default function Home() {
     fuelDistanceInput >= 0
       ? fuelDistanceInput / fuelLitersInput
       : null;
-  const currentMonthKey = japanDateKey().slice(0, 7);
+  // 燃費のまとめの月。今月まだ給油していなければ、記録のある最後の月(スマホと同じ)。
+  const currentMonthKey = fuelSummaryMonth(fuelEntries, japanDateKey());
+  const currentMonthName = fuelMonthName(currentMonthKey, japanDateKey());
   const currentMonthFuelEntries = fuelEntries.filter((entry) =>
     entry.date.startsWith(currentMonthKey),
   );
@@ -2153,24 +2157,24 @@ export default function Home() {
               <p>給油時の走行距離 ÷ 給油量で実燃費を記録します</p>
             </section>
 
-            <section className="fuel-summary" aria-label="今月の燃費集計">
+            <section className="fuel-summary" aria-label={`${currentMonthName.ja}の燃費集計`}>
               <article className="fuel-summary-primary">
-                <small>今月の平均燃費</small>
+                <small>{currentMonthName.ja}の平均燃費</small>
                 <strong>{monthlyFuelEconomy === null ? "—" : monthlyFuelEconomy.toFixed(1)}</strong>
                 <em>km/L</em>
               </article>
               <article>
-                <small>今月の合計給油量</small>
+                <small>{currentMonthName.ja}の合計給油量</small>
                 <strong>{monthlyFuelLiters.toFixed(1)}</strong>
                 <em>L</em>
               </article>
               <article>
-                <small>今月の合計金額</small>
+                <small>{currentMonthName.ja}の合計金額</small>
                 <strong>{Math.round(monthlyFuelAmount).toLocaleString("ja-JP")}</strong>
                 <em>円</em>
               </article>
               <article>
-                <small>今月の走行距離</small>
+                <small>{currentMonthName.ja}の走行距離</small>
                 <strong>{monthlyFuelDistance.toFixed(1)}</strong>
                 <em>km</em>
               </article>
