@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSharedSync } from "../hooks/use-shared-sync";
 import {
   defaults,
+  fuelMonthName,
+  fuelSummaryMonth,
   listNavChoices,
   MAX_DESTINATION_LABEL,
   MAX_DESTINATION_TEXT,
@@ -396,8 +398,9 @@ export default function PhoneSettingsPage() {
     fuelAmount >= 0;
   const fuelEconomy = fuelValid ? fuelDistance / fuelLiters : null;
 
-  // 今月の合計(車の燃費画面と同じ数え方)。
-  const monthKey = todayKey().slice(0, 7);
+  // 今月の合計(車の燃費画面と同じ数え方)。今月まだ給油していなければ、記録のある最後の月。
+  const monthKey = fuelSummaryMonth(draft.fuelEntries, todayKey());
+  const monthName = fuelMonthName(monthKey, todayKey());
   const monthEntries = draft.fuelEntries.filter((entry) => entry.date.startsWith(monthKey));
   const monthLiters = monthEntries.reduce((total, entry) => total + entry.liters, 0);
   const monthDistance = monthEntries.reduce((total, entry) => total + entry.distanceKm, 0);
@@ -889,7 +892,7 @@ export default function PhoneSettingsPage() {
             className="zr-hero is-pressable"
             role="button"
             tabIndex={0}
-            aria-label="今月の燃費。押すと給油の記録を開く"
+            aria-label={`${monthName.ja}の燃費。押すと給油の記録を開く`}
             onClick={() => setLogOpen(true)}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -899,8 +902,8 @@ export default function PhoneSettingsPage() {
             }}
           >
             <header>
-              <small>THIS MONTH</small>
-              <span>今月の平均燃費</span>
+              <small>{monthName.en}</small>
+              <span>{monthName.ja}の平均燃費</span>
               <em className="zr-hero-more">
                 LOG {draft.fuelEntries.length}
                 <svg viewBox="0 0 24 24" aria-hidden="true">
