@@ -771,7 +771,7 @@ export function CarLocationPanel({
   };
 
   /**
-   * 「現在地を登録」: いまの車の位置を、目的地の一覧(地点リスト)に足す。車の DEST にも届く。
+   * 「現在地を登録」: いまの車の位置を、目的地の一覧(地点リスト)に足す。車の LIST(目的地を選ぶ)にも届く。
    * 名前は登録した時刻(地点19:46)。行き先は近くの住所、無ければ緯度・経度。
    */
   const registerHere = async () => {
@@ -932,10 +932,11 @@ export function CarLocationPanel({
       </section>
       {carOn ? (
         // 車の電源が入っている間は、いまの場所を地点リスト(目的地の一覧)に登録できる。
-        <div className="zr-park-go">
+        // 英語を大きく(SET・LIST)、下に小さく日本語。車の GOOGLE MAPS の箱の LIST・START と同じ形。
+        <div className="zr-park-go is-keys">
           <button
             type="button"
-            className="zr-primary"
+            className="zr-primary zr-park-key"
             aria-busy={registering}
             disabled={registering}
             onClick={() => void registerHere()}
@@ -944,14 +945,20 @@ export function CarLocationPanel({
               <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
               <path d="M12 7v6M9 10h6" />
             </svg>
-            {registering ? "登録中…" : "現在地を登録"}
+            <span>
+              <b>SET</b>
+              <small>{registering ? "登録中…" : "現在地を登録"}</small>
+            </span>
           </button>
-          <button type="button" className="zr-ghost" onClick={onOpenList}>
+          <button type="button" className="zr-ghost zr-park-key" onClick={onOpenList}>
             <svg viewBox="0 0 24 24" className="is-line" aria-hidden="true">
               <path d="M9.5 6.5h10M9.5 12h10M9.5 17.5h10" />
               <path className="is-dot" d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" />
             </svg>
-            地点リスト
+            <span>
+              <b>LIST</b>
+              <small>地点リスト</small>
+            </span>
           </button>
         </div>
       ) : park && atHome ? (
@@ -991,7 +998,7 @@ export function CarLocationPanel({
         {phoneInCar
           ? "この iPhone の GPS で車の位置を動かしています。"
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
-        {carOn ? "登録した場所は、目的地として車の DEST から選べます。" : null}
+        {carOn ? `登録した場所は、目的地として車の ${look === "retro" ? "LIST" : "DEST"} から選べます。` : null}
       </p>
       {vehicleOpen ? (
         <VehicleSheet

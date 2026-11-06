@@ -68,6 +68,16 @@ export type ClusterProps = {
 type MapProps = {
   mapRef: RefObject<HTMLDivElement | null>;
   mapReady: boolean;
+  /** 地図の縮尺: 1点(板の1px)が何mか、近くする・広くするキー(端まで来たら null)。 */
+  zoom: { metersPerPx: number; onIn: (() => void) | null; onOut: (() => void) | null };
+};
+
+/** 縮尺の目盛りの長さの候補(m)。板の上で 100px 以下になる、いちばん長いものを出す。 */
+const SCALE_STEPS = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+const SCALE_MAX_PX = 100;
+const mapScale = (metersPerPx: number) => {
+  const meters = [...SCALE_STEPS].reverse().find((step) => step / metersPerPx <= SCALE_MAX_PX) ?? SCALE_STEPS[0];
+  return { label: meters < 1000 ? `${meters} m` : `${meters / 1000} km`, width: Math.round(meters / metersPerPx) };
 };
 
 /**
@@ -405,13 +415,61 @@ const KEY_GAP = 10;
 const KEY_H = (RETRO_MAP_BAY.h - 16 - BAY_PAD - KEY_GAP) / 2;
 const RETRO_DEST = { x: RETRO_MAP_BAY.x + BAY_PAD, y: RETRO_MAP_BAY.y + 16, w: RETRO_MAP_BAY.w - BAY_PAD * 2, h: KEY_H };
 const RETRO_START = { ...RETRO_DEST, y: RETRO_DEST.y + KEY_H + KEY_GAP };
-/** DEST はねらいの印(点線の輪と4本の目盛り)、START は3つの矢印(行き先があると光って点いたまま。点滅はしない)。 */
-const DEST_CX = RETRO_DEST.x + RETRO_DEST.w / 2;
-const DEST_CY = RETRO_DEST.y + RETRO_DEST.h / 2;
-const START_CX = RETRO_START.x + RETRO_START.w / 2 + 3;
-const START_CY = RETRO_START.y + RETRO_START.h / 2;
-const startChevron = (i: number) =>
-  `${START_CX - 33 + i * 24},${START_CY - 17} ${START_CX - 15 + i * 24},${START_CY} ${START_CX - 33 + i * 24},${START_CY + 17}`;
+/**
+ * キーの字(スマホの SET・LIST と同じ形): 1段目に印と英語の大きな字、2段目に小さく日本語。
+ * DEST のキーは「LIST(目的地を選ぶ)」、START のキーは「START(ナビ開始)」。
+ * 英語は等幅の字なので、字の数から幅を出して、印と合わせてキーの真ん中にそろえる。
+ */
+const KEY_ICON_W = 22;
+const KEY_ICON_GAP = 9;
+const keyWord = (box: typeof RETRO_DEST, word: string, note: string, color: string, icon: "list" | "go") => {
+  const long = word.length > 4;
+  const size = long ? 23 : 25;
+  const spacing = long ? 1.2 : 3.4;
+  const wordW = word.length * (size * 0.6 + spacing) - spacing;
+  const left = box.x + (box.w - (KEY_ICON_W + KEY_ICON_GAP + wordW)) / 2;
+  const base = box.y + 43;
+  // 印の高さの真ん中 = 大きな字(大文字)の高さの真ん中。
+  const mid = base - size * 0.36;
+  return (
+    <g>
+      {icon === "list" ? (
+        <g stroke={color} strokeWidth="2.6" strokeLinecap="round" fill="none">
+          {[-7, 0, 7].map((dy) => (
+            <g key={dy}>
+              <line x1={left + 1.5} y1={mid + dy} x2={left + 1.6} y2={mid + dy} strokeWidth="3.8" />
+              <line x1={left + 7.5} y1={mid + dy} x2={left + KEY_ICON_W} y2={mid + dy} />
+            </g>
+          ))}
+        </g>
+      ) : (
+        <g stroke={color} strokeWidth="3" fill="none">
+          {[0, 1, 2].map((i) => (
+            <polyline
+              key={i}
+              points={`${left + i * 7.5},${mid - 6.5} ${left + i * 7.5 + 6.5},${mid} ${left + i * 7.5},${mid + 6.5}`}
+            />
+          ))}
+        </g>
+      )}
+      <text x={left + KEY_ICON_W + KEY_ICON_GAP} y={base} fill={color} fontSize={size} fontWeight="700" letterSpacing={spacing}>
+        {word}
+      </text>
+      <text
+        x={box.x + box.w / 2}
+        y={box.y + 66}
+        fill={color}
+        fontSize="11.5"
+        fontWeight="700"
+        textAnchor="middle"
+        letterSpacing="1"
+        className="ms-ja"
+      >
+        {note}
+      </text>
+    </g>
+  );
+};
 /** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
 
@@ -453,7 +511,7 @@ const ecoLamp = (lit: boolean) => (
   </text>
 );
 
-/** 光る管で縁取ったキー(DEST・START)。外の細い線と、内側の光る線の二重。 */
+/** 光る管で縁取ったキー(LIST・START)。外の細い線と、内側の光る線の二重。 */
 const retroKey = (key: typeof RETRO_DEST, color: string) => (
   <g>
     <rect x={key.x} y={key.y} width={key.w} height={key.h} rx="12" fill={color} fillOpacity=".04" stroke={color} strokeOpacity=".3" />
@@ -603,26 +661,16 @@ const RetroFace = memo(function RetroFace() {
       {Array.from({ length: ECO_SEGMENTS }, (_, i) => (
         <rect key={i} {...ecoSegment(i)} fill={RETRO.green} opacity=".1" />
       ))}
-      {/* 右下の縦長の箱(Google マップの小さな画面を置く所)。名前の札は上の線に切り込む。中に DEST・START。 */}
+      {/* 右下の縦長の箱(Google マップの小さな画面を置く所)。名前の札は上の線に切り込む。中に LIST・START。 */}
       <rect x={RETRO_MAP_BAY.x} y={RETRO_MAP_BAY.y} width={RETRO_MAP_BAY.w} height={RETRO_MAP_BAY.h} rx="16" fill="#020403" stroke="#2a3534" strokeWidth="2" />
       <rect x={RETRO_MAP_BAY.x + 14} y={RETRO_MAP_BAY.y - 5} width="88" height="10" fill="#040506" />
       {label("bay", RETRO_MAP_BAY.x + 19, RETRO_MAP_BAY.y + 3, "GOOGLE MAPS", { size: 8, spacing: 2.4 })}
-      {/* DEST(ねらいの印)と START(3つの矢印)。同じ大きさの、光る管で縁取ったキー。 */}
+      {/* LIST(目的地を選ぶ = 地点リストを開く)と START(ナビ開始)。同じ大きさの、光る管で縁取ったキー。 */}
       {retroKey(RETRO_DEST, RETRO.amber)}
-      <g stroke={RETRO.amber} fill="none" filter="url(#ms-vfd)">
-        <circle cx={DEST_CX} cy={DEST_CY} r="20" strokeWidth="3.2" strokeDasharray="7.6 5" />
-        {[0, 90, 180, 270].map((angle) => (
-          <line key={angle} x1={DEST_CX} y1={DEST_CY - 25} x2={DEST_CX} y2={DEST_CY - 33} strokeWidth="3" transform={`rotate(${angle} ${DEST_CX} ${DEST_CY})`} />
-        ))}
-        <circle cx={DEST_CX} cy={DEST_CY} r="4.5" fill={RETRO.amber} stroke="none" />
-      </g>
+      <g filter="url(#ms-vfd)">{keyWord(RETRO_DEST, "LIST", "目的地を選ぶ", RETRO.amber, "list")}</g>
       {retroKey(RETRO_START, RETRO.cyan)}
-      {/* START の矢印(消えている方。点いている方は動く絵で、行き先があるときだけ出す)。 */}
-      <g stroke={RETRO.cyan} fill="none" strokeWidth="7" opacity=".1">
-        {[0, 1, 2].map((i) => (
-          <polyline key={i} points={startChevron(i)} />
-        ))}
-      </g>
+      {/* START の字(消えている方。点いている方は、行き先があるときだけ上に重ねる)。 */}
+      <g opacity=".1">{keyWord(RETRO_START, "START", "ナビ開始", RETRO.cyan, "go")}</g>
     </svg>
   );
 });
@@ -667,7 +715,7 @@ const litSegments = (value: number, y: number, color: (index: number) => string)
     <rect key={i} x={790 + i * 11} y={y} width="8.5" height="18" fill={color(i)} />
   ));
 
-export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+export function RetroCluster({ data, mapRef, mapReady, zoom, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -677,6 +725,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
     : [];
   const temperature = data.weather ? String(Math.round(data.weather.temperature)) : "--";
   const eco = ecoLevel(rpm, data.speed);
+  const scale = mapScale(zoom.metersPerPx);
   return (
     <Board className="ms-retro">
       <RetroFace />
@@ -700,6 +749,23 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
             N
           </text>
         </svg>
+        {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
+        <span className="ms-retro-scale" aria-hidden="true">
+          {scale.label}
+          <i style={{ width: scale.width }} />
+        </span>
+        <span className="ms-retro-zoom">
+          <button type="button" aria-label="地図を近くする" disabled={!zoom.onIn} onClick={zoom.onIn ?? undefined}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M12 5v14" />
+            </svg>
+          </button>
+          <button type="button" aria-label="地図を広くする" disabled={!zoom.onOut} onClick={zoom.onOut ?? undefined}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+        </span>
       </div>
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
@@ -777,10 +843,8 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
         <SevenSeg text={data.coolant === null ? "--" : String(Math.round(data.coolant))} x={960} y={RETRO_RIGHT.coolant} h={30} color={RETRO.cyan} align="end" />
         <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={RETRO_RIGHT.battery} h={30} color={RETRO.green} align="end" />
         {onStart ? (
-          <g className="ms-retro-start-lit" stroke={RETRO.cyan} fill="none" strokeWidth="7" filter="url(#ms-vfd)">
-            {[0, 1, 2].map((i) => (
-              <polyline key={i} points={startChevron(i)} />
-            ))}
+          <g className="ms-retro-start-lit" filter="url(#ms-vfd)">
+            {keyWord(RETRO_START, "START", "ナビ開始", RETRO.cyan, "go")}
           </g>
         ) : null}
         {eco >= 0.5 ? ecoLamp(true) : null}

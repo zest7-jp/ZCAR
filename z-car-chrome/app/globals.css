@@ -9111,6 +9111,49 @@ main.zr[data-style] .zr-park-facts dd.is-when small { margin-left: 0; }
 .zr-park-go svg .is-dot { stroke-width: 3; }
 /* 自宅に駐車中は「車両情報」1つだけ(横いっぱい)。 */
 .zr-park-go.is-single { grid-template-columns: 1fr; }
+/* 車の電源が入っている間の SET(現在地を登録)・LIST(地点リスト)。同じ幅のキーに、英語を大きく、
+   下に小さく日本語。車の GOOGLE MAPS の箱の LIST・START と同じ形。 */
+.zr-park-go.is-keys { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.zr-park-go .zr-park-key {
+  position: relative;
+  min-height: 72px;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 18px;
+  letter-spacing: 0;
+}
+.zr-park-go .zr-park-key svg { width: 28px; height: 28px; }
+.zr-park-go .zr-park-key svg.is-line { stroke-width: 2.1; }
+.zr-park-key > span { display: grid; gap: 5px; min-width: 0; text-align: left; }
+.zr-park-key b { font: 900 23px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .2em; }
+.zr-park-key small {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-overflow: ellipsis;
+}
+/* 80年代: 縁は車のキーと同じ二重(外の細い線と、内側の光る線)。 */
+main.zr[data-style="retro"] .zr-park-go .zr-park-key { border-width: 1px; border-radius: 16px; }
+main.zr[data-style="retro"] .zr-park-key::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1.6px solid currentColor;
+  border-radius: 11px;
+  box-shadow: 0 0 8px currentColor, inset 0 0 8px currentColor;
+  opacity: .85;
+  pointer-events: none;
+}
+main.zr[data-style="retro"] .zr-park-key svg { filter: drop-shadow(0 0 4px currentColor); }
+main.zr[data-style="retro"] .zr-park-key small { text-shadow: none; }
+main.zr[data-style="retro"] .zr-park-key:disabled::after { opacity: .3; box-shadow: none; }
+/* 幅のせまい画面では印を出さず、字を入れる。 */
+@media (max-width: 359px) {
+  .zr-park-go .zr-park-key { padding: 0 12px; }
+  .zr-park-go .zr-park-key svg { display: none; }
+}
 /* 駐車メモ。書いたあとは、ボタンにメモの文字を出す。 */
 .zr-park-go .zr-park-memo { min-width: 0; }
 .zr-park-go .zr-park-memo.has-memo {
@@ -9510,6 +9553,63 @@ main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-
   letter-spacing: .3em;
   animation: ms-blink 1.2s steps(1, end) infinite;
 }
+/* 縮尺の目盛り(左下。長さは地図の上の本当の距離)。 */
+.ms-retro-scale {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 3;
+  color: #5dff8a;
+  font: 700 13px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  text-shadow: 0 0 6px #5dff8a;
+  pointer-events: none;
+}
+.ms-retro-scale i {
+  display: block;
+  height: 7px;
+  margin-top: 3px;
+  border: 2px solid #5dff8a;
+  border-top: 0;
+  box-shadow: 0 0 6px rgba(93, 255, 138, .6);
+}
+/* 地図を近くする(＋)・広くする(−)キー(右下。光る管のキー)。 */
+.ms-retro-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+}
+.ms-retro-zoom button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 2px solid #52ffd6;
+  border-radius: 10px;
+  background: rgba(2, 8, 6, .88);
+  box-shadow: 0 0 10px rgba(82, 255, 214, .55), inset 0 0 10px rgba(82, 255, 214, .2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ms-retro-zoom svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #b9fff0;
+  stroke-width: 3.4;
+  filter: drop-shadow(0 0 4px #52ffd6);
+}
+.ms-retro-zoom button:active { background: rgba(82, 255, 214, .24); }
+/* これ以上は近く(広く)できないとき。 */
+.ms-retro-zoom button:disabled {
+  border-color: rgba(82, 255, 214, .22);
+  box-shadow: none;
+  cursor: default;
+}
+.ms-retro-zoom button:disabled svg { stroke: rgba(82, 255, 214, .28); filter: none; }
 /* 光る管の細かい網目(画面全体にうっすら)。 */
 @keyframes ms-blink {
   50% { opacity: .2; }

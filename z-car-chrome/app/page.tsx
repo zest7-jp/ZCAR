@@ -95,6 +95,19 @@ type FuelDraft = {
 
 const FUEL_TANK_CAPACITY_L = 36;
 const FUEL_RESERVE_L = 4;
+/** 80年代の地図の縮尺(Google マップの zoom)の幅と、覚えておく場所(車だけ。同期しない)。 */
+const RETRO_ZOOM_MIN = 11;
+const RETRO_ZOOM_MAX = 17;
+const RETRO_ZOOM_KEY = "zcar-retro-map-zoom";
+const readRetroZoom = () => {
+  if (typeof window === "undefined") return RETRO_MAP_LOOK.zoom;
+  try {
+    const saved = Number(window.localStorage.getItem(RETRO_ZOOM_KEY));
+    return Number.isInteger(saved) && saved >= RETRO_ZOOM_MIN && saved <= RETRO_ZOOM_MAX ? saved : RETRO_MAP_LOOK.zoom;
+  } catch {
+    return RETRO_MAP_LOOK.zoom;
+  }
+};
 const GREEN_METER_MAP_ZOOM = 12;
 // 地図タイルが来るまでの下地。フィルタ後もほぼ黒に沈む暗色。
 const GREEN_METER_MAP_BACKGROUND = "#03150b";
@@ -421,8 +434,13 @@ export default function Home() {
   const [designFlash, setDesignFlash] = useState(0);
   const greenGmapRef = useRef<{
     setCenter: (point: { lat: number; lng: number }) => void;
+    setZoom: (zoom: number) => void;
     moveCamera: (camera: Record<string, unknown>) => void;
   } | null>(null);
+  // 80年代の地図の縮尺(＋・− で変える。車だけに覚える)。
+  const [retroZoom, setRetroZoom] = useState(readRetroZoom);
+  // 地図を作り直すとき(テーマを変えたときなど)に、今の縮尺で始めるため。
+  const retroZoomRef = useRef(retroZoom);
   const weatherLatitude = location ? Number(location.lat.toFixed(2)) : null;
   const weatherLongitude = location ? Number(location.lng.toFixed(2)) : null;
   const weatherLocationKey =
@@ -989,6 +1007,7 @@ export default function Home() {
             options: Record<string, unknown>,
           ) => {
             setCenter: (point: { lat: number; lng: number }) => void;
+            setZoom: (zoom: number) => void;
             moveCamera: (camera: Record<string, unknown>) => void;
           };
           event: {
@@ -1011,7 +1030,8 @@ export default function Home() {
                 };
           const map = new mapsApi.Map(greenMapElementRef.current, {
             center: focusPoint,
-            zoom: look.zoom,
+            // 80年代は、＋・− で選んだ縮尺で始める。
+            zoom: mapHost === "retro" ? retroZoomRef.current : look.zoom,
             styles: look.styles,
             // タイル未読込の間に出る既定の明るい下地(#e5e3df)が、
             // メーターのフィルタを通ると白く光ってしまうので暗色にする。
@@ -1038,6 +1058,23 @@ export default function Home() {
     };
   }, [mapHost, location, mapsApiKey]);
 
+  // 80年代の地図の縮尺を変えたら、地図にも伝える。
+  useEffect(() => {
+    retroZoomRef.current = retroZoom;
+    if (mapHost === "retro") greenGmapRef.current?.setZoom(retroZoom);
+  }, [mapHost, retroZoom]);
+  const changeRetroZoom = (step: number) => {
+    const next = Math.min(RETRO_ZOOM_MAX, Math.max(RETRO_ZOOM_MIN, retroZoom + step));
+    setRetroZoom(next);
+    try {
+      localStorage.setItem(RETRO_ZOOM_KEY, String(next));
+    } catch {
+      // 覚えられなくても、今の画面では変わる。
+    }
+  };
+  // 縮尺の目盛り用: 地図の1点が何mか(今いる所の緯度で。分からなければ大阪)。
+  const retroMetersPerPx =
+    (156543.03392 * Math.cos(((location?.lat ?? 34.6937) * Math.PI) / 180)) / 2 ** retroZoom;
 
   const hour = new Date().getHours();
   const today = japanDateKey();
@@ -1853,6 +1890,11 @@ export default function Home() {
               data={clusterData}
               mapRef={greenMapElementRef}
               mapReady={greenMapReady}
+              zoom={{
+                metersPerPx: retroMetersPerPx,
+                onIn: retroZoom < RETRO_ZOOM_MAX ? () => changeRetroZoom(1) : null,
+                onOut: retroZoom > RETRO_ZOOM_MIN ? () => changeRetroZoom(-1) : null,
+              }}
               onFuel={toggleFuelView}
               onDest={openDestDialog}
               onStart={startNavigation}

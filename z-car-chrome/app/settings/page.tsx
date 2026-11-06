@@ -114,7 +114,7 @@ const SCAN_NOTES = {
 const LINK_STEPS: Note[] = [
   {
     en: "SHOW THE QR ON THE CAR",
-    ja: "車の右の列の DEST を押し、左下の「PHONE LINK」を押します",
+    ja: "車の右の列の LIST(または DEST)を押し、左下の「PHONE LINK」を押します",
   },
   { en: "SCAN THE QR", ja: "このスマホのカメラで読み取ります（QRは10秒で閉じます）" },
   { en: "SYNCED", ja: "給油・目的地・メーターの色がそろいます" },
@@ -644,7 +644,7 @@ export default function PhoneSettingsPage() {
   };
 
   /**
-   * 車両位置の「現在地を登録」。いまの場所を目的地の一覧(地点リスト)に足す。車の DEST にも届く。
+   * 車両位置の「現在地を登録」。いまの場所を目的地の一覧(地点リスト)に足す。車の LIST(目的地を選ぶ)にも届く。
    * 同じ場所がもうあれば足さない。
    */
   const registerPlace = (place: PlaceDraft) => {
