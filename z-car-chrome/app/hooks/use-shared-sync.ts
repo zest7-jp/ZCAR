@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   fetchSharedSettings,
+  legacyStopsBase,
   mergeChangedPlaces,
   mergeFuelEntries,
   MIN_SYNC_KEY_LENGTH,
@@ -60,7 +61,7 @@ const sameFuelList = (left: FuelEntry[], right: FuelEntry[]) =>
  *
  * - 給油記録は足し合わせる(消す操作が無いので、どちらで入れても消えない)
  * - それ以外は項目ごとに「変えた方」を正とし、変えた項目だけを送る
- * - 目的地の一覧は1項目なので、送る直前に最新を取り直し、自分で変えた場所だけ重ねる
+ * - 目的地の一覧は1項目なので、送る直前に最新を取り直し、自分で変えた場所(と並び)だけ重ねる
  * - まだ送っていない手元の変更は、サーバーを読んでも上書きしない
  */
 export function useSharedSync({
@@ -152,6 +153,9 @@ export function useSharedSync({
             nextBase[field] = remoteJson;
           }
         }
+        // 前のバージョンの出発(店舗)・帰宅の枠がサーバーに残っていたら(読むときに目的地へ移した)、
+        // 比べる元をサーバーの元の値にする。下の「送る」処理が、移した一覧と空の枠を送る。
+        Object.assign(nextBase, legacyStopsBase(result.settings) ?? {});
         baseRef.current = { key: syncKey, values: nextBase };
 
         setServerFuel({ key: syncKey, ids: new Set(serverEntries.map((entry) => entry.id)) });
