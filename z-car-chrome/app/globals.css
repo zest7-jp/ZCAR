@@ -9111,6 +9111,49 @@ main.zr[data-style] .zr-park-facts dd.is-when small { margin-left: 0; }
 .zr-park-go svg .is-dot { stroke-width: 3; }
 /* 自宅に駐車中は「車両情報」1つだけ(横いっぱい)。 */
 .zr-park-go.is-single { grid-template-columns: 1fr; }
+/* 車の電源が入っている間の SET(現在地を登録)・LIST(地点リスト)。同じ幅のキーに、英語を大きく、
+   下に小さく日本語。車の GOOGLE MAPS の箱の LIST・START と同じ形。 */
+.zr-park-go.is-keys { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.zr-park-go .zr-park-key {
+  position: relative;
+  min-height: 72px;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 18px;
+  letter-spacing: 0;
+}
+.zr-park-go .zr-park-key svg { width: 28px; height: 28px; }
+.zr-park-go .zr-park-key svg.is-line { stroke-width: 2.1; }
+.zr-park-key > span { display: grid; gap: 5px; min-width: 0; text-align: left; }
+.zr-park-key b { font: 900 23px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .2em; }
+.zr-park-key small {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-overflow: ellipsis;
+}
+/* 80年代: 縁は車のキーと同じ二重(外の細い線と、内側の光る線)。 */
+main.zr[data-style="retro"] .zr-park-go .zr-park-key { border-width: 1px; border-radius: 16px; }
+main.zr[data-style="retro"] .zr-park-key::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1.6px solid currentColor;
+  border-radius: 11px;
+  box-shadow: 0 0 8px currentColor, inset 0 0 8px currentColor;
+  opacity: .85;
+  pointer-events: none;
+}
+main.zr[data-style="retro"] .zr-park-key svg { filter: drop-shadow(0 0 4px currentColor); }
+main.zr[data-style="retro"] .zr-park-key small { text-shadow: none; }
+main.zr[data-style="retro"] .zr-park-key:disabled::after { opacity: .3; box-shadow: none; }
+/* 幅のせまい画面では印を出さず、字を入れる。 */
+@media (max-width: 359px) {
+  .zr-park-go .zr-park-key { padding: 0 12px; }
+  .zr-park-go .zr-park-key svg { display: none; }
+}
 /* 駐車メモ。書いたあとは、ボタンにメモの文字を出す。 */
 .zr-park-go .zr-park-memo { min-width: 0; }
 .zr-park-go .zr-park-memo.has-memo {
