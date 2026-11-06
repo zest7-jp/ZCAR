@@ -18,6 +18,7 @@ import {
   METER_THEMES,
   meterThemeInfo,
   MIN_SYNC_KEY_LENGTH,
+  moveNavChoice,
   NEW_PLACE_KEY,
   PHONE_LONG_EDGE_MAX,
   readSettings,
@@ -181,6 +182,9 @@ export default function PhoneSettingsPage() {
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
   // 行を押して開いた、目的地のメニュー(カーナビタイム・Google マップ・直す)。
   const [menuKey, setMenuKey] = useState<string | null>(null);
+  // 目的地を並び替えているところ(▲▼ で動かす)。始めたときの並びを覚えて、変えたかを見る。
+  const [sorting, setSorting] = useState(false);
+  const sortStartRef = useRef("");
   // 車両のタブの、メーター設定(テーマ・色・形)を開いているところ。ふだんは閉じておく。
   const [themesOpen, setThemesOpen] = useState(false);
   // Google マップのコピーを読み取っているところ。
@@ -481,7 +485,7 @@ export default function PhoneSettingsPage() {
     setToast(`${entries.length}件を入れました${linked ? "・車に送ります" : ""}`);
   };
 
-  // --- 目的地(車の DEST と同じ並び) ---
+  // --- 目的地(車の LIST と同じ並び) ---
   const choices = listNavChoices(draft);
   // ★の付いた場所(車の START の行き先)。
   const startChoice = resolveStartTarget(choices, draft.startTarget);
@@ -496,7 +500,7 @@ export default function PhoneSettingsPage() {
     }
     setEditKey(key);
     setEditDraft({
-      label: choice && !choice.fixed ? choice.label : "",
+      label: choice ? choice.label : "",
       destination: choice ? choice.destination : "",
     });
   };
@@ -571,7 +575,6 @@ export default function PhoneSettingsPage() {
 
   /**
    * 一覧の右の削除。1回目は「消す」に変えるだけで、もう一度押すと消す(間違えて消さないように)。
-   * 出発・帰宅は名前が決まっているので、住所だけを消す(編集の欄の「この住所を消す」と同じ)。
    */
   const deleteChoice = (choice: NavChoice) => {
     if (armedDelete !== choice.key) {
@@ -581,7 +584,7 @@ export default function PhoneSettingsPage() {
     setArmedDelete(null);
     if (editKey === choice.key) setEditKey(null);
     setDraft((current) => saveNavChoice(current, choice.key, { label: "", destination: "" }));
-    setToast(`「${choice.label}」${choice.fixed ? "の住所" : ""}を消しました${sendNote}`);
+    setToast(`「${choice.label}」を消しました${sendNote}`);
   };
 
   /**
@@ -661,6 +664,26 @@ export default function PhoneSettingsPage() {
     setToast(`「${place.label}」を登録しました${sendNote}`);
   };
 
+  /**
+   * 「並び替え」: 目的地を ▲▼ で1つずつ動かす。「完了」で戻す。
+   * 並べた順は、車の LIST(目的地を選ぶ)にも同じ順で出る。
+   */
+  const toggleSorting = () => {
+    const order = draft.places.map((place) => place.id).join("\n");
+    if (!sorting) {
+      sortStartRef.current = order;
+      setEditKey(null);
+      setMenuKey(null);
+      setArmedDelete(null);
+      setSorting(true);
+      return;
+    }
+    setSorting(false);
+    if (order !== sortStartRef.current) setToast(`並び替えました${sendNote}`);
+  };
+  const moveChoice = (choice: NavChoice, step: -1 | 1) =>
+    setDraft((current) => moveNavChoice(current, choice.key, step));
+
   /** ★を付け替える。★の場所が、車の START の行き先になる。 */
   const starChoice = (choice: NavChoice) => {
     if (!choice.destination || startChoice?.key === choice.key) return;
@@ -677,20 +700,18 @@ export default function PhoneSettingsPage() {
         saveEditor();
       }}
     >
-      {!choice?.fixed ? (
-        <label className="zr-field zr-field-wide">
-          <span>名前（{MAX_DESTINATION_LABEL}文字まで）</span>
-          <div>
-            <input
-              type="text"
-              value={editDraft.label}
-              maxLength={MAX_DESTINATION_LABEL}
-              placeholder="例: 鳥"
-              onChange={(event) => setEditDraft({ ...editDraft, label: event.target.value })}
-            />
-          </div>
-        </label>
-      ) : null}
+      <label className="zr-field zr-field-wide">
+        <span>名前（{MAX_DESTINATION_LABEL}文字まで）</span>
+        <div>
+          <input
+            type="text"
+            value={editDraft.label}
+            maxLength={MAX_DESTINATION_LABEL}
+            placeholder="例: 鳥"
+            onChange={(event) => setEditDraft({ ...editDraft, label: event.target.value })}
+          />
+        </div>
+      </label>
       <label className="zr-field zr-field-wide">
         <span>住所、または場所の名前</span>
         <div>
@@ -713,7 +734,7 @@ export default function PhoneSettingsPage() {
       </div>
       {choice?.destination ? (
         <button type="button" className="zr-danger" onClick={() => saveEditor(true)}>
-          {choice.fixed ? "この住所を消す" : "この目的地を消す"}
+          この目的地を消す
         </button>
       ) : null}
     </form>
@@ -877,6 +898,7 @@ export default function PhoneSettingsPage() {
             onClick={() => {
               setTab(item.id);
               setEditKey(null);
+              setSorting(false);
             }}
           >
             <b>{item.ja}</b>
@@ -1090,18 +1112,65 @@ export default function PhoneSettingsPage() {
               <small>DESTINATIONS</small>
               <b>ナビの目的地</b>
             </span>
-            <em className="zr-star-legend">
-              <StarMark filled />
-              START
-            </em>
+            {choices.length > 1 ? (
+              <button type="button" className="zr-sort" aria-pressed={sorting} onClick={toggleSorting}>
+                {sorting ? null : (
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 4v16M8 4 4.5 7.5M8 4l3.5 3.5M16 20V4M16 20l-3.5-3.5M16 20l3.5-3.5" />
+                  </svg>
+                )}
+                {sorting ? "完了" : "並び替え"}
+              </button>
+            ) : null}
           </header>
-          <p className="zr-navi-hint">
-            行を押すとメニュー。<b>カーナビタイム</b>や<b>Google マップ</b>で開けます。
-          </p>
-          <ul className="zr-places">
-            {choices.map((choice) => {
-              const starred = startChoice?.key === choice.key;
+          {sorting ? (
+            <p className="zr-navi-hint is-sorting">▲▼ で1つずつ動かします</p>
+          ) : (
+            <p className="zr-navi-hint">
+              行を押すとメニュー。<b>カーナビタイム</b>や<b>Google マップ</b>で開けます。
+            </p>
+          )}
+          <ul className={sorting ? "zr-places is-sorting" : "zr-places"}>
+            {choices.map((choice, index) => {
+              const starred = startChoice?.key === choice.key && !sorting;
               const editing = editKey === choice.key;
+              if (sorting) {
+                // 並び替え中: 名前と住所と ▲▼ だけ(★・メニュー・削除は出さない)。
+                return (
+                  <li key={choice.key}>
+                    <div className="zr-place-row">
+                      <div className="zr-place">
+                        <span className="zr-place-name">
+                          <b>{choice.label}</b>
+                        </span>
+                        <span className="zr-place-addr">{choice.destination}</span>
+                      </div>
+                      <span className="zr-move">
+                        <button
+                          type="button"
+                          aria-label={`${choice.label} を上へ`}
+                          disabled={index === 0}
+                          onClick={() => moveChoice(choice, -1)}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 6 20 17H4z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${choice.label} を下へ`}
+                          disabled={index === choices.length - 1}
+                          onClick={() => moveChoice(choice, 1)}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 18 4 7h16z" />
+                          </svg>
+                        </button>
+                      </span>
+                    </div>
+                  </li>
+                );
+              }
               return (
                 <li
                   key={choice.key}
@@ -1127,7 +1196,6 @@ export default function PhoneSettingsPage() {
                     >
                       <span className="zr-place-name">
                         <b>{choice.label}</b>
-                        {choice.note ? <small>{choice.note}</small> : null}
                         {starred ? <em>START</em> : null}
                       </span>
                       <span className="zr-place-addr">{choice.destination || "未登録"}</span>
@@ -1170,7 +1238,7 @@ export default function PhoneSettingsPage() {
               </li>
             ) : null}
           </ul>
-          {draft.places.length < MAX_PLACES && editKey !== NEW_PLACE_KEY ? (
+          {!sorting && draft.places.length < MAX_PLACES && editKey !== NEW_PLACE_KEY ? (
             <div className="zr-add-row">
               <button type="button" className="zr-add" onClick={() => openEditor(null)}>
                 <i aria-hidden="true" />

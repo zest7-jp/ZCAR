@@ -179,7 +179,7 @@ const sanitizeMapDestinations = (value: unknown): MapDestination[] => {
   });
 };
 
-/** ナビの目的地1件分。出発(店舗)・帰宅のほかに、何件でも登録できる。 */
+/** ナビの目的地1件分。上限(MAX_PLACES)まで登録でき、並べた順に車とスマホの一覧に出る。 */
 export type NavPlace = {
   /** 車とスマホで同じ場所を指すための印。 */
   id: string;
@@ -192,7 +192,11 @@ export type NavPlace = {
 /** 登録できる目的地の上限(サーバー側と同じ値)。 */
 export const MAX_PLACES = 30;
 
-/** START の行き先が出発・帰宅のときの印。それ以外は目的地の id。 */
+/**
+ * 前のバージョンの出発(店舗)・帰宅の決まった枠を、ふつうの目的地に移したときの id。
+ * 決まった値にしておくと、車とスマホが別々に移しても同じ場所になり、二重にならない
+ * (★がこの枠だったときも、そのまま移した場所を指す)。
+ */
 export const START_TARGET_WORK = "work";
 export const START_TARGET_HOME = "home";
 
@@ -255,55 +259,69 @@ const readPlaces = (value: { places?: unknown; mapDestinations?: unknown }) =>
     ? sanitizePlaces(value.places)
     : placesFromSlots(sanitizeMapDestinations(value.mapDestinations));
 
+/** 前のバージョンの出発(店舗)・帰宅の枠の住所(いまは使わない。読んだら目的地に移す)。 */
+type LegacyStops = { storeName?: unknown; storeDest?: unknown; homeDest?: unknown };
+const LEGACY_STOP_FIELDS = ["storeName", "storeDest", "homeDest"] as const;
+const legacyText = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+/** 出発(店舗)・帰宅の枠に、まだ住所が残っているか。 */
+const hasLegacyStops = (value: LegacyStops | null | undefined) =>
+  !!value && LEGACY_STOP_FIELDS.some((field) => legacyText(value[field]) !== "");
+
+/**
+ * 出発(店舗)・帰宅の枠の住所を、目的地の一覧の先頭に移す(一覧の一番上にあったので)。
+ * 帰宅は「自宅」、出発は「店舗」という名前にする。その id の場所がもうあれば移さない
+ * (もう移してある)。一覧がいっぱいなら、入る分だけ移す。
+ */
+const withLegacyStops = (places: NavPlace[], value: LegacyStops): NavPlace[] => {
+  const moved: NavPlace[] = [];
+  const work = legacyText(value.storeDest) || legacyText(value.storeName);
+  if (work && !places.some((place) => place.id === START_TARGET_WORK)) {
+    moved.push({ id: START_TARGET_WORK, label: "店舗", destination: work.slice(0, MAX_DESTINATION_TEXT) });
+  }
+  const home = legacyText(value.homeDest);
+  if (home && !places.some((place) => place.id === START_TARGET_HOME)) {
+    moved.push({ id: START_TARGET_HOME, label: "自宅", destination: home.slice(0, MAX_DESTINATION_TEXT) });
+  }
+  return [...moved.slice(0, Math.max(0, MAX_PLACES - places.length)), ...places];
+};
+
+/**
+ * サーバーに出発(店舗)・帰宅の枠の住所が残っていたら、同期の「比べる元」に使う
+ * サーバーの元の値(移す前の一覧と、枠の住所)を返す。これを元にすると、手元(移したあと)
+ * との違いとして、移した一覧と空の枠がサーバーへ送られ、サーバーからも枠が消える。
+ */
+export const legacyStopsBase = (value: unknown): Record<string, string> | null => {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as LegacyStops & { places?: unknown };
+  if (!hasLegacyStops(raw) || !Array.isArray(raw.places)) return null;
+  return {
+    ...Object.fromEntries(
+      LEGACY_STOP_FIELDS.map((field) => [field, JSON.stringify(typeof raw[field] === "string" ? raw[field] : "")]),
+    ),
+    places: JSON.stringify(sanitizePlaces(raw.places)),
+  };
+};
+
 /** 一覧に出す名前。名前が空なら住所の頭を使う。 */
 export const placeLabel = (place: NavPlace) =>
   place.label.trim() || place.destination.trim().slice(0, MAX_DESTINATION_LABEL);
 
-/** START で選べる行き先1件分(出発・帰宅・目的地)。 */
+/** START で選べる行き先1件分(登録した目的地)。 */
 export type NavChoice = {
-  /** work / home / 目的地の id。START の行き先(startTarget)にそのまま入る。 */
+  /** 目的地の id。START の行き先(startTarget)にそのまま入る。 */
   key: string;
   label: string;
-  /** 出発・帰宅の説明。目的地は空。 */
-  note: string;
   destination: string;
-  /** 出発・帰宅は決まった枠なので、名前を変えたり消したりはできない。 */
-  fixed: boolean;
 };
 
-/**
- * 出発・帰宅と目的地を、車とスマホで同じ並びにする(住所が空のものも含む)。
- * 出発・帰宅が未入力なら、前のバージョンで代わりに使っていた1番・2番の住所を使う。
- */
-export const listNavChoices = (
-  settings: Pick<Settings, "storeDest" | "storeName" | "homeDest" | "places">,
-): NavChoice[] => {
-  const formerSlot = (slot: number) =>
-    settings.places.find((place) => place.id === `slot-${slot}`)?.destination ?? "";
-  return [
-    {
-      key: START_TARGET_WORK,
-      label: "DEPART",
-      note: "出発(店舗)",
-      destination: settings.storeDest.trim() || settings.storeName.trim() || formerSlot(1),
-      fixed: true,
-    },
-    {
-      key: START_TARGET_HOME,
-      label: "RETURN",
-      note: "帰宅",
-      destination: settings.homeDest.trim() || formerSlot(2),
-      fixed: true,
-    },
-    ...settings.places.map((place) => ({
-      key: place.id,
-      label: placeLabel(place),
-      note: "",
-      destination: place.destination,
-      fixed: false,
-    })),
-  ];
-};
+/** 目的地を、車とスマホで同じ並び(登録した順・並び替えた順)にする。 */
+export const listNavChoices = (settings: Pick<Settings, "places">): NavChoice[] =>
+  settings.places.map((place) => ({
+    key: place.id,
+    label: placeLabel(place),
+    destination: place.destination,
+  }));
 
 /** いま START で案内する行き先(★)。★の場所が無くなっていたら、住所のある最初のもの。 */
 export const resolveStartTarget = (choices: NavChoice[], startTarget: string) => {
@@ -312,9 +330,9 @@ export const resolveStartTarget = (choices: NavChoice[], startTarget: string) =>
 };
 
 /**
- * 行き先を1件保存する。key が work / home なら出発・帰宅の住所、目的地の id ならその場所、
- * null なら新しい目的地として足す。住所を空にすると、目的地は消え、出発・帰宅は未入力に戻る。
- * 消した場所が★だったときは、★を出発に戻す。
+ * 目的地を1件保存する。key が目的地の id ならその場所を直し、null なら新しい目的地として足す。
+ * 住所を空にすると、その目的地を消す。消した場所が★だったときは★を外す
+ * (★が無いときは、一覧の一番上が START の行き先になる)。
  */
 export const saveNavChoice = (
   settings: Settings,
@@ -323,57 +341,45 @@ export const saveNavChoice = (
 ): Settings => {
   const destination = draft.destination.trim().slice(0, MAX_DESTINATION_TEXT);
   const label = draft.label.trim().slice(0, MAX_DESTINATION_LABEL);
-  if (key === START_TARGET_WORK || key === START_TARGET_HOME) {
-    const work = key === START_TARGET_WORK;
-    const next: Settings = work ? { ...settings, storeDest: destination } : { ...settings, homeDest: destination };
-    if (destination) return next;
-    // 消したときは、代わりに使っていた住所(listNavChoices)でまた埋まらないようにする。
-    // 出発は店の名前も空にする。前のバージョンの1番・2番の枠は id を新しくしてつながりを切る
-    // (場所は一覧にそのまま残す)。★がその行き先なら、目的地を消したときと同じく出発に戻す。
-    const slot = work ? "slot-1" : "slot-2";
-    const id = createPlaceId();
-    return {
-      ...next,
-      storeName: work ? "" : next.storeName,
-      places: next.places.map((place) => (place.id === slot ? { ...place, id } : place)),
-      startTarget:
-        next.startTarget === slot ? id : next.startTarget === START_TARGET_HOME && !work ? START_TARGET_WORK : next.startTarget,
-    };
-  }
-  // 出発・帰宅が未入力で、前のバージョンの1番・2番の住所を代わりに使っていた場合は、
-  // その場所を直したり消したりする前に、いまの住所を出発・帰宅に写しておく
-  // (一覧の「自宅」を消したら帰宅まで消えた、とならないように)。
-  const [work, home] = listNavChoices(settings);
-  let current = settings;
-  if (key === "slot-1" && !settings.storeDest.trim() && !settings.storeName.trim()) {
-    current = { ...current, storeDest: work.destination };
-  }
-  if (key === "slot-2" && !settings.homeDest.trim()) {
-    current = { ...current, homeDest: home.destination };
-  }
   if (key === null) {
-    if (!destination || current.places.length >= MAX_PLACES) return current;
+    if (!destination || settings.places.length >= MAX_PLACES) return settings;
     return {
-      ...current,
-      places: [...current.places, { id: createPlaceId(), label, destination }],
+      ...settings,
+      places: [...settings.places, { id: createPlaceId(), label, destination }],
     };
   }
   if (!destination) {
     return {
-      ...current,
-      places: current.places.filter((place) => place.id !== key),
-      startTarget: current.startTarget === key ? START_TARGET_WORK : current.startTarget,
+      ...settings,
+      places: settings.places.filter((place) => place.id !== key),
+      startTarget: settings.startTarget === key ? "" : settings.startTarget,
     };
   }
   return {
-    ...current,
-    places: current.places.map((place) =>
+    ...settings,
+    places: settings.places.map((place) =>
       place.id === key ? { ...place, label, destination } : place,
     ),
   };
 };
 
+/**
+ * 目的地を1つ上(-1)か下(+1)へ動かす。一番上・一番下からは、それ以上動かさない。
+ * ★を付けていない(一番上が START になっている)ときも、★はいまの場所に付けたままにする
+ * (並び替えで START の行き先が変わらないように)。
+ */
+export const moveNavChoice = (settings: Settings, key: string, step: -1 | 1): Settings => {
+  const from = settings.places.findIndex((place) => place.id === key);
+  const to = from + step;
+  if (from < 0 || to < 0 || to >= settings.places.length) return settings;
+  const places = [...settings.places];
+  [places[from], places[to]] = [places[to], places[from]];
+  const starred = resolveStartTarget(listNavChoices(settings), settings.startTarget);
+  return { ...settings, places, startTarget: starred ? starred.key : settings.startTarget };
+};
+
 export type Settings = {
+  /** 前のバージョンの出発(店舗)・帰宅の枠。読んだら目的地に移すので、いつも空。 */
   storeName: string;
   storeDest: string;
   start: string;
@@ -399,9 +405,9 @@ export type Settings = {
   shareToken: string;
   /** 最後に同期できた内容の時刻(ミリ秒)。これより新しいものが来たら取り込む。 */
   syncedAt: number;
-  /** ナビの目的地(出発・帰宅のほか)。車とスマホのどちらからでも足せる。 */
+  /** ナビの目的地(並べた順)。車とスマホのどちらからでも足せる。 */
   places: NavPlace[];
-  /** 車の START で案内する行き先。work(出発) / home(帰宅) / 目的地の id。 */
+  /** 車の START で案内する目的地の id(★)。空なら一覧の一番上。 */
   startTarget: string;
   /** 満タン法の給油記録。車とスマホのどちらで記録しても共有する。 */
   fuelEntries: FuelEntry[];
@@ -412,8 +418,8 @@ export type Settings = {
 };
 
 export const defaults: Settings = {
-  storeName: "ケーズデンキ 東住吉中野店",
-  storeDest: "ケーズデンキ 東住吉中野店",
+  storeName: "",
+  storeDest: "",
   start: "10:00",
   homeDest: "",
   googleRoutesApiKey: "",
@@ -429,7 +435,7 @@ export const defaults: Settings = {
   shareToken: "",
   syncedAt: 0,
   places: placesFromSlots(defaultMapDestinations),
-  startTarget: START_TARGET_WORK,
+  startTarget: "",
   fuelEntries: [],
   inspectionDue: "",
   oilChangedOn: "",
@@ -531,9 +537,13 @@ export const sanitizeSyncedSettings = (
     if (day !== undefined && day !== "" && !isDateKey(day)) delete cleaned[field];
   }
   // サーバーにまだ一覧が無ければ、前のバージョンの1〜5の枠から移す。
+  // 出発(店舗)・帰宅の枠に住所が残っていれば、目的地に移して枠は空にする。
   const legacy = value as { places?: unknown; mapDestinations?: unknown };
   if (Array.isArray(legacy.places) || Array.isArray(legacy.mapDestinations)) {
-    cleaned.places = readPlaces(legacy);
+    cleaned.places = withLegacyStops(readPlaces(legacy), value);
+    for (const field of LEGACY_STOP_FIELDS) {
+      if (field in cleaned) cleaned[field] = "";
+    }
   }
   if (Array.isArray(value.fuelEntries)) {
     cleaned.fuelEntries = sanitizeFuelEntries(value.fuelEntries);
@@ -590,8 +600,8 @@ export const mergeChangedPlaces = (
     const was = beforeById.get(place.id);
     const now = mineById.get(place.id);
     // 自分で消した場所は外し、自分で直した場所は自分の内容にする。
-    // 中身はそのままで id だけ新しくした場所(出発・帰宅を消して前のバージョンの枠との
-    // つながりを切ったとき)は、元の位置に置く。
+    // 中身はそのままで id だけ新しくした場所(前のバージョンで、出発・帰宅を消して
+    // 1〜5の枠とのつながりを切ったとき)は、元の位置に置く。
     if (was && !now) {
       const renamed = added.find((other) => !known.has(other.id) && same(other, was));
       if (renamed) keep(renamed);
@@ -601,6 +611,17 @@ export const mergeChangedPlaces = (
   }
   // 自分で足した場所を後ろに足す。
   for (const place of added) keep(place);
+  // 自分で並び替えた(前回そろっていた一覧と、共通の場所の順番が違う)ときは、自分の並びにする。
+  // もう片方で足した場所(自分の一覧に無い)は、後ろにそのまま残す。
+  const sharedOrder = before.filter((place) => mineById.has(place.id)).map((place) => place.id);
+  const mineOrder = mine.filter((place) => beforeById.has(place.id)).map((place) => place.id);
+  if (sharedOrder.join("\n") !== mineOrder.join("\n")) {
+    const rank = new Map(mine.map((place, index) => [place.id, index]));
+    merged.sort(
+      (left, right) =>
+        (rank.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.id) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }
   return merged.slice(0, MAX_PLACES);
 };
 
@@ -786,8 +807,8 @@ export const readSettings = (): Settings => {
     const stored = JSON.parse(
       window.localStorage.getItem(SETTINGS_STORAGE_KEY) || "{}",
     ) as Partial<Settings> & Record<string, unknown>;
-    // 目的地は、前のバージョンの1〜5の枠(mapDestinations)からも移す。
-    const places = readPlaces(stored);
+    // 目的地は、前のバージョンの1〜5の枠(mapDestinations)と、出発(店舗)・帰宅の枠からも移す。
+    const places = withLegacyStops(readPlaces(stored), stored);
     // やめた機能(YouTube・音楽の再生指示)と、移し終えた古い目的地は持ち越さない。
     for (const field of OBSOLETE_SETTINGS_FIELDS) delete stored[field];
     return {
@@ -808,10 +829,10 @@ export const readSettings = (): Settings => {
       shareToken: typeof stored.shareToken === "string" ? stored.shareToken : "",
       syncedAt: Number.isFinite(stored.syncedAt) ? Number(stored.syncedAt) : 0,
       places,
-      startTarget:
-        typeof stored.startTarget === "string" && stored.startTarget
-          ? stored.startTarget
-          : START_TARGET_WORK,
+      storeName: "",
+      storeDest: "",
+      homeDest: "",
+      startTarget: typeof stored.startTarget === "string" ? stored.startTarget : "",
       inspectionDue: isDateKey(stored.inspectionDue) ? stored.inspectionDue : "",
       oilChangedOn: isDateKey(stored.oilChangedOn) ? stored.oilChangedOn : "",
       // 古いバージョンは給油記録を別のキーに置いていたので、そこからも拾う。

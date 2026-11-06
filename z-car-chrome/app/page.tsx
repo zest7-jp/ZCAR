@@ -326,7 +326,7 @@ const BUILD_STAMP = (() => {
 
 export default function Home() {
   const [settings, setSettings] = useState<Settings>(defaults);
-  // 出発・帰宅と目的地の一覧。車の DEST とスマホで同じ並び。
+  // 目的地の一覧。車の LIST とスマホで同じ並び(スマホで並び替えた順)。
   const allNavChoices = listNavChoices(settings);
   // DEST の「選ぶ」に出す候補(住所があるものだけ)。
   const navChoices = allNavChoices.filter((entry) => entry.destination);
@@ -1405,7 +1405,7 @@ export default function Home() {
   const openDestEditor = (choice: NavChoice | null) => {
     setDestEditKey(choice ? choice.key : NEW_PLACE_KEY);
     setDestDraft({
-      label: choice && !choice.fixed ? choice.label : "",
+      label: choice ? choice.label : "",
       destination: choice ? choice.destination : "",
     });
   };
@@ -2528,26 +2528,24 @@ export default function Home() {
             >
               <p className="settings-hint">
                 {destEditChoice
-                  ? `${destEditChoice.note || destEditChoice.label} の場所を直します`
+                  ? `${destEditChoice.label} の場所を直します`
                   : "新しい目的地を足します"}
               </p>
-              {!destEditChoice?.fixed ? (
-                <label>
-                  名前({MAX_DESTINATION_LABEL}文字まで)
-                  <input
-                    type="text"
-                    value={destDraft.label}
-                    maxLength={MAX_DESTINATION_LABEL}
-                    placeholder="例: 鳥"
-                    onChange={(event) =>
-                      setDestDraft((current) => ({
-                        ...current,
-                        label: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              ) : null}
+              <label>
+                名前({MAX_DESTINATION_LABEL}文字まで)
+                <input
+                  type="text"
+                  value={destDraft.label}
+                  maxLength={MAX_DESTINATION_LABEL}
+                  placeholder="例: 鳥"
+                  onChange={(event) =>
+                    setDestDraft((current) => ({
+                      ...current,
+                      label: event.target.value,
+                    }))
+                  }
+                />
+              </label>
               <label>
                 住所、または場所の名前
                 <input
@@ -2577,7 +2575,7 @@ export default function Home() {
                   className="dest-clear"
                   onClick={() => saveDestDraft(true)}
                 >
-                  {destEditChoice.fixed ? "この住所を消す" : "この目的地を消す"}
+                  この目的地を消す
                 </button>
               ) : null}
             </form>
@@ -2589,10 +2587,7 @@ export default function Home() {
                   type="button"
                   onClick={() => openDestEditor(choice)}
                 >
-                  <b>
-                    {choice.label}
-                    {choice.note ? <i>{choice.note}</i> : null}
-                  </b>
+                  <b>{choice.label}</b>
                   <small>{choice.destination || "未登録"}</small>
                 </button>
               ))}
