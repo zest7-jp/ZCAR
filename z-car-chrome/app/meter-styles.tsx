@@ -68,6 +68,16 @@ export type ClusterProps = {
 type MapProps = {
   mapRef: RefObject<HTMLDivElement | null>;
   mapReady: boolean;
+  /** 地図の縮尺: 1点(板の1px)が何mか、近くする・広くするキー(端まで来たら null)。 */
+  zoom: { metersPerPx: number; onIn: (() => void) | null; onOut: (() => void) | null };
+};
+
+/** 縮尺の目盛りの長さの候補(m)。板の上で 100px 以下になる、いちばん長いものを出す。 */
+const SCALE_STEPS = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+const SCALE_MAX_PX = 100;
+const mapScale = (metersPerPx: number) => {
+  const meters = [...SCALE_STEPS].reverse().find((step) => step / metersPerPx <= SCALE_MAX_PX) ?? SCALE_STEPS[0];
+  return { label: meters < 1000 ? `${meters} m` : `${meters / 1000} km`, width: Math.round(meters / metersPerPx) };
 };
 
 /**
@@ -667,7 +677,7 @@ const litSegments = (value: number, y: number, color: (index: number) => string)
     <rect key={i} x={790 + i * 11} y={y} width="8.5" height="18" fill={color(i)} />
   ));
 
-export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+export function RetroCluster({ data, mapRef, mapReady, zoom, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -677,6 +687,7 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
     : [];
   const temperature = data.weather ? String(Math.round(data.weather.temperature)) : "--";
   const eco = ecoLevel(rpm, data.speed);
+  const scale = mapScale(zoom.metersPerPx);
   return (
     <Board className="ms-retro">
       <RetroFace />
@@ -700,6 +711,23 @@ export function RetroCluster({ data, mapRef, mapReady, onFuel, onDest, onStart }
             N
           </text>
         </svg>
+        {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
+        <span className="ms-retro-scale" aria-hidden="true">
+          {scale.label}
+          <i style={{ width: scale.width }} />
+        </span>
+        <span className="ms-retro-zoom">
+          <button type="button" aria-label="地図を近くする" disabled={!zoom.onIn} onClick={zoom.onIn ?? undefined}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M12 5v14" />
+            </svg>
+          </button>
+          <button type="button" aria-label="地図を広くする" disabled={!zoom.onOut} onClick={zoom.onOut ?? undefined}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+        </span>
       </div>
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />

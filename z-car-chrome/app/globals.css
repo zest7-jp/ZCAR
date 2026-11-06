@@ -9510,6 +9510,63 @@ main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-
   letter-spacing: .3em;
   animation: ms-blink 1.2s steps(1, end) infinite;
 }
+/* 縮尺の目盛り(左下。長さは地図の上の本当の距離)。 */
+.ms-retro-scale {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 3;
+  color: #5dff8a;
+  font: 700 13px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  text-shadow: 0 0 6px #5dff8a;
+  pointer-events: none;
+}
+.ms-retro-scale i {
+  display: block;
+  height: 7px;
+  margin-top: 3px;
+  border: 2px solid #5dff8a;
+  border-top: 0;
+  box-shadow: 0 0 6px rgba(93, 255, 138, .6);
+}
+/* 地図を近くする(＋)・広くする(−)キー(右下。光る管のキー)。 */
+.ms-retro-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+}
+.ms-retro-zoom button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 2px solid #52ffd6;
+  border-radius: 10px;
+  background: rgba(2, 8, 6, .88);
+  box-shadow: 0 0 10px rgba(82, 255, 214, .55), inset 0 0 10px rgba(82, 255, 214, .2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ms-retro-zoom svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #b9fff0;
+  stroke-width: 3.4;
+  filter: drop-shadow(0 0 4px #52ffd6);
+}
+.ms-retro-zoom button:active { background: rgba(82, 255, 214, .24); }
+/* これ以上は近く(広く)できないとき。 */
+.ms-retro-zoom button:disabled {
+  border-color: rgba(82, 255, 214, .22);
+  box-shadow: none;
+  cursor: default;
+}
+.ms-retro-zoom button:disabled svg { stroke: rgba(82, 255, 214, .28); filter: none; }
 /* 光る管の細かい網目(画面全体にうっすら)。 */
 @keyframes ms-blink {
   50% { opacity: .2; }
