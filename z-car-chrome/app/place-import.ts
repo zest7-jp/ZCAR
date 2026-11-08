@@ -133,14 +133,33 @@ export type PointImport =
   | { ok: true; name: string; lat: number; lng: number }
   | { ok: false; error: PlaceImportError };
 
+/** Yahoo!マップのアドレス(…?lat=緯度&lon=経度)から場所を読む。無ければ null。 */
+export const readLinkCoords = (text: string) => {
+  const link = LINK.exec(text)?.[0];
+  if (!link) return null;
+  try {
+    const url = new URL(link);
+    const lat = url.searchParams.get("lat");
+    const lng = url.searchParams.get("lon") ?? url.searchParams.get("lng");
+    if (lat === null || lng === null || lat.trim() === "" || lng.trim() === "") return null;
+    const point = { lat: Number(lat), lng: Number(lng) };
+    return Number.isFinite(point.lat) && Number.isFinite(point.lng) && Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180
+      ? point
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 /**
- * コピーした内容から、場所(緯度・経度)を読む。「34.76,135.62」のような数字か、
- * Google マップのリンク(サーバーで場所を読む)。名前も読めれば返す。
+ * コピーした内容から、場所(緯度・経度)を読む。「34.76,135.62」のような数字、
+ * 場所の入った Yahoo!マップのアドレス、Google マップ・Yahoo!マップの短いリンク(サーバーでたどる)。
+ * 名前も読めれば返す。
  */
 export const readCopiedPoint = async (key: string, copied: string): Promise<PointImport> => {
   const text = copied.trim();
   if (!text) return failed("empty");
-  const coords = readCoords(text.replace(/[()]/g, ""));
+  const coords = readCoords(text.replace(/[()]/g, "")) ?? readLinkCoords(text);
   if (coords) return { ok: true, name: "", ...coords };
   if (!LINK.test(text)) return failed("unreadable");
   if (!key) return failed("unlinked");
