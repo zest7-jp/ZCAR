@@ -18,8 +18,21 @@ export type OrbisSpot = {
   lng: number;
   /** 制限速度(km/h)。分からなければ null。 */
   limit: number | null;
+  /**
+   * この向き(度。北が0、東が90)へ走るときだけ知らせる(上り・下りのどちらか)。
+   * null は両方の向き(OpenStreetMap の場所は向きが分からないので、いつも null)。
+   */
+  direction: number | null;
   /** どこの情報か(OpenStreetMap の場所は、出した所に出典を書く)。 */
   source: "osm" | "mine";
+};
+
+/** 連続区間(オービスがいくつも続く所)の、何か所目か・全部で何か所か。 */
+export type OrbisSeries = {
+  index: number;
+  total: number;
+  /** 次のオービス(この区間で、走る向きの先にあるもの)。最後なら null。 */
+  nextId: string | null;
 };
 
 /** 前方にあるオービスと、そこまでの道のり。 */
@@ -34,6 +47,8 @@ export type OrbisAlert = {
   level: "show" | "warn";
   /** このオービスに近づく間に拡大した、地図の縮尺(近づくほど大きく、戻さない)。 */
   zoom: number;
+  /** 連続区間なら、何か所目か。1か所だけなら null。 */
+  series: OrbisSeries | null;
 };
 
 const RAD = Math.PI / 180;
@@ -85,6 +100,75 @@ export const orbisZoom = (distance: number, lat: number, max: number) => {
  * 進む向きの前方 500m 以内で一番近いオービスを選ぶ。向きが分からなければ選ばない。
  * keep は前回知らせていたもの(通り過ぎるまで見失わないように)。
  */
+/** 登録した向きと走る向きの開きがこれまでなら、そのオービスの向き(上り・下り)に走っている。 */
+const DIRECTION_DEG = 60;
+/** 走る向き(heading)に、そのオービスが当てはまるか(向きが決まっていなければ両方)。 */
+const appliesTo = (spot: OrbisSpot, heading: number) =>
+  spot.direction === null || angleGap(spot.direction, heading) <= DIRECTION_DEG;
+
+/** となりのオービスまでがこれ以内(m)なら、続いている(連続区間)。 */
+const SERIES_GAP_M = 1500;
+/** となりのオービスへの向きと、そこを走る向きの開きがこれまでなら、同じ道の先(か手前)。 */
+const SERIES_DEG = 50;
+/** 連続区間として数える上限。 */
+const SERIES_MAX = 9;
+/** 区間の途中で、次のオービスをこの距離(m)より近ければ、500m より先でも出す。 */
+const SERIES_SHOW_M = SERIES_GAP_M + 200;
+
+/**
+ * from から、走る向き(forward)か逆向きに、続いているオービスをたどる。
+ * 向きが登録してあるオービスは、その向きを道の向きとして使う(カーブでも続けてたどれる)。
+ */
+const followSeries = (spots: OrbisSpot[], from: OrbisSpot, heading: number, forward: boolean) => {
+  const chain: OrbisSpot[] = [];
+  const used = new Set([from.id]);
+  let current = from;
+  while (chain.length < SERIES_MAX - 1) {
+    const road = current.direction ?? heading;
+    const want = forward ? road : (road + 180) % 360;
+    let next: OrbisSpot | null = null;
+    let nearest = Infinity;
+    for (const spot of spots) {
+      if (used.has(spot.id) || !appliesTo(spot, heading)) continue;
+      const distance = distanceMeters(current, spot);
+      if (distance < 1 || distance > SERIES_GAP_M || distance >= nearest) continue;
+      if (angleGap(bearingDeg(current, spot), want) > SERIES_DEG) continue;
+      next = spot;
+      nearest = distance;
+    }
+    if (!next) break;
+    used.add(next.id);
+    chain.push(next);
+    current = next;
+  }
+  return chain;
+};
+
+/** そのオービスが連続区間の中なら、何か所目か・全部で何か所か(1か所だけなら null)。 */
+export const findSeries = (spots: OrbisSpot[], target: OrbisSpot, heading: number): OrbisSeries | null => {
+  const before = followSeries(spots, target, heading, false);
+  const after = followSeries(spots, target, heading, true);
+  const total = before.length + 1 + after.length;
+  if (total < 2) return null;
+  return { index: before.length + 1, total: Math.min(total, SERIES_MAX), nextId: after[0]?.id ?? null };
+};
+
+/**
+ * スマホで登録した場所の近く(この距離・m)にある OpenStreetMap のオービスは使わない
+ * (同じオービスを、向き付きで登録し直したとみなす)。
+ */
+const OVERRIDE_M = 60;
+export const combineOrbisSpots = (osm: OrbisSpot[], mine: OrbisSpot[]) => [
+  ...osm.filter((spot) => !mine.some((own) => distanceMeters(own, spot) <= OVERRIDE_M)),
+  ...mine,
+];
+
+/**
+ * 進む向きの前方 500m 以内で一番近いオービスを選ぶ。向きが分からなければ選ばない。
+ * そのオービスに向き(上り・下り)が登録してあれば、その向きに走っているときだけ選ぶ。
+ * keep は前回知らせていたもの(通り過ぎるまで見失わないように)。連続区間の途中なら、
+ * 通り過ぎたあと、次のオービスを 500m より先からでも出す。
+ */
 export const findOrbisAhead = (
   spots: OrbisSpot[],
   car: { lat: number; lng: number; heading: number | null },
@@ -93,16 +177,27 @@ export const findOrbisAhead = (
 ): OrbisAlert | null => {
   if (car.heading === null || !Number.isFinite(car.heading)) return null;
   const heading = ((car.heading % 360) + 360) % 360;
-  let best: { spot: OrbisSpot; distance: number; bearing: number } | null = null;
-  for (const spot of spots) {
-    const kept = keep?.spot.id === spot.id;
+  // 前方にあるか(距離 limit 以内・左右の開き・横のずれ)。
+  const ahead = (spot: OrbisSpot, limit: number, kept: boolean) => {
     const distance = distanceMeters(car, spot);
-    if (distance > ORBIS_SHOW_M + (kept ? KEEP_EXTRA_M : 0)) continue;
+    if (distance > limit) return null;
     const bearing = bearingDeg(car, spot);
     const gap = angleGap(bearing, heading);
-    if (gap > (kept ? KEEP_DEG : AHEAD_DEG)) continue;
-    if (distance * Math.sin(gap * RAD) > (kept ? KEEP_SIDE_M : SIDE_M)) continue;
-    if (!best || distance < best.distance) best = { spot, distance, bearing };
+    if (gap > (kept ? KEEP_DEG : AHEAD_DEG)) return null;
+    if (distance * Math.sin(gap * RAD) > (kept ? KEEP_SIDE_M : SIDE_M)) return null;
+    return { spot, distance, bearing };
+  };
+  let best: { spot: OrbisSpot; distance: number; bearing: number } | null = null;
+  for (const spot of spots) {
+    if (!appliesTo(spot, heading)) continue;
+    const kept = keep?.spot.id === spot.id;
+    const found = ahead(spot, ORBIS_SHOW_M + (kept ? KEEP_EXTRA_M : 0), kept);
+    if (found && (!best || found.distance < best.distance)) best = found;
+  }
+  // 連続区間の途中: 通り過ぎたオービスの次を、500m より先でも出す。
+  if (!best && keep?.series?.nextId) {
+    const next = spots.find((spot) => spot.id === keep.series?.nextId);
+    if (next && appliesTo(next, heading)) best = ahead(next, SERIES_SHOW_M, false);
   }
   if (!best) return null;
   const { spot, distance, bearing } = best;
@@ -114,14 +209,30 @@ export const findOrbisAhead = (
     north: distance * Math.cos(bearing * RAD),
     level: distance <= ORBIS_WARN_M ? "warn" : "show",
     zoom: keep?.spot.id === spot.id ? Math.max(keep.zoom, zoom) : zoom,
+    series: findSeries(spots, spot, heading),
   };
 };
 
-/** 声で知らせる言葉。300m を切ったところで1回。 */
+/**
+ * 声で知らせる言葉。300m を切ったところで1回。連続区間なら、何か所目かも言う
+ * (1か所目で「全部で3か所」、途中は「2か所目」、最後は「最後」)。
+ */
 export const orbisMessage = (alert: OrbisAlert) => {
-  const head = alert.distance >= ORBIS_WARN_M - 50 ? "300メートル先、オービスです" : "この先、オービスです";
+  const near = alert.distance >= ORBIS_WARN_M - 50 ? "300メートル先、" : "この先、";
+  const series = alert.series;
+  const head = !series
+    ? `${near}オービスです`
+    : series.index === 1
+      ? `${near}オービス連続区間です。全部で${series.total}か所あります`
+      : series.index >= series.total
+        ? `${near}最後のオービスです`
+        : `${near}${series.index}か所目のオービスです`;
   return alert.spot.limit ? `${head}。制限速度、${alert.spot.limit}キロです` : head;
 };
+
+/** 帯に出す距離(1km 未満は 10m 単位、1km からは 0.1km 単位)。 */
+export const orbisDistanceText = (meters: number) =>
+  meters >= 1000 ? { value: (meters / 1000).toFixed(1), unit: "km" } : { value: String(Math.round(meters / 10) * 10), unit: "m" };
 
 // --- OpenStreetMap から取る ---
 
@@ -149,7 +260,8 @@ const isSpot = (value: unknown): value is OrbisSpot => {
     typeof spot.id === "string" &&
     Number.isFinite(spot.lat) &&
     Number.isFinite(spot.lng) &&
-    (spot.limit === null || Number.isFinite(spot.limit))
+    (spot.limit === null || Number.isFinite(spot.limit)) &&
+    (spot.direction === undefined || spot.direction === null || Number.isFinite(spot.direction))
   );
 };
 
@@ -159,7 +271,12 @@ export const readOsmCache = (): OsmCache | null => {
   try {
     const cache = JSON.parse(window.localStorage.getItem(OSM_CACHE_KEY) || "null") as OsmCache | null;
     if (!cache || !Number.isFinite(cache.lat) || !Number.isFinite(cache.lng) || !Number.isFinite(cache.at)) return null;
-    return { ...cache, spots: Array.isArray(cache.spots) ? cache.spots.filter(isSpot) : [] };
+    return {
+      ...cache,
+      spots: Array.isArray(cache.spots)
+        ? cache.spots.filter(isSpot).map((spot) => ({ ...spot, direction: spot.direction ?? null }))
+        : [],
+    };
   } catch {
     return null;
   }
@@ -194,7 +311,7 @@ export const parseOsmOrbis = (json: unknown): OrbisSpot[] => {
     const lat = Number(node.lat);
     const lng = Number(node.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
-    return [{ id: `osm-${node.id}`, lat, lng, limit: readLimit(node.tags?.maxspeed), source: "osm" as const }];
+    return [{ id: `osm-${node.id}`, lat, lng, limit: readLimit(node.tags?.maxspeed), direction: null, source: "osm" as const }];
   });
 };
 

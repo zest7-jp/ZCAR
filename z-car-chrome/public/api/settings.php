@@ -216,6 +216,8 @@ if (isset($incoming['orbis']) && is_array($incoming['orbis'])) {
         }
         $label = isset($entry['label']) && is_string($entry['label']) ? trim($entry['label']) : '';
         $limit = $entry['limit'] ?? null;
+        // この向き(度。北が0)へ走るときだけ知らせる。空なら両方の向き。
+        $direction = $entry['direction'] ?? null;
         $seen[$id] = true;
         $points[] = [
             'id' => $id,
@@ -223,6 +225,7 @@ if (isset($incoming['orbis']) && is_array($incoming['orbis'])) {
             'lat' => (float) $lat,
             'lng' => (float) $lng,
             'limit' => is_int($limit) && $limit >= 10 && $limit <= 140 ? $limit : null,
+            'direction' => is_int($direction) && $direction >= 0 && $direction <= 359 ? $direction : null,
         ];
         if (count($points) >= MAX_ORBIS_POINTS) {
             break;

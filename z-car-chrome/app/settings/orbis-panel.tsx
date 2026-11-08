@@ -10,9 +10,20 @@ import {
   MAX_ORBIS_POINTS,
   type OrbisPoint,
 } from "../settings-store";
+import { directionName, OrbisDial } from "./orbis-dial";
 
-/** 足そうとしている場所(名前と制限速度は、欄で直してから「追加する」)。 */
-type Draft = { label: string; lat: number; lng: number; limit: string };
+/**
+ * 足そう(直そう)としている場所。名前・制限速度・走る向きは、欄で直してから保存する。
+ * editId は登録してあるものを直すときの id(新しく足すときは null)。
+ */
+type Draft = {
+  editId: string | null;
+  label: string;
+  lat: number;
+  lng: number;
+  limit: string;
+  direction: number | null;
+};
 
 /** これより近くに登録してあれば、同じオービスとみなして足さない(m)。 */
 const SAME_SPOT_METERS = 30;
@@ -36,6 +47,7 @@ const coordsText = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFix
 export function OrbisPanel({
   points,
   syncKey,
+  mapsKey,
   sendNote,
   onChange,
   onToast,
@@ -43,6 +55,8 @@ export function OrbisPanel({
   points: OrbisPoint[];
   /** 車とつないだ合言葉(Google マップのリンクを読むのに使う)。つないでいなければ空。 */
   syncKey: string;
+  /** 向きのダイヤルの下に出す、小さな地図の鍵。 */
+  mapsKey: string;
   /** 車とつないでいれば「・車に送ります」。 */
   sendNote: string;
   onChange: (points: OrbisPoint[]) => void;
@@ -58,8 +72,29 @@ export function OrbisPanel({
     return () => window.clearTimeout(timer);
   }, [armed]);
 
-  const open = (lat: number, lng: number, label: string) =>
-    setDraft({ lat, lng, label: Array.from(label).slice(0, MAX_ORBIS_LABEL).join(""), limit: "" });
+  const open = (lat: number, lng: number, label: string, direction: number | null = null) =>
+    setDraft({
+      editId: null,
+      lat,
+      lng,
+      label: Array.from(label).slice(0, MAX_ORBIS_LABEL).join(""),
+      limit: "",
+      direction,
+    });
+  /** 登録してあるオービスを直す(名前・制限速度・走る向き)。もう一度押すと閉じる。 */
+  const edit = (point: OrbisPoint) =>
+    setDraft((current) =>
+      current?.editId === point.id
+        ? null
+        : {
+            editId: point.id,
+            lat: point.lat,
+            lng: point.lng,
+            label: point.label,
+            limit: point.limit === null ? "" : String(point.limit),
+            direction: point.direction,
+          },
+    );
 
   /** Google マップ・Yahoo!マップで「共有」→「コピー」した場所(か「34.76,135.62」のような数字)を読む。 */
   const pastePoint = async () => {
@@ -92,7 +127,10 @@ export function OrbisPanel({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setBusy(null);
-        open(position.coords.latitude, position.coords.longitude, "");
+        // 走りながら(助手席で)押したときは、いま走っている向きを、そのオービスの向きにする。
+        const { heading, speed } = position.coords;
+        const moving = heading !== null && Number.isFinite(heading) && speed !== null && speed >= 2;
+        open(position.coords.latitude, position.coords.longitude, "", moving ? (Math.round(heading / 5) * 5) % 360 : null);
       },
       () => {
         setBusy(null);
@@ -107,11 +145,29 @@ export function OrbisPanel({
 
   const save = () => {
     if (!draft || !limitOk) return;
-    if (points.some((point) => distanceMeters(point, draft) <= SAME_SPOT_METERS)) {
+    const label = draft.label.trim();
+    if (draft.editId) {
+      onChange(
+        points.map((point) =>
+          point.id === draft.editId
+            ? { ...point, label, limit: limitNumber, direction: draft.direction }
+            : point,
+        ),
+      );
+      onToast(`オービス「${label || "オービス"}」を直しました${sendNote}`);
+      setDraft(null);
+      return;
+    }
+    // 同じ場所の上り・下りを別々に登録できるように、向きが同じ(か両方)ものだけを重なりとみなす。
+    const same = points.some(
+      (point) =>
+        distanceMeters(point, draft) <= SAME_SPOT_METERS &&
+        (point.direction === null || draft.direction === null || point.direction === draft.direction),
+    );
+    if (same) {
       onToast("すぐ近くに、もう登録してあります");
       return;
     }
-    const label = draft.label.trim();
     onChange([
       ...points,
       {
@@ -120,6 +176,7 @@ export function OrbisPanel({
         lat: Number(draft.lat.toFixed(6)),
         lng: Number(draft.lng.toFixed(6)),
         limit: limitNumber,
+        direction: draft.direction,
       },
     ]);
     onToast(`オービス「${label || "オービス"}」を登録しました${sendNote}`);
@@ -132,6 +189,7 @@ export function OrbisPanel({
       return;
     }
     setArmed(null);
+    if (draft?.editId === point.id) setDraft(null);
     onChange(points.filter((entry) => entry.id !== point.id));
     onToast(`オービス「${point.label || "オービス"}」を消しました${sendNote}`);
   };
@@ -147,20 +205,41 @@ export function OrbisPanel({
       <p className="zr-navi-hint">
         車の80年代の地図で、進む向きの前方500mから知らせ、300mで声でも知らせます。OpenStreetMap
         のオービスのほかに、ここに足した場所も使います。Google マップ・Yahoo!マップで場所を選んで
-        「共有」→「コピー」してから、FROM MAPS を押します。
+        「共有」→「コピー」してから、FROM MAPS を押します。走る向き(上り・下り)を決めると、
+        その向きに走るときだけ知らせます。登録した行を押すと直せます。
       </p>
       {points.length ? (
         <ul className="zr-places zr-orbis-list">
           {points.map((point) => (
-            <li key={point.id}>
+            <li key={point.id} className={draft?.editId === point.id ? "is-editing" : undefined}>
               <div className="zr-place-row">
-                <div className="zr-place">
+                <button
+                  type="button"
+                  className="zr-place"
+                  aria-expanded={draft?.editId === point.id}
+                  onClick={() => edit(point)}
+                >
                   <span className="zr-place-name">
                     <b>{point.label || "オービス"}</b>
                     {point.limit ? <small>制限 {point.limit}km/h</small> : null}
                   </span>
-                  <span className="zr-place-addr">{coordsText(point.lat, point.lng)}</span>
-                </div>
+                  <span className="zr-place-addr zr-orbis-way">
+                    {/* 走る向き(矢印と「西へ」)。両方なら上下の矢印。 */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      style={point.direction === null ? undefined : { transform: `rotate(${point.direction}deg)` }}
+                    >
+                      {point.direction === null ? (
+                        <path d="M12 2.5 17 8h-3.5v8H17l-5 5.5L7 16h3.5V8H7z" />
+                      ) : (
+                        <path d="M12 3 19 12h-4.5v9h-5v-9H5z" />
+                      )}
+                    </svg>
+                    {directionName(point.direction)}
+                    <small>{coordsText(point.lat, point.lng)}</small>
+                  </span>
+                </button>
                 <button
                   type="button"
                   className={`zr-del${armed === point.id ? " is-armed" : ""}`}
@@ -194,7 +273,9 @@ export function OrbisPanel({
             save();
           }}
         >
-          <p className="zr-orbis-at">場所 {coordsText(draft.lat, draft.lng)}</p>
+          <p className="zr-orbis-at">
+            {draft.editId ? "直す: " : ""}場所 {coordsText(draft.lat, draft.lng)}
+          </p>
           <label className="zr-field zr-field-wide">
             <span>名前({MAX_ORBIS_LABEL}文字まで)</span>
             <div>
@@ -222,12 +303,19 @@ export function OrbisPanel({
             </div>
           </label>
           {!limitOk ? <p className="zr-orbis-error">制限速度は 10〜140 の数字で入れてください</p> : null}
+          <OrbisDial
+            lat={draft.lat}
+            lng={draft.lng}
+            direction={draft.direction}
+            mapsKey={mapsKey}
+            onChange={(direction) => setDraft({ ...draft, direction })}
+          />
           <div className="zr-editor-actions">
             <button type="button" className="zr-ghost" onClick={() => setDraft(null)}>
               やめる
             </button>
             <button type="submit" className="zr-primary" disabled={!limitOk}>
-              追加する
+              {draft.editId ? "保存する" : "追加する"}
             </button>
           </div>
         </form>

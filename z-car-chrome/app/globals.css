@@ -7830,8 +7830,60 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   letter-spacing: .16em;
 }
 /* 自分で登録するオービス(目的地のタブの下)。行は名前と場所(緯度・経度)と削除だけ。 */
-.zr-orbis-list .zr-place { grid-template-columns: 1fr; padding-left: 12px; cursor: default; }
-.zr-orbis-list .zr-place-addr { font-family: "SFMono-Regular", Consolas, monospace; }
+.zr-orbis-list .zr-place { grid-template-columns: 1fr; padding-left: 12px; }
+/* 走る向き(矢印と「西へ」)と、場所(緯度・経度)。 */
+.zr-orbis-way { display: flex; align-items: center; gap: 6px; }
+.zr-orbis-way svg { flex: none; width: 15px; height: 15px; fill: var(--zr-amber, #ffb02e); }
+.zr-orbis-way small { overflow: hidden; color: var(--zr-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.zr-orbis-list li.is-editing .zr-place-name b { color: var(--zr-accent-strong); }
+/* 走る向きのダイヤル: 小さな地図(北が上)の上に、丸い目盛りと矢印。なぞって回す。 */
+.zr-dial { margin: 4px 0 12px; }
+.zr-dial-hint { margin: 0 0 8px; color: var(--zr-muted); font-size: 12px; font-weight: 700; }
+.zr-dial-face {
+  position: relative;
+  width: min(100%, 280px);
+  aspect-ratio: 1;
+  margin: 0 auto 10px;
+  overflow: hidden;
+  border: 1.5px solid rgba(var(--zr-accent-rgb), .45);
+  border-radius: 50%;
+  background: #03150b;
+}
+.zr-dial-map { position: absolute; inset: 0; }
+.zr-dial-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.zr-dial-ring:focus-visible { outline: 2px solid var(--zr-amber, #ffb02e); outline-offset: -4px; border-radius: 50%; }
+.zr-dial-rim { fill: none; stroke: rgba(var(--zr-accent-rgb), .5); stroke-width: 3; }
+.zr-dial-ring line { stroke: rgba(var(--zr-accent-rgb), .75); stroke-width: 1.4; }
+.zr-dial-ring line.is-long { stroke: var(--zr-accent-strong); stroke-width: 2.4; }
+.zr-dial-ring text { fill: var(--zr-accent-strong); font-size: 14px; font-weight: 900; paint-order: stroke; stroke: rgba(0, 0, 0, .8); stroke-width: 3px; }
+.zr-dial-needle line { stroke: var(--zr-amber, #ffb02e); stroke-width: 5; stroke-linecap: round; }
+.zr-dial-needle path { fill: var(--zr-amber, #ffb02e); }
+.zr-dial-needle { filter: drop-shadow(0 0 5px rgba(255, 176, 46, .9)); }
+.zr-dial-both path { fill: rgba(var(--zr-accent-rgb), .8); }
+.zr-dial-both line { stroke: rgba(var(--zr-accent-rgb), .6); stroke-width: 3; stroke-dasharray: 6 5; }
+.zr-dial-spot { fill: rgba(40, 0, 0, .9); stroke: #ff3c3c; stroke-width: 3; filter: drop-shadow(0 0 4px #ff3c3c); }
+.zr-dial-keys { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8px; margin-bottom: 8px; }
+.zr-dial-keys button {
+  min-height: 42px;
+  border: 1.5px solid rgba(var(--zr-accent-rgb), .6);
+  border-radius: 10px;
+  background: rgba(var(--zr-accent-rgb), .06);
+  color: var(--zr-accent-strong);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.zr-dial-keys button[aria-pressed="true"] { border-color: var(--zr-amber, #ffb02e); background: rgba(255, 176, 46, .12); color: #ffc65e; }
+.zr-dial-text { margin: 0; color: var(--zr-amber, #ffb02e); font-size: 13px; font-weight: 800; text-align: center; }
 .zr-orbis-empty { margin: 4px 2px 12px; color: var(--zr-muted); font-size: 13px; }
 .zr-orbis-at { margin: 0 0 8px; color: var(--zr-accent-strong); font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; font-weight: 700; }
 .zr-orbis-error { margin: 0 0 8px; color: #e79a8f; font-size: 12px; font-weight: 700; }
@@ -9737,7 +9789,37 @@ main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-
 .ms-orbis-name { font-size: 22px; letter-spacing: .12em; }
 .ms-orbis-distance { color: #ffd27a; font-size: 30px; }
 .ms-orbis-distance small { font-size: 14px; }
-.ms-orbis-muted { color: #ffd27a; font: 700 11px/1.2 "Noto Sans JP", "Noto Sans CJK JP", sans-serif; }
+/* 声が出せないときの案内(帯の下の左)。 */
+.ms-orbis-muted {
+  position: absolute;
+  left: 8px;
+  bottom: -16px;
+  color: #ffd27a;
+  font: 700 10px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
+  text-shadow: 0 0 4px #000;
+}
+/* 連続区間: 「連続区間 全3か所」と 1 2 3 の札。いまのものは光らせ、通ったものは薄く。 */
+.ms-orbis-series { display: grid; gap: 4px; }
+.ms-orbis-series i {
+  color: #ffd27a;
+  font: 800 10px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
+  font-style: normal;
+  letter-spacing: .06em;
+}
+.ms-orbis-series span { display: flex; gap: 4px; }
+.ms-orbis-series b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid rgba(255, 210, 122, .7);
+  border-radius: 5px;
+  color: #ffd27a;
+  font-size: 15px;
+}
+.ms-orbis-series b.is-now { border-color: #ffb02e; background: #ffb02e; color: #140a00; box-shadow: 0 0 8px #ffb02e; text-shadow: none; }
+.ms-orbis-series b.is-passed { opacity: .35; }
+.ms-orbis-band.is-over .ms-orbis-series b.is-now { border-color: #ff3c3c; background: #ff3c3c; box-shadow: 0 0 8px #ff3c3c; }
 .ms-orbis-speed { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .ms-orbis-speed b { color: #ffd27a; font-size: 26px; }
 /* 制限速度の標識(赤い縁の丸に数字)。 */

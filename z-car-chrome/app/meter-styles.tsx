@@ -87,9 +87,17 @@ export type OrbisView = {
   speed: number | null;
   /** OpenStreetMap の場所か(出典を書く)。 */
   osm: boolean;
+  /** 連続区間なら、何か所目か・全部で何か所か(1か所だけなら null)。 */
+  series: { index: number; total: number } | null;
   /** 画面にまだ触れていないので、声が出せない。 */
   muted: boolean;
 };
+
+/** 帯に出す距離(1km 未満は 10m 単位、1km からは 0.1km 単位。連続区間の途中は 1km より先も出す)。 */
+const orbisDistance = (meters: number) =>
+  meters >= 1000
+    ? { value: (meters / 1000).toFixed(1), unit: "km" }
+    : { value: String(Math.round(meters / 10) * 10), unit: "m" };
 
 /**
  * 地図の上のオービス: 車(真ん中)からの点線と赤いカメラの印、上の帯(距離・制限と今の速さ)。
@@ -103,7 +111,7 @@ function OrbisOnMap({ orbis, metersPerPx }: { orbis: OrbisView; metersPerPx: num
   const inView = x > 16 && x < RETRO_CRT.w - 16 && y > 16 && y < RETRO_CRT.h - 16;
   const over = orbis.limit !== null && orbis.speed !== null && orbis.speed > orbis.limit;
   const tone = orbis.level === "show" ? "is-show" : over ? "is-over" : "is-warn";
-  const meters = Math.round(orbis.distance / 10) * 10;
+  const distance = orbisDistance(orbis.distance);
   return (
     <>
       <svg className="ms-orbis-line" viewBox={`0 0 ${RETRO_CRT.w} ${RETRO_CRT.h}`} aria-hidden="true">
@@ -124,9 +132,27 @@ function OrbisOnMap({ orbis, metersPerPx }: { orbis: OrbisView; metersPerPx: num
       <div className={`ms-orbis-band ${tone}`} role="status">
         <b className="ms-orbis-name">ORBIS</b>
         <b className="ms-orbis-distance">
-          {meters}
-          <small> m</small>
+          {distance.value}
+          <small> {distance.unit}</small>
         </b>
+        {/* 連続区間: 全部で何か所かと、1 2 3 の札(通ったものは薄く、いまのものを光らせる)。 */}
+        {orbis.series ? (
+          <span className="ms-orbis-series" aria-label={`オービス連続区間 全${orbis.series.total}か所の${orbis.series.index}か所目`}>
+            <i>連続区間 全{orbis.series.total}か所</i>
+            <span>
+              {Array.from({ length: orbis.series.total }, (_, i) => (
+                <b
+                  key={i}
+                  className={
+                    i + 1 === orbis.series?.index ? "is-now" : i + 1 < (orbis.series?.index ?? 0) ? "is-passed" : undefined
+                  }
+                >
+                  {i + 1}
+                </b>
+              ))}
+            </span>
+          </span>
+        ) : null}
         {orbis.muted ? <small className="ms-orbis-muted">画面に触れると声が出ます</small> : null}
         <span className="ms-orbis-speed">
           {orbis.limit !== null ? (

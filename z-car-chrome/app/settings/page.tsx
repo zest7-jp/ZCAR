@@ -1284,6 +1284,7 @@ export default function PhoneSettingsPage() {
         <OrbisPanel
           points={draft.orbis}
           syncKey={linked ? draft.syncKey.trim() : ""}
+          mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
           sendNote={sendNote}
           onChange={(orbis) => setDraft((current) => ({ ...current, orbis }))}
           onToast={(text) => setToast(text)}

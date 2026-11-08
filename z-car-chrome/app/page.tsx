@@ -58,6 +58,7 @@ import {
 import { WorkdayMarks } from "./workday-marks";
 import { readCoords } from "./place-import";
 import {
+  combineOrbisSpots,
   fetchOsmOrbis,
   findOrbisAhead,
   orbisMessage,
@@ -1141,18 +1142,20 @@ export default function Home() {
     (156543.03392 * Math.cos(((location?.lat ?? 34.6937) * Math.PI) / 180)) / 2 ** retroMapZoom;
 
   // --- オービス(レーダー探知機のような警告) ---
-  // 知らせる場所: OpenStreetMap から取った分と、スマホで登録した分。
+  // 知らせる場所: OpenStreetMap から取った分と、スマホで登録した分(向き付き)。
+  // スマホで登録した場所の近くの OpenStreetMap の分は使わない(登録し直したとみなす)。
   useEffect(() => {
-    orbisSpotsRef.current = [
-      ...osmOrbis,
-      ...settings.orbis.map((point) => ({
+    orbisSpotsRef.current = combineOrbisSpots(
+      osmOrbis,
+      settings.orbis.map((point) => ({
         id: point.id,
         lat: point.lat,
         lng: point.lng,
         limit: point.limit,
+        direction: point.direction,
         source: "mine" as const,
       })),
-    ];
+    );
   }, [osmOrbis, settings.orbis]);
   // まわりのオービスを OpenStreetMap から取る。覚えてある分が近くて新しければ取らない。
   // 約1kmごとに見直す(場所の数字を丸めた値が変わったとき)。
@@ -2007,6 +2010,9 @@ export default function Home() {
                       limit: orbisAlert.spot.limit,
                       speed: orbisSpeed,
                       osm: orbisAlert.spot.source === "osm",
+                      series: orbisAlert.series
+                        ? { index: orbisAlert.series.index, total: orbisAlert.series.total }
+                        : null,
                       muted: soundLocked(),
                     }
                   : null

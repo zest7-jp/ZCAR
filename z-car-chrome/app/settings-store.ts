@@ -268,6 +268,8 @@ export type OrbisPoint = {
   lng: number;
   /** 制限速度(km/h)。分からなければ null。 */
   limit: number | null;
+  /** この向き(度。北が0、東が90)へ走るときだけ知らせる。null は両方の向き。 */
+  direction: number | null;
 };
 /** 登録できるオービスの数と、名前の長さ(サーバー側と同じ値)。 */
 export const MAX_ORBIS_POINTS = 100;
@@ -277,6 +279,10 @@ export const MAX_ORBIS_LABEL = 12;
 export const isOrbisLimit = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= 10 && value <= 140;
 
+/** オービスの向きとして受け付ける値(0〜359度の整数)。 */
+export const isOrbisDirection = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 359;
+
 /** 保存・同期されてきたオービスの一覧を整える(壊れた値は捨てる)。 */
 export const sanitizeOrbisPoints = (value: unknown): OrbisPoint[] => {
   if (!Array.isArray(value)) return [];
@@ -284,7 +290,7 @@ export const sanitizeOrbisPoints = (value: unknown): OrbisPoint[] => {
   const seen = new Set<string>();
   for (const entry of value) {
     if (!entry || typeof entry !== "object") continue;
-    const { id, label, lat, lng, limit } = entry as Partial<OrbisPoint>;
+    const { id, label, lat, lng, limit, direction } = entry as Partial<OrbisPoint>;
     if (typeof id !== "string" || !PLACE_ID_PATTERN.test(id) || seen.has(id)) continue;
     if (typeof lat !== "number" || typeof lng !== "number") continue;
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
@@ -295,6 +301,7 @@ export const sanitizeOrbisPoints = (value: unknown): OrbisPoint[] => {
       lat,
       lng,
       limit: isOrbisLimit(limit) ? limit : null,
+      direction: isOrbisDirection(direction) ? direction : null,
     });
     if (cleaned.length >= MAX_ORBIS_POINTS) break;
   }
@@ -699,7 +706,11 @@ export const mergeChangedOrbis = (
     before,
     latest,
     (left, right) =>
-      left.label === right.label && left.lat === right.lat && left.lng === right.lng && left.limit === right.limit,
+      left.label === right.label &&
+      left.lat === right.lat &&
+      left.lng === right.lng &&
+      left.limit === right.limit &&
+      left.direction === right.direction,
     MAX_ORBIS_POINTS,
   );
 
