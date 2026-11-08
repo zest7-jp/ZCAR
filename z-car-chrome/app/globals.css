@@ -7829,6 +7829,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   font-weight: 900;
   letter-spacing: .16em;
 }
+/* 自分で登録するオービス(目的地のタブの下)。行は名前と場所(緯度・経度)と削除だけ。 */
+.zr-orbis-list .zr-place { grid-template-columns: 1fr; padding-left: 12px; cursor: default; }
+.zr-orbis-list .zr-place-addr { font-family: "SFMono-Regular", Consolas, monospace; }
+.zr-orbis-empty { margin: 4px 2px 12px; color: var(--zr-muted); font-size: 13px; }
+.zr-orbis-at { margin: 0 0 8px; color: var(--zr-accent-strong); font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; font-weight: 700; }
+.zr-orbis-error { margin: 0 0 8px; color: #e79a8f; font-size: 12px; font-weight: 700; }
+.zr-orbis-editor { margin-bottom: 12px; }
 /* 目的地の「並び替え」キー(見出しの右)。並び替えている間は「完了」(琥珀色)。 */
 .zr-panel-head .zr-sort {
   display: inline-flex;
@@ -9670,6 +9677,104 @@ main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-
   cursor: default;
 }
 .ms-retro-zoom button:disabled svg { stroke: rgba(82, 255, 214, .28); filter: none; }
+/* オービス: 車からの点線と赤いカメラの印(地図の上)、上の帯(距離・制限と今の速さ)。 */
+.ms-orbis-line {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ms-orbis-line line { stroke: #ff3c3c; stroke-width: 2; stroke-dasharray: 5 5; opacity: .8; }
+.ms-orbis-mark {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.ms-orbis-mark i {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2.5px solid #ff3c3c;
+  border-radius: 50%;
+  background: rgba(40, 0, 0, .86);
+  box-shadow: 0 0 12px #ff3c3c, inset 0 0 8px rgba(255, 60, 60, .5);
+}
+.ms-orbis-mark svg { width: 20px; height: 20px; fill: none; stroke: #ff3c3c; stroke-width: 2.2; stroke-linejoin: round; }
+.ms-orbis-mark circle { fill: #ff3c3c; stroke: none; }
+.ms-orbis-mark b {
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(2, 8, 6, .8);
+  color: #ff3c3c;
+  font: 700 11px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  text-shadow: 0 0 6px #ff3c3c;
+}
+.ms-orbis-band {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  left: 10px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 50px;
+  padding: 5px 12px;
+  border: 1.5px solid rgba(255, 176, 46, .55);
+  border-radius: 10px;
+  background: rgba(20, 10, 0, .82);
+  color: #ffb02e;
+  font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+}
+.ms-orbis-band b { font-weight: 900; line-height: 1; }
+.ms-orbis-name { font-size: 22px; letter-spacing: .12em; }
+.ms-orbis-distance { color: #ffd27a; font-size: 30px; }
+.ms-orbis-distance small { font-size: 14px; }
+.ms-orbis-muted { color: #ffd27a; font: 700 11px/1.2 "Noto Sans JP", "Noto Sans CJK JP", sans-serif; }
+.ms-orbis-speed { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.ms-orbis-speed b { color: #ffd27a; font-size: 26px; }
+/* 制限速度の標識(赤い縁の丸に数字)。 */
+.ms-orbis-limit {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 4px solid #ff3c3c;
+  border-radius: 50%;
+  background: #f4f4f4;
+  color: #1a3dbb;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 900;
+  box-shadow: 0 0 10px rgba(255, 60, 60, .6);
+}
+.ms-orbis-credit {
+  position: absolute;
+  right: 8px;
+  bottom: -15px;
+  color: rgba(255, 255, 255, .55);
+  font: 600 9px/1 sans-serif;
+}
+/* 500m〜300m は静かに。300m を切ったら警告(琥珀色)、制限より速いと赤。どちらもゆっくり明滅。 */
+.ms-orbis-band.is-show .ms-orbis-name,
+.ms-orbis-band.is-show .ms-orbis-distance { text-shadow: 0 0 6px rgba(255, 176, 46, .6); }
+.ms-orbis-band.is-warn,
+.ms-orbis-band.is-over { border-width: 2px; animation: ms-orbis-pulse 1s ease-in-out infinite alternate; }
+.ms-orbis-band.is-warn { border-color: #ffb02e; box-shadow: 0 0 16px rgba(255, 176, 46, .6); }
+.ms-orbis-band.is-warn b { text-shadow: 0 0 10px #ffb02e; }
+.ms-orbis-band.is-over { border-color: #ff3c3c; background: rgba(30, 0, 0, .86); box-shadow: 0 0 18px rgba(255, 60, 60, .75); }
+.ms-orbis-band.is-over .ms-orbis-name,
+.ms-orbis-band.is-over .ms-orbis-speed b { color: #ff3c3c; text-shadow: 0 0 10px #ff3c3c; }
+@keyframes ms-orbis-pulse {
+  to { box-shadow: 0 0 4px rgba(255, 120, 60, .3); }
+}
 /* 光る管の細かい網目(画面全体にうっすら)。 */
 @keyframes ms-blink {
   50% { opacity: .2; }
@@ -9710,4 +9815,6 @@ main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-
 @media (prefers-reduced-motion: reduce) {
   .ms-retro-cursor { transition: none; }
   .ms-retro-crt-wait { animation: none; }
+  .ms-orbis-band.is-warn,
+  .ms-orbis-band.is-over { animation: none; }
 }

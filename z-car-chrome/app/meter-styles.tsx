@@ -70,7 +70,79 @@ type MapProps = {
   mapReady: boolean;
   /** 地図の縮尺: 1点(板の1px)が何mか、近くする・広くするキー(端まで来たら null)。 */
   zoom: { metersPerPx: number; onIn: (() => void) | null; onOut: (() => void) | null };
+  /** 前方のオービス(無ければ null)。 */
+  orbis: OrbisView | null;
 };
+
+/** 地図に出すオービス。 */
+export type OrbisView = {
+  /** そこまでの距離(m)と、車から見て東・北へ何mか。 */
+  distance: number;
+  east: number;
+  north: number;
+  /** show は 500m 以内(印だけ静かに)、warn は 300m 以内(警告)。 */
+  level: "show" | "warn";
+  /** 制限速度と今の速さ(km/h)。分からなければ null。 */
+  limit: number | null;
+  speed: number | null;
+  /** OpenStreetMap の場所か(出典を書く)。 */
+  osm: boolean;
+  /** 画面にまだ触れていないので、声が出せない。 */
+  muted: boolean;
+};
+
+/**
+ * 地図の上のオービス: 車(真ん中)からの点線と赤いカメラの印、上の帯(距離・制限と今の速さ)。
+ * 地図はいつも北が上で車が真ん中なので、東・北の距離を縮尺で割れば印の場所になる。
+ */
+function OrbisOnMap({ orbis, metersPerPx }: { orbis: OrbisView; metersPerPx: number }) {
+  const centerX = RETRO_CRT.w / 2;
+  const centerY = RETRO_CRT.h / 2;
+  const x = centerX + orbis.east / metersPerPx;
+  const y = centerY - orbis.north / metersPerPx;
+  const inView = x > 16 && x < RETRO_CRT.w - 16 && y > 16 && y < RETRO_CRT.h - 16;
+  const over = orbis.limit !== null && orbis.speed !== null && orbis.speed > orbis.limit;
+  const tone = orbis.level === "show" ? "is-show" : over ? "is-over" : "is-warn";
+  const meters = Math.round(orbis.distance / 10) * 10;
+  return (
+    <>
+      <svg className="ms-orbis-line" viewBox={`0 0 ${RETRO_CRT.w} ${RETRO_CRT.h}`} aria-hidden="true">
+        <line x1={centerX} y1={centerY} x2={x} y2={y} />
+      </svg>
+      {inView ? (
+        <span className="ms-orbis-mark" style={{ left: x, top: y }} aria-hidden="true">
+          <i>
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="7" width="13" height="10" rx="1.5" />
+              <path d="M16 10.5 21 8v8l-5-2.5" />
+              <circle cx="9.5" cy="12" r="2.2" />
+            </svg>
+          </i>
+          <b>ORBIS</b>
+        </span>
+      ) : null}
+      <div className={`ms-orbis-band ${tone}`} role="status">
+        <b className="ms-orbis-name">ORBIS</b>
+        <b className="ms-orbis-distance">
+          {meters}
+          <small> m</small>
+        </b>
+        {orbis.muted ? <small className="ms-orbis-muted">画面に触れると声が出ます</small> : null}
+        <span className="ms-orbis-speed">
+          {orbis.limit !== null ? (
+            <i className="ms-orbis-limit" aria-label={`制限速度 ${orbis.limit}`}>
+              {orbis.limit}
+            </i>
+          ) : null}
+          {orbis.speed !== null ? (
+            <b aria-label={`いまの速さ ${orbis.speed}`}>{orbis.speed}</b>
+          ) : null}
+        </span>
+        {orbis.osm ? <small className="ms-orbis-credit">© OpenStreetMap</small> : null}
+      </div>
+    </>
+  );
+}
 
 /** 縮尺の目盛りの長さの候補(m)。板の上で 100px 以下になる、いちばん長いものを出す。 */
 const SCALE_STEPS = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
@@ -715,7 +787,7 @@ const litSegments = (value: number, y: number, color: (index: number) => string)
     <rect key={i} x={790 + i * 11} y={y} width="8.5" height="18" fill={color(i)} />
   ));
 
-export function RetroCluster({ data, mapRef, mapReady, zoom, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -749,6 +821,7 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, onFuel, onDest, onS
             N
           </text>
         </svg>
+        {orbis ? <OrbisOnMap orbis={orbis} metersPerPx={zoom.metersPerPx} /> : null}
         {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
         <span className="ms-retro-scale" aria-hidden="true">
           {scale.label}
