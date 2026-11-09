@@ -141,6 +141,7 @@ const PASTE_NOTES: Record<PlaceImportError | "clipboard", string> = {
   unlinked: "車とつなぐと、Google マップのリンクから読み取れます",
   unreadable: "場所を読み取れませんでした。名前と住所を入れてください",
   network: "読み取れませんでした。電波のよい所でもう一度押してください",
+  notmaps: "Google マップのリンクだけ読めます。Google マップで「共有」→「コピー」してください",
 };
 
 /** iPhone の「ショートカット」で「Z CAR に送る」を作る手順。 */

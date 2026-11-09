@@ -3,8 +3,7 @@
  * Z CAR 目的地の読み取り(共通の部品)。place.php と share.php から読み込む。
  *
  * Google マップで共有・コピーされたリンク(maps.app.goo.gl/…)の行き先をたどって、
- * 店の名前・住所・場所(緯度・経度)を読む。Yahoo!マップのリンク(yahoo.jp/…・map.yahoo.co.jp)は
- * 場所(緯度・経度)だけを読む。たどるのは、この2つの地図のアドレスだけ。
+ * 店の名前・住所・場所(緯度・経度)を読む。たどるのは Google マップのアドレスだけ。
  * 名前と行き先の作り方は、スマホの app/place-import.ts と同じ決まりにしてある。
  */
 
@@ -20,7 +19,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
 const MAX_HOPS = 5;
 const PREFECTURE = '(北海道|東京都|大阪府|京都府|(青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|神奈川|新潟|富山|石川|福井|山梨|長野|岐阜|静岡|愛知|三重|滋賀|兵庫|奈良|和歌山|鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|大分|宮崎|鹿児島|沖縄)県)';
 
-/** たどってよい地図(Google マップ・Yahoo!マップ)のアドレスか(https だけ)。 */
+/** たどってよい地図(Google マップ)のアドレスか(https だけ)。 */
 function isMapsUrl(string $url): bool
 {
     $parts = parse_url($url);
@@ -38,8 +37,7 @@ function isMapsUrl(string $url): bool
     if (in_array($host, ['www.google.com', 'google.com', 'www.google.co.jp', 'google.co.jp'], true)) {
         return strpos($path, '/maps') === 0;
     }
-    // Yahoo!マップ。短いリンク(yahoo.jp/…)はほかのページにも行くので、行き先も毎回ここで確かめる。
-    return in_array($host, ['yahoo.jp', 'map.yahoo.co.jp'], true);
+    return false;
 }
 
 /** 全角の英数字・記号・空白を半角にする(住所の「１丁目１２−１」を「1丁目12-1」に)。 */
@@ -70,8 +68,7 @@ function splitNameAddress(string $text): array
 /**
  * Google マップのアドレスから、名前・住所・場所を読む。何も読めなければ null。
  * 読める形: ?q=名前,+住所 / ?q=緯度,経度 / /maps/place/名前/@…!3d緯度!4d経度 /
- *           /maps/search/文字/ / ?query= / ?daddr= / ?destination= / ?ll= /
- *           Yahoo!マップの ?lat=緯度&lon=経度
+ *           /maps/search/文字/ / ?query= / ?daddr= / ?destination= / ?ll=
  */
 function readPlace(string $url): ?array
 {
@@ -105,12 +102,6 @@ function readPlace(string $url): ?array
         $lat = $lat ?? (float) $match[1];
         $lng = $lng ?? (float) $match[2];
         $text = '';
-    }
-    // Yahoo!マップの場所(?lat=緯度&lon=経度)。
-    if ($lat === null && isset($query['lat'], $query['lon']) && is_string($query['lat']) && is_string($query['lon'])
-        && is_numeric($query['lat']) && is_numeric($query['lon'])) {
-        $lat = (float) $query['lat'];
-        $lng = (float) $query['lon'];
     }
     if ($lat === null && isset($query['ll']) && is_string($query['ll'])
         && preg_match('/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/', $query['ll'], $match)) {
@@ -188,7 +179,7 @@ function nextLocation(string $url): ?string
 }
 
 /**
- * 共有・コピーされた文字から地図(Google マップ・Yahoo!マップ)のリンクを取り出し、たどって場所を読む。
+ * 共有・コピーされた文字から Google マップのリンクを取り出し、たどって場所を読む。
  * 読めたら readPlace の形の配列、読めなければ理由('no link' / 'not google maps' / 'unreadable')。
  */
 function resolvePlace(string $text)
