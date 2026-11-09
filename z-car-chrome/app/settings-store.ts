@@ -259,6 +259,55 @@ const readPlaces = (value: { places?: unknown; mapDestinations?: unknown }) =>
     ? sanitizePlaces(value.places)
     : placesFromSlots(sanitizeMapDestinations(value.mapDestinations));
 
+/** スマホで登録したオービス1か所(車とスマホで共有。OpenStreetMap に無い分を足す)。 */
+export type OrbisPoint = {
+  id: string;
+  /** 名前(例: 中央環状)。 */
+  label: string;
+  lat: number;
+  lng: number;
+  /** 制限速度(km/h)。分からなければ null。 */
+  limit: number | null;
+  /** この向き(度。北が0、東が90)へ走るときだけ知らせる。null は両方の向き。 */
+  direction: number | null;
+};
+/** 登録できるオービスの数と、名前の長さ(サーバー側と同じ値)。 */
+export const MAX_ORBIS_POINTS = 100;
+export const MAX_ORBIS_LABEL = 12;
+
+/** 制限速度として受け付ける値(km/h)。 */
+export const isOrbisLimit = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 10 && value <= 140;
+
+/** オービスの向きとして受け付ける値(0〜359度の整数)。 */
+export const isOrbisDirection = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 359;
+
+/** 保存・同期されてきたオービスの一覧を整える(壊れた値は捨てる)。 */
+export const sanitizeOrbisPoints = (value: unknown): OrbisPoint[] => {
+  if (!Array.isArray(value)) return [];
+  const cleaned: OrbisPoint[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const { id, label, lat, lng, limit, direction } = entry as Partial<OrbisPoint>;
+    if (typeof id !== "string" || !PLACE_ID_PATTERN.test(id) || seen.has(id)) continue;
+    if (typeof lat !== "number" || typeof lng !== "number") continue;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
+    seen.add(id);
+    cleaned.push({
+      id,
+      label: Array.from(typeof label === "string" ? label.trim() : "").slice(0, MAX_ORBIS_LABEL).join(""),
+      lat,
+      lng,
+      limit: isOrbisLimit(limit) ? limit : null,
+      direction: isOrbisDirection(direction) ? direction : null,
+    });
+    if (cleaned.length >= MAX_ORBIS_POINTS) break;
+  }
+  return cleaned;
+};
+
 /** 前のバージョンの出発(店舗)・帰宅の枠の住所(いまは使わない。読んだら目的地に移す)。 */
 type LegacyStops = { storeName?: unknown; storeDest?: unknown; homeDest?: unknown };
 const LEGACY_STOP_FIELDS = ["storeName", "storeDest", "homeDest"] as const;
@@ -409,6 +458,8 @@ export type Settings = {
   places: NavPlace[];
   /** 車の START で案内する目的地の id(★)。空なら一覧の一番上。 */
   startTarget: string;
+  /** スマホで登録したオービス(車の地図で知らせる。OpenStreetMap の分とは別)。 */
+  orbis: OrbisPoint[];
   /** 満タン法の給油記録。車とスマホのどちらで記録しても共有する。 */
   fuelEntries: FuelEntry[];
   /** 車検の満了日(YYYY-MM-DD)。空なら未登録。車とスマホで共有する。 */
@@ -436,6 +487,7 @@ export const defaults: Settings = {
   syncedAt: 0,
   places: placesFromSlots(defaultMapDestinations),
   startTarget: "",
+  orbis: [],
   fuelEntries: [],
   inspectionDue: "",
   oilChangedOn: "",
@@ -453,6 +505,7 @@ export const SYNCED_FIELDS = [
   "carId",
   "places",
   "startTarget",
+  "orbis",
   "fuelEntries",
   "inspectionDue",
   "oilChangedOn",
@@ -520,7 +573,7 @@ export const sanitizeSyncedSettings = (
   if (!value || typeof value !== "object") return {};
   const cleaned: Partial<SyncedSettings> = {};
   for (const field of SYNCED_FIELDS) {
-    if (field === "places" || field === "fuelEntries") continue;
+    if (field === "places" || field === "fuelEntries" || field === "orbis") continue;
     const entry = value[field];
     if (typeof entry === "string") cleaned[field] = entry as never;
   }
@@ -548,6 +601,9 @@ export const sanitizeSyncedSettings = (
   if (Array.isArray(value.fuelEntries)) {
     cleaned.fuelEntries = sanitizeFuelEntries(value.fuelEntries);
   }
+  if (Array.isArray(value.orbis)) {
+    cleaned.orbis = sanitizeOrbisPoints(value.orbis);
+  }
   return cleaned;
 };
 
@@ -568,6 +624,7 @@ export const SHARED_EDIT_FIELDS = [
   "homeDest",
   "places",
   "startTarget",
+  "orbis",
   "inspectionDue",
   "oilChangedOn",
 ] as const;
@@ -578,52 +635,84 @@ export type SharedEditField = (typeof SHARED_EDIT_FIELDS)[number];
  * (足した・直した・消した場所)だけをその上に重ねる。もう片方で足した場所を
  * 消さないため。before は「前回サーバーと一致していた一覧」。
  */
-export const mergeChangedPlaces = (
-  mine: NavPlace[],
-  before: NavPlace[] | null,
-  latest: NavPlace[] | undefined,
-): NavPlace[] => {
+const mergeChangedList = <T extends { id: string }>(
+  mine: T[],
+  before: T[] | null,
+  latest: T[] | undefined,
+  same: (left: T, right: T) => boolean,
+  max: number,
+): T[] => {
   if (!before || !latest) return mine;
-  const same = (left: NavPlace, right: NavPlace) =>
-    left.label === right.label && left.destination === right.destination;
-  const beforeById = new Map(before.map((place) => [place.id, place]));
-  const mineById = new Map(mine.map((place) => [place.id, place]));
-  const added = mine.filter((place) => !beforeById.has(place.id));
-  const merged: NavPlace[] = [];
+  const beforeById = new Map(before.map((item) => [item.id, item]));
+  const mineById = new Map(mine.map((item) => [item.id, item]));
+  const added = mine.filter((item) => !beforeById.has(item.id));
+  const merged: T[] = [];
   const known = new Set<string>();
-  const keep = (place: NavPlace) => {
-    if (known.has(place.id)) return;
-    known.add(place.id);
-    merged.push(place);
+  const keep = (item: T) => {
+    if (known.has(item.id)) return;
+    known.add(item.id);
+    merged.push(item);
   };
-  for (const place of latest) {
-    const was = beforeById.get(place.id);
-    const now = mineById.get(place.id);
-    // 自分で消した場所は外し、自分で直した場所は自分の内容にする。
-    // 中身はそのままで id だけ新しくした場所(前のバージョンで、出発・帰宅を消して
+  for (const item of latest) {
+    const was = beforeById.get(item.id);
+    const now = mineById.get(item.id);
+    // 自分で消したものは外し、自分で直したものは自分の内容にする。
+    // 中身はそのままで id だけ新しくしたもの(前のバージョンで、出発・帰宅を消して
     // 1〜5の枠とのつながりを切ったとき)は、元の位置に置く。
     if (was && !now) {
       const renamed = added.find((other) => !known.has(other.id) && same(other, was));
       if (renamed) keep(renamed);
       continue;
     }
-    keep(was && now && !same(was, now) ? now : place);
+    keep(was && now && !same(was, now) ? now : item);
   }
-  // 自分で足した場所を後ろに足す。
-  for (const place of added) keep(place);
-  // 自分で並び替えた(前回そろっていた一覧と、共通の場所の順番が違う)ときは、自分の並びにする。
-  // もう片方で足した場所(自分の一覧に無い)は、後ろにそのまま残す。
-  const sharedOrder = before.filter((place) => mineById.has(place.id)).map((place) => place.id);
-  const mineOrder = mine.filter((place) => beforeById.has(place.id)).map((place) => place.id);
+  // 自分で足したものを後ろに足す。
+  for (const item of added) keep(item);
+  // 自分で並び替えた(前回そろっていた一覧と、共通のものの順番が違う)ときは、自分の並びにする。
+  // もう片方で足したもの(自分の一覧に無い)は、後ろにそのまま残す。
+  const sharedOrder = before.filter((item) => mineById.has(item.id)).map((item) => item.id);
+  const mineOrder = mine.filter((item) => beforeById.has(item.id)).map((item) => item.id);
   if (sharedOrder.join("\n") !== mineOrder.join("\n")) {
-    const rank = new Map(mine.map((place, index) => [place.id, index]));
+    const rank = new Map(mine.map((item, index) => [item.id, index]));
     merged.sort(
       (left, right) =>
         (rank.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.id) ?? Number.MAX_SAFE_INTEGER),
     );
   }
-  return merged.slice(0, MAX_PLACES);
+  return merged.slice(0, max);
 };
+
+export const mergeChangedPlaces = (
+  mine: NavPlace[],
+  before: NavPlace[] | null,
+  latest: NavPlace[] | undefined,
+): NavPlace[] =>
+  mergeChangedList(
+    mine,
+    before,
+    latest,
+    (left, right) => left.label === right.label && left.destination === right.destination,
+    MAX_PLACES,
+  );
+
+/** オービスの一覧も、目的地と同じように、自分で変えた分だけを最新に重ねる。 */
+export const mergeChangedOrbis = (
+  mine: OrbisPoint[],
+  before: OrbisPoint[] | null,
+  latest: OrbisPoint[] | undefined,
+): OrbisPoint[] =>
+  mergeChangedList(
+    mine,
+    before,
+    latest,
+    (left, right) =>
+      left.label === right.label &&
+      left.lat === right.lat &&
+      left.lng === right.lng &&
+      left.limit === right.limit &&
+      left.direction === right.direction,
+    MAX_ORBIS_POINTS,
+  );
 
 /** 指定した項目だけをサーバーへ送る(送らなかった項目はサーバー側でそのまま残る)。 */
 export const pushSyncedFields = async (
@@ -833,6 +922,7 @@ export const readSettings = (): Settings => {
       storeDest: "",
       homeDest: "",
       startTarget: typeof stored.startTarget === "string" ? stored.startTarget : "",
+      orbis: sanitizeOrbisPoints(stored.orbis),
       inspectionDue: isDateKey(stored.inspectionDue) ? stored.inspectionDue : "",
       oilChangedOn: isDateKey(stored.oilChangedOn) ? stored.oilChangedOn : "",
       // 古いバージョンは給油記録を別のキーに置いていたので、そこからも拾う。

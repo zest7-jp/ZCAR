@@ -46,6 +46,7 @@ import {
 } from "../place-import";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
+import { OrbisPanel } from "./orbis-panel";
 import { parseFuelLog, toFuelEntries } from "./fuel-import";
 import { VehiclePanel } from "./vehicle-info";
 
@@ -1276,6 +1277,18 @@ export default function PhoneSettingsPage() {
             </button>
           </p>
         </section>
+      ) : null}
+
+      {/* 目的地のタブの下: 自分で登録するオービス(車の地図で知らせる)。 */}
+      {tab === "navi" && !sorting ? (
+        <OrbisPanel
+          points={draft.orbis}
+          syncKey={linked ? draft.syncKey.trim() : ""}
+          mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
+          sendNote={sendNote}
+          onChange={(orbis) => setDraft((current) => ({ ...current, orbis }))}
+          onToast={(text) => setToast(text)}
+        />
       ) : null}
 
       {/* 車両情報(給油・オイル交換・車検)。車がどこにあっても、いつでも見られる。 */}

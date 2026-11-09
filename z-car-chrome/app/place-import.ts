@@ -56,7 +56,7 @@ export const isSamePlace = (a: string, b: string) => {
 /** 読んだ結果。読めなければ、その理由。 */
 export type PlaceImport = { ok: true; draft: PlaceDraft } | { ok: false; error: PlaceImportError };
 
-const failed = (error: PlaceImportError): PlaceImport => ({ ok: false, error });
+const failed = (error: PlaceImportError) => ({ ok: false as const, error });
 const done = (draft: PlaceDraft | null): PlaceImport =>
   draft ? { ok: true, draft } : failed("unreadable");
 
@@ -85,6 +85,22 @@ export const readCopiedPlace = async (key: string, copied: string): Promise<Plac
   }
 
   if (!key) return failed("unlinked");
+  const result = await readLinkedPlace(key, text);
+  if (!result.ok) return result;
+  return done(
+    toDraft({
+      ...result.place,
+      // 名前が読めなければ、一緒にコピーされた最初の行を名前にする。
+      name: result.place.name || lines[0] || "",
+    }),
+  );
+};
+
+/** コピーした Google マップのリンクの中身(名前・住所・場所)を、サーバーに読んでもらう。 */
+const readLinkedPlace = async (
+  key: string,
+  text: string,
+): Promise<{ ok: true; place: ReadPlace } | { ok: false; error: PlaceImportError }> => {
   let result: { ok?: boolean; name?: unknown; address?: unknown; lat?: unknown; lng?: unknown };
   try {
     const response = await fetch(PLACE_ENDPOINT, {
@@ -101,15 +117,56 @@ export const readCopiedPlace = async (key: string, copied: string): Promise<Plac
   if (result.ok !== true) return failed("unreadable");
   const number = (value: unknown) =>
     typeof value === "number" && Number.isFinite(value) ? value : null;
-  return done(
-    toDraft({
-      // 名前が読めなければ、一緒にコピーされた最初の行を名前にする。
-      name: (typeof result.name === "string" && result.name.trim()) || lines[0] || "",
+  return {
+    ok: true,
+    place: {
+      name: typeof result.name === "string" ? result.name.trim() : "",
       address: typeof result.address === "string" ? result.address.trim() : "",
       lat: number(result.lat),
       lng: number(result.lng),
-    }),
-  );
+    },
+  };
+};
+
+/** 場所(緯度・経度)を読んだ結果。オービスを登録するときに使う。 */
+export type PointImport =
+  | { ok: true; name: string; lat: number; lng: number }
+  | { ok: false; error: PlaceImportError };
+
+/** Yahoo!マップのアドレス(…?lat=緯度&lon=経度)から場所を読む。無ければ null。 */
+export const readLinkCoords = (text: string) => {
+  const link = LINK.exec(text)?.[0];
+  if (!link) return null;
+  try {
+    const url = new URL(link);
+    const lat = url.searchParams.get("lat");
+    const lng = url.searchParams.get("lon") ?? url.searchParams.get("lng");
+    if (lat === null || lng === null || lat.trim() === "" || lng.trim() === "") return null;
+    const point = { lat: Number(lat), lng: Number(lng) };
+    return Number.isFinite(point.lat) && Number.isFinite(point.lng) && Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180
+      ? point
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * コピーした内容から、場所(緯度・経度)を読む。「34.76,135.62」のような数字、
+ * 場所の入った Yahoo!マップのアドレス、Google マップ・Yahoo!マップの短いリンク(サーバーでたどる)。
+ * 名前も読めれば返す。
+ */
+export const readCopiedPoint = async (key: string, copied: string): Promise<PointImport> => {
+  const text = copied.trim();
+  if (!text) return failed("empty");
+  const coords = readCoords(text.replace(/[()]/g, "")) ?? readLinkCoords(text);
+  if (coords) return { ok: true, name: "", ...coords };
+  if (!LINK.test(text)) return failed("unreadable");
+  if (!key) return failed("unlinked");
+  const result = await readLinkedPlace(key, text);
+  if (!result.ok) return result;
+  const { name, lat, lng } = result.place;
+  return lat !== null && lng !== null ? { ok: true, name, lat, lng } : failed("unreadable");
 };
 
 /**

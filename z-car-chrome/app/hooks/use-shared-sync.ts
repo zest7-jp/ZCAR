@@ -11,6 +11,7 @@ import {
 import {
   fetchSharedSettings,
   legacyStopsBase,
+  mergeChangedOrbis,
   mergeChangedPlaces,
   mergeFuelEntries,
   MIN_SYNC_KEY_LENGTH,
@@ -20,6 +21,7 @@ import {
   SHARED_EDIT_FIELDS,
   type FuelEntry,
   type NavPlace,
+  type OrbisPoint,
   type Settings,
   type SyncedSettings,
 } from "../settings-store";
@@ -61,7 +63,7 @@ const sameFuelList = (left: FuelEntry[], right: FuelEntry[]) =>
  *
  * - 給油記録は足し合わせる(消す操作が無いので、どちらで入れても消えない)
  * - それ以外は項目ごとに「変えた方」を正とし、変えた項目だけを送る
- * - 目的地の一覧は1項目なので、送る直前に最新を取り直し、自分で変えた場所(と並び)だけ重ねる
+ * - 目的地・オービスの一覧は1項目なので、送る直前に最新を取り直し、自分で変えたもの(と並び)だけ重ねる
  * - まだ送っていない手元の変更は、サーバーを読んでも上書きしない
  */
 export function useSharedSync({
@@ -147,7 +149,7 @@ export function useSharedSync({
             // 比べる元(前回そろっていた内容)は変えない。送るときに、もう片方の
             // 変更と重ね合わせるため。元が分からない初回は、目的地を空から
             // 足し合わせる(どちらで足した場所も消さない)。
-            nextBase[field] = base ? base[field] : field === "places" ? "[]" : remoteJson;
+            nextBase[field] = base ? base[field] : field === "places" || field === "orbis" ? "[]" : remoteJson;
           } else {
             Object.assign(take, { [field]: remote });
             nextBase[field] = remoteJson;
@@ -234,21 +236,30 @@ export function useSharedSync({
     const timer = window.setTimeout(async () => {
       setStatus((now) => ({ ...now, state: "syncing" }));
       let fields = changed;
-      // 目的地は、もう片方で足した・直した場所を消さないよう、最新に自分の変更だけ重ねる。
-      if (changed.places) {
+      // 目的地・オービスの一覧は、もう片方で足した・直したものを消さないよう、
+      // 最新に自分の変更だけ重ねる。
+      if (changed.places || changed.orbis) {
         try {
-          const latest = await fetchSharedSettings(syncKey);
-          const before = base.values.places
-            ? (JSON.parse(base.values.places) as NavPlace[])
-            : null;
-          const merged = mergeChangedPlaces(
-            changed.places,
-            before,
-            sanitizeSyncedSettings(latest.settings).places,
-          );
-          fields = { ...changed, places: merged };
-          if (JSON.stringify(merged) !== JSON.stringify(changed.places)) {
-            setSettings((now) => ({ ...now, places: merged }));
+          const latest = sanitizeSyncedSettings((await fetchSharedSettings(syncKey)).settings);
+          if (changed.places) {
+            const before = base.values.places
+              ? (JSON.parse(base.values.places) as NavPlace[])
+              : null;
+            const merged = mergeChangedPlaces(changed.places, before, latest.places);
+            fields = { ...fields, places: merged };
+            if (JSON.stringify(merged) !== JSON.stringify(changed.places)) {
+              setSettings((now) => ({ ...now, places: merged }));
+            }
+          }
+          if (changed.orbis) {
+            const before = base.values.orbis
+              ? (JSON.parse(base.values.orbis) as OrbisPoint[])
+              : null;
+            const merged = mergeChangedOrbis(changed.orbis, before, latest.orbis);
+            fields = { ...fields, orbis: merged };
+            if (JSON.stringify(merged) !== JSON.stringify(changed.orbis)) {
+              setSettings((now) => ({ ...now, orbis: merged }));
+            }
           }
         } catch {
           // 読めなければ、そのまま送る。

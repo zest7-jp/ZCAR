@@ -57,6 +57,20 @@ import {
 } from "./shifts";
 import { WorkdayMarks } from "./workday-marks";
 import { readCoords } from "./place-import";
+import {
+  combineOrbisSpots,
+  fetchOsmOrbis,
+  findOrbisAhead,
+  orbisMessage,
+  OSM_RETRY_MS,
+  osmCacheFresh,
+  readOsmCache,
+  soundLocked,
+  speakOrbis,
+  unlockOrbisSound,
+  type OrbisAlert,
+  type OrbisSpot,
+} from "./orbis";
 import { StarMark } from "./star-mark";
 
 type RouteEta = {
@@ -99,6 +113,12 @@ const FUEL_RESERVE_L = 4;
 const RETRO_ZOOM_MIN = 11;
 const RETRO_ZOOM_MAX = 17;
 const RETRO_ZOOM_KEY = "zcar-retro-map-zoom";
+/** 同じオービスを、続けて何度も声で知らせない(信号待ちのあとなど)。 */
+const ORBIS_RESPEAK_MS = 5 * 60 * 1000;
+/** オービスに近づいたときに拡大する、一番大きな縮尺(目盛りが 100m になるくらい)。 */
+const ORBIS_ZOOM_MAX = 16;
+/** 止まって GPS の向きが消えても、この間は前の向きで前方を見る。 */
+const ORBIS_HEADING_KEEP_MS = 2 * 60 * 1000;
 const readRetroZoom = () => {
   if (typeof window === "undefined") return RETRO_MAP_LOOK.zoom;
   try {
@@ -441,6 +461,15 @@ export default function Home() {
   const [retroZoom, setRetroZoom] = useState(readRetroZoom);
   // 地図を作り直すとき(テーマを変えたときなど)に、今の縮尺で始めるため。
   const retroZoomRef = useRef(retroZoom);
+  // オービス: OpenStreetMap から取った分(車だけに覚える)と、いま知らせているもの。
+  const [osmOrbis, setOsmOrbis] = useState<OrbisSpot[]>(() => readOsmCache()?.spots ?? []);
+  const [orbisAlert, setOrbisAlert] = useState<OrbisAlert | null>(null);
+  // GPS が届いたときに使う(OpenStreetMap とスマホで登録した分を合わせた一覧など)。
+  const orbisSpotsRef = useRef<OrbisSpot[]>([]);
+  const orbisAlertRef = useRef<OrbisAlert | null>(null);
+  const orbisSpokenRef = useRef(new Map<string, number>());
+  const orbisFetchRef = useRef({ busy: false, failedAt: 0 });
+  const lastHeadingRef = useRef<{ heading: number; at: number } | null>(null);
   const weatherLatitude = location ? Number(location.lat.toFixed(2)) : null;
   const weatherLongitude = location ? Number(location.lng.toFixed(2)) : null;
   const weatherLocationKey =
@@ -773,6 +802,39 @@ export default function Home() {
     );
   };
 
+  /**
+   * GPS が届くたびに、進む向きの前方のオービスを探す。300m を切ったら声で1回知らせる。
+   * 止まって向きが分からなくなっても、少しの間は前の向きで見る(信号待ちなど)。
+   * (GPS の見張りは出発のときに1回だけ始めるので、中身は ref に入れておく)
+   */
+  const checkOrbisRef = useRef<(coords: GeolocationCoordinates) => void>(() => undefined);
+  useEffect(() => {
+    checkOrbisRef.current = (coords) => {
+      const now = Date.now();
+      const moving = coords.speed === null || coords.speed * 3.6 >= 3;
+      let heading: number | null =
+        coords.heading !== null && Number.isFinite(coords.heading) && moving ? coords.heading : null;
+      if (heading !== null) {
+        lastHeadingRef.current = { heading, at: now };
+      } else if (lastHeadingRef.current && now - lastHeadingRef.current.at < ORBIS_HEADING_KEEP_MS) {
+        heading = lastHeadingRef.current.heading;
+      }
+      const alert = findOrbisAhead(
+        orbisSpotsRef.current,
+        { lat: coords.latitude, lng: coords.longitude, heading },
+        orbisAlertRef.current,
+        ORBIS_ZOOM_MAX,
+      );
+      orbisAlertRef.current = alert;
+      setOrbisAlert(alert);
+      if (alert?.level !== "warn") return;
+      const spokenAt = orbisSpokenRef.current.get(alert.spot.id) ?? 0;
+      if (now - spokenAt < ORBIS_RESPEAK_MS) return;
+      orbisSpokenRef.current.set(alert.spot.id, now);
+      speakOrbis(orbisMessage(alert));
+    };
+  }, []);
+
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
@@ -807,6 +869,7 @@ export default function Home() {
           };
         });
         setLocationStatus("ready");
+        checkOrbisRef.current(position.coords);
       },
       () =>
         setLocationStatus((current) =>
@@ -1058,11 +1121,13 @@ export default function Home() {
     };
   }, [mapHost, location, mapsApiKey]);
 
+  // オービスに近づいている間は、近づくほど拡大する(通り過ぎたら、選んだ縮尺に戻る)。
+  const retroMapZoom = orbisAlert ? Math.max(retroZoom, orbisAlert.zoom) : retroZoom;
   // 80年代の地図の縮尺を変えたら、地図にも伝える。
   useEffect(() => {
-    retroZoomRef.current = retroZoom;
-    if (mapHost === "retro") greenGmapRef.current?.setZoom(retroZoom);
-  }, [mapHost, retroZoom]);
+    retroZoomRef.current = retroMapZoom;
+    if (mapHost === "retro") greenGmapRef.current?.setZoom(retroMapZoom);
+  }, [mapHost, retroMapZoom]);
   const changeRetroZoom = (step: number) => {
     const next = Math.min(RETRO_ZOOM_MAX, Math.max(RETRO_ZOOM_MIN, retroZoom + step));
     setRetroZoom(next);
@@ -1074,7 +1139,52 @@ export default function Home() {
   };
   // 縮尺の目盛り用: 地図の1点が何mか(今いる所の緯度で。分からなければ大阪)。
   const retroMetersPerPx =
-    (156543.03392 * Math.cos(((location?.lat ?? 34.6937) * Math.PI) / 180)) / 2 ** retroZoom;
+    (156543.03392 * Math.cos(((location?.lat ?? 34.6937) * Math.PI) / 180)) / 2 ** retroMapZoom;
+
+  // --- オービス(レーダー探知機のような警告) ---
+  // 知らせる場所: OpenStreetMap から取った分と、スマホで登録した分(向き付き)。
+  // スマホで登録した場所の近くの OpenStreetMap の分は使わない(登録し直したとみなす)。
+  useEffect(() => {
+    orbisSpotsRef.current = combineOrbisSpots(
+      osmOrbis,
+      settings.orbis.map((point) => ({
+        id: point.id,
+        lat: point.lat,
+        lng: point.lng,
+        limit: point.limit,
+        direction: point.direction,
+        source: "mine" as const,
+      })),
+    );
+  }, [osmOrbis, settings.orbis]);
+  // まわりのオービスを OpenStreetMap から取る。覚えてある分が近くて新しければ取らない。
+  // 約1kmごとに見直す(場所の数字を丸めた値が変わったとき)。
+  const orbisAreaKey =
+    hasStarted && location ? `${location.lat.toFixed(2)},${location.lng.toFixed(2)}` : "";
+  useEffect(() => {
+    if (!orbisAreaKey) return;
+    const [lat, lng] = orbisAreaKey.split(",").map(Number);
+    const state = orbisFetchRef.current;
+    if (state.busy || Date.now() - state.failedAt < OSM_RETRY_MS) return;
+    if (osmCacheFresh(readOsmCache(), { lat, lng }, Date.now())) return;
+    state.busy = true;
+    void fetchOsmOrbis({ lat, lng })
+      .then((spots) => setOsmOrbis(spots))
+      .catch(() => {
+        state.failedAt = Date.now();
+      })
+      .finally(() => {
+        state.busy = false;
+      });
+  }, [orbisAreaKey]);
+  // 画面に触れたら、声と音を出せるようにする(ブラウザは、触れる前は音を出させない)。
+  useEffect(() => {
+    window.addEventListener("pointerdown", unlockOrbisSound);
+    return () => window.removeEventListener("pointerdown", unlockOrbisSound);
+  }, []);
+  // 警告の帯に出す今の速さ: メーターの速さ(OBD)、無ければ GPS の速さ。
+  const orbisSpeed =
+    displaySpeed ?? (location?.speed !== null && location?.speed !== undefined ? Math.round(location.speed) : null);
 
   const hour = new Date().getHours();
   const today = japanDateKey();
@@ -1890,6 +2000,23 @@ export default function Home() {
               data={clusterData}
               mapRef={greenMapElementRef}
               mapReady={greenMapReady}
+              orbis={
+                orbisAlert
+                  ? {
+                      distance: orbisAlert.distance,
+                      east: orbisAlert.east,
+                      north: orbisAlert.north,
+                      level: orbisAlert.level,
+                      limit: orbisAlert.spot.limit,
+                      speed: orbisSpeed,
+                      osm: orbisAlert.spot.source === "osm",
+                      series: orbisAlert.series
+                        ? { index: orbisAlert.series.index, total: orbisAlert.series.total }
+                        : null,
+                      muted: soundLocked(),
+                    }
+                  : null
+              }
               zoom={{
                 metersPerPx: retroMetersPerPx,
                 onIn: retroZoom < RETRO_ZOOM_MAX ? () => changeRetroZoom(1) : null,

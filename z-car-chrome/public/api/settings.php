@@ -29,6 +29,9 @@ const MAP_DESTINATION_COUNT = 5;
 const MAX_DESTINATION_LABEL = 8;
 const MAX_DESTINATION_TEXT = 200;
 const MAX_PLACES = 30;
+/** スマホで登録したオービスの数と、名前の長さ(画面側の MAX_ORBIS_POINTS・MAX_ORBIS_LABEL と同じ)。 */
+const MAX_ORBIS_POINTS = 100;
+const MAX_ORBIS_LABEL = 12;
 const MIN_KEY_LENGTH = 8;
 const MAX_KEY_LENGTH = 128;
 
@@ -189,6 +192,46 @@ if (isset($incoming['places']) && is_array($incoming['places'])) {
         }
     }
     $clean['places'] = $places;
+}
+
+// スマホで登録したオービス。id・緯度・経度が正しいものだけ残す。空の一覧も「全部消した」として受け付ける。
+if (isset($incoming['orbis']) && is_array($incoming['orbis'])) {
+    $points = [];
+    $seen = [];
+    foreach ($incoming['orbis'] as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+        $id = isset($entry['id']) && is_string($entry['id']) ? $entry['id'] : '';
+        if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $id) || isset($seen[$id])) {
+            continue;
+        }
+        $lat = $entry['lat'] ?? null;
+        $lng = $entry['lng'] ?? null;
+        if (!is_int($lat) && !is_float($lat) || !is_int($lng) && !is_float($lng)) {
+            continue;
+        }
+        if (abs((float) $lat) > 90 || abs((float) $lng) > 180) {
+            continue;
+        }
+        $label = isset($entry['label']) && is_string($entry['label']) ? trim($entry['label']) : '';
+        $limit = $entry['limit'] ?? null;
+        // この向き(度。北が0)へ走るときだけ知らせる。空なら両方の向き。
+        $direction = $entry['direction'] ?? null;
+        $seen[$id] = true;
+        $points[] = [
+            'id' => $id,
+            'label' => mb_substr($label, 0, MAX_ORBIS_LABEL, 'UTF-8'),
+            'lat' => (float) $lat,
+            'lng' => (float) $lng,
+            'limit' => is_int($limit) && $limit >= 10 && $limit <= 140 ? $limit : null,
+            'direction' => is_int($direction) && $direction >= 0 && $direction <= 359 ? $direction : null,
+        ];
+        if (count($points) >= MAX_ORBIS_POINTS) {
+            break;
+        }
+    }
+    $clean['orbis'] = $points;
 }
 
 // 給油記録。消す操作が無いので、送られてきた分を検査してから
