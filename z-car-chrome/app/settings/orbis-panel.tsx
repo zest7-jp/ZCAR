@@ -11,9 +11,11 @@ import {
   type OrbisPoint,
 } from "../settings-store";
 import { directionName, OrbisDial } from "./orbis-dial";
+import { townAt } from "./town-name";
 
 /**
- * 足そう(直そう)としている場所。名前・制限速度・走る向きは、欄で直してから保存する。
+ * 足そう(直そう)としている場所。制限速度・走る向きは、欄で直してから保存する。
+ * 名前は打たず、その場所の町名を地図から読んで入れる(読めなければ空)。
  * editId は登録してあるものを直すときの id(新しく足すときは null)。
  */
 type Draft = {
@@ -72,15 +74,17 @@ export function OrbisPanel({
     return () => window.clearTimeout(timer);
   }, [armed]);
 
-  const open = (lat: number, lng: number, label: string, direction: number | null = null) =>
-    setDraft({
-      editId: null,
-      lat,
-      lng,
-      label: Array.from(label).slice(0, MAX_ORBIS_LABEL).join(""),
-      limit: "",
-      direction,
-    });
+  /** 足す欄を開き、その場所の町名を地図から読んで名前にする(読めるまで少しかかる)。 */
+  const open = (lat: number, lng: number, direction: number | null = null) => {
+    setDraft({ editId: null, lat, lng, label: "", limit: "", direction });
+    void townAt(mapsKey, { lat, lng }).then((town) =>
+      setDraft((current) =>
+        current && !current.editId && current.lat === lat && current.lng === lng
+          ? { ...current, label: Array.from(town).slice(0, MAX_ORBIS_LABEL).join("") }
+          : current,
+      ),
+    );
+  };
   /** 登録してあるオービスを直す(名前・制限速度・走る向き)。もう一度押すと閉じる。 */
   const edit = (point: OrbisPoint) =>
     setDraft((current) =>
@@ -113,7 +117,7 @@ export function OrbisPanel({
       onToast(PASTE_NOTES[result.error]);
       return;
     }
-    open(result.lat, result.lng, result.name);
+    open(result.lat, result.lng);
   };
 
   /** このスマホの GPS で、今いる場所を足す(助手席から、通りかかったときなど)。 */
@@ -130,7 +134,7 @@ export function OrbisPanel({
         // 走りながら(助手席で)押したときは、いま走っている向きを、そのオービスの向きにする。
         const { heading, speed } = position.coords;
         const moving = heading !== null && Number.isFinite(heading) && speed !== null && speed >= 2;
-        open(position.coords.latitude, position.coords.longitude, "", moving ? (Math.round(heading / 5) * 5) % 360 : null);
+        open(position.coords.latitude, position.coords.longitude, moving ? (Math.round(heading / 5) * 5) % 360 : null);
       },
       () => {
         setBusy(null);
@@ -205,8 +209,8 @@ export function OrbisPanel({
       <p className="zr-navi-hint">
         車の80年代の地図で、進む向きの前方500mから知らせ、300mで声でも知らせます。OpenStreetMap
         のオービスのほかに、ここに足した場所も使います。Google マップ・Yahoo!マップで場所を選んで
-        「共有」→「コピー」してから、FROM MAPS を押します。走る向き(上り・下り)を決めると、
-        その向きに走るときだけ知らせます。登録した行を押すと直せます。
+        「共有」→「コピー」してから、FROM MAPS を押します。名前は町名が自動で入ります。走る向き
+        (上り・下り)を決めると、その向きに走るときだけ知らせます。登録した行を押すと直せます。
       </p>
       {points.length ? (
         <ul className="zr-places zr-orbis-list">
@@ -274,20 +278,10 @@ export function OrbisPanel({
           }}
         >
           <p className="zr-orbis-at">
-            {draft.editId ? "直す: " : ""}場所 {coordsText(draft.lat, draft.lng)}
+            {draft.editId ? "直す: " : ""}
+            <b>{draft.label || "オービス"}</b>
+            <small>{coordsText(draft.lat, draft.lng)}</small>
           </p>
-          <label className="zr-field zr-field-wide">
-            <span>名前({MAX_ORBIS_LABEL}文字まで)</span>
-            <div>
-              <input
-                type="text"
-                value={draft.label}
-                maxLength={MAX_ORBIS_LABEL}
-                placeholder="例: 中央環状"
-                onChange={(event) => setDraft({ ...draft, label: event.target.value })}
-              />
-            </div>
-          </label>
           <label className="zr-field zr-field-wide">
             <span>制限速度(km/h。分かれば)</span>
             <div>

@@ -7864,11 +7864,28 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-dial-ring line { stroke: rgba(var(--zr-accent-rgb), .75); stroke-width: 1.4; }
 .zr-dial-ring line.is-long { stroke: var(--zr-accent-strong); stroke-width: 2.4; }
 .zr-dial-ring text { fill: var(--zr-accent-strong); font-size: 14px; font-weight: 900; paint-order: stroke; stroke: rgba(0, 0, 0, .8); stroke-width: 3px; }
-.zr-dial-needle line { stroke: var(--zr-amber, #ffb02e); stroke-width: 5; stroke-linecap: round; }
-.zr-dial-needle path { fill: var(--zr-amber, #ffb02e); }
-.zr-dial-needle { filter: drop-shadow(0 0 5px rgba(255, 176, 46, .9)); }
-.zr-dial-both path { fill: rgba(var(--zr-accent-rgb), .8); }
-.zr-dial-both line { stroke: rgba(var(--zr-accent-rgb), .6); stroke-width: 3; stroke-dasharray: 6 5; }
+/* 外から点へ流れる山形(›››)。外側から順に光る。両方の向きは水色。 */
+.zr-dial-flow {
+  fill: none;
+  stroke: var(--zr-amber, #ffb02e);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgba(255, 176, 46, .9));
+}
+.zr-dial-flow.is-both { stroke: var(--zr-accent-strong); filter: drop-shadow(0 0 4px rgba(var(--zr-accent-rgb), .8)); }
+.zr-dial-flow polyline { animation: zr-dial-flow 1.2s linear infinite; }
+.zr-dial-flow polyline:nth-child(2) { animation-delay: .2s; }
+.zr-dial-flow polyline:nth-child(3) { animation-delay: .4s; }
+@keyframes zr-dial-flow {
+  0%, 100% { opacity: .3; }
+  30% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zr-dial-flow polyline { animation: none; }
+  .zr-dial-flow polyline:nth-child(1) { opacity: .35; }
+  .zr-dial-flow polyline:nth-child(2) { opacity: .65; }
+}
 .zr-dial-spot { fill: rgba(40, 0, 0, .9); stroke: #ff3c3c; stroke-width: 3; filter: drop-shadow(0 0 4px #ff3c3c); }
 .zr-dial-keys { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8px; margin-bottom: 8px; }
 .zr-dial-keys button {
@@ -7885,7 +7902,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .zr-dial-keys button[aria-pressed="true"] { border-color: var(--zr-amber, #ffb02e); background: rgba(255, 176, 46, .12); color: #ffc65e; }
 .zr-dial-text { margin: 0; color: var(--zr-amber, #ffb02e); font-size: 13px; font-weight: 800; text-align: center; }
 .zr-orbis-empty { margin: 4px 2px 12px; color: var(--zr-muted); font-size: 13px; }
-.zr-orbis-at { margin: 0 0 8px; color: var(--zr-accent-strong); font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; font-weight: 700; }
+/* 足す(直す)欄の上: 名前(町名)と場所(緯度・経度)。 */
+.zr-orbis-at { display: grid; gap: 3px; margin: 0 0 10px; color: var(--zr-accent-strong); font-size: 13px; font-weight: 700; }
+.zr-orbis-at b { color: var(--zr-ink); font-size: 16px; font-weight: 800; }
+.zr-orbis-at small { color: var(--zr-muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
 .zr-orbis-error { margin: 0 0 8px; color: #e79a8f; font-size: 12px; font-weight: 700; }
 .zr-orbis-editor { margin-bottom: 12px; }
 /* 目的地の「並び替え」キー(見出しの右)。並び替えている間は「完了」(琥珀色)。 */
