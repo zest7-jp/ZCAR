@@ -9049,6 +9049,88 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
 .zr-park-state.is-parked,
 .zr-park-pin.is-parked { --zr-state: #8a8a8a; --zr-state-rgb: 138, 138, 138; }
 
+/* 駐車中のスマホ(あなた)の今いる場所: iPhone の地図と同じ青い点。薄い輪と、歩いている向きの扇。 */
+.zr-park-you { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; }
+.zr-park-you-halo {
+  position: absolute;
+  left: -26px;
+  top: -26px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(66, 150, 255, .2);
+  animation: zr-you-halo 2.4s ease-in-out infinite;
+}
+@keyframes zr-you-halo {
+  50% { transform: scale(1.25); opacity: .55; }
+}
+.zr-park-you-cone {
+  position: absolute;
+  left: -34px;
+  top: -62px;
+  display: none;
+  width: 68px;
+  height: 62px;
+  background: linear-gradient(to top, rgba(66, 150, 255, .85), rgba(66, 150, 255, 0));
+  clip-path: polygon(50% 100%, 6% 0, 94% 0);
+  transform: rotate(var(--zr-you-heading, 0deg));
+  transform-origin: 50% 100%;
+}
+.zr-park-you.has-heading .zr-park-you-cone { display: block; }
+.zr-park-you-dot {
+  position: absolute;
+  left: -11px;
+  top: -11px;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #2f8bff;
+  box-shadow: 0 0 10px rgba(66, 150, 255, .9), 0 1px 4px rgba(0, 0, 0, .5);
+}
+.zr-park-you-label {
+  position: absolute;
+  left: 0;
+  top: -46px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(2, 8, 6, .85);
+  color: #8fc4ff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+/* 地図の左下: 「車まで 350m・歩いて約5分」。Google のロゴの上。 */
+.zr-park-you-gap {
+  position: absolute;
+  left: 12px;
+  bottom: 38px;
+  z-index: 3;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  padding: 7px 12px;
+  border: 1.5px solid rgba(var(--zr-accent-rgb), .6);
+  border-radius: 12px;
+  background: rgba(2, 8, 6, .88);
+  pointer-events: none;
+}
+.zr-park-you-gap small { color: var(--zr-muted); font-size: 12px; font-weight: 700; }
+.zr-park-you-gap b {
+  color: var(--zr-accent-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(var(--zr-accent-rgb), .7);
+}
+@media (prefers-reduced-motion: reduce) {
+  .zr-park-you-halo { animation: none; }
+}
 /* 地図の上の車の印(地図の部品の中に置かれる)。真ん中に状態の八卦。 */
 .zr-park-pin {
   position: absolute;

@@ -19,6 +19,14 @@ const PARK_RETRY_MS = 5_000;
 const LIVE_MS = 3 * 60_000;
 /** 地図の寄り具合(駐車場の中で車を探せるくらい)。 */
 const PARK_MAP_ZOOM = 17;
+/**
+ * 駐車中に出すスマホ(あなた)の今いる場所: 車からこれ(m)より近ければ、車を真ん中にして
+ * 寄った地図のまま。遠ければ、車とスマホの両方が入る広さにする。
+ */
+const YOU_NEAR_METERS = 40;
+/** 「歩いて約5分」の歩く速さ(m/分。不動産の広告と同じ 80m)。これ(m)より遠ければ歩く時間は出さない。 */
+const WALK_METERS_PER_MIN = 80;
+const WALK_MAX_METERS = 3000;
 /** 印を次の位置まで動かす時間(iPhone の GPS はおよそ1秒ごと)。 */
 const MOVE_MS = 900;
 /** これより遠くへ飛んだときは、動かさずにすぐ移す(m)。 */
@@ -223,6 +231,8 @@ type GMap = {
   panTo: (point: LatLng) => void;
   setCenter: (point: LatLng) => void;
   setZoom: (zoom: number) => void;
+  getZoom: () => number | undefined;
+  fitBounds: (bounds: unknown, padding?: number | Record<string, number>) => void;
   setMapTypeId: (id: string) => void;
   setOptions: (options: Record<string, unknown>) => void;
   addListener: (eventName: string, handler: () => void) => unknown;
@@ -236,6 +246,7 @@ type GOverlay = {
   getPanes: () => { overlayMouseTarget: HTMLElement } | null;
   getProjection: () => {
     fromLatLngToDivPixel: (point: unknown) => { x: number; y: number } | null;
+    fromLatLngToContainerPixel?: (point: unknown) => { x: number; y: number } | null;
   } | null;
 };
 type GeocodeResult = {
@@ -247,6 +258,7 @@ type MapsApi = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GMap;
   LatLng: new (lat: number, lng: number) => unknown;
   OverlayView: new () => GOverlay;
+  LatLngBounds: new () => { extend: (point: LatLng) => void };
   Circle: new (options: Record<string, unknown>) => GCircle;
   /** 住所を調べる部品(Google の Geocoding API が使えるときだけ答えが返る)。 */
   Geocoder?: new () => {
@@ -308,6 +320,67 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
     }
   }
   return new Pin() as CarPin;
+};
+
+type YouPin = GOverlay & {
+  moveTo: (point: LatLng) => void;
+  /** 歩いている向き(北が0、時計回りの度)。止まっていて分からなければ null(扇を隠す)。 */
+  setHeading: (degrees: number | null) => void;
+  /** いま地図に出しているか。 */
+  shown: boolean;
+};
+
+/**
+ * 駐車中に出す、スマホ(あなた)の今いる場所の青い点(iPhone の地図と同じ形)。
+ * まわりの薄い輪と、歩いている向きの扇、上に「あなた」。
+ * 地図(80年代は緑っぽく色づけしてある)の外の layer に置くので、どのテーマでも青く見える。
+ * 地図を動かすたびに draw が呼ばれるので、そのつど地図の上の位置に置き直す。
+ */
+const createYouPin = (maps: MapsApi, position: LatLng, layer: HTMLElement): YouPin => {
+  const element = document.createElement("div");
+  element.className = "zr-park-you";
+  element.innerHTML =
+    '<i class="zr-park-you-halo"></i>' +
+    '<i class="zr-park-you-cone"></i>' +
+    '<span class="zr-park-you-dot"></span>' +
+    '<b class="zr-park-you-label">あなた</b>';
+  const Base = maps.OverlayView as unknown as new () => GOverlay;
+  class Pin extends Base {
+    private point = position;
+    shown = false;
+    onAdd() {
+      layer.appendChild(element);
+    }
+    draw() {
+      const pixel = this.getProjection()?.fromLatLngToContainerPixel?.(
+        new maps.LatLng(this.point.lat, this.point.lng),
+      );
+      if (!pixel) return;
+      element.style.left = `${pixel.x}px`;
+      element.style.top = `${pixel.y}px`;
+    }
+    onRemove() {
+      element.remove();
+    }
+    moveTo(point: LatLng) {
+      this.point = point;
+      this.draw();
+    }
+    setHeading(degrees: number | null) {
+      element.classList.toggle("has-heading", degrees !== null);
+      if (degrees !== null) element.style.setProperty("--zr-you-heading", `${Math.round(degrees)}deg`);
+    }
+  }
+  return new Pin() as YouPin;
+};
+
+/** 「車まで 350m・歩いて約5分」の距離と時間。すぐ近くなら null(「車のすぐ近くです」)。 */
+const walkText = (meters: number) => {
+  if (meters < 15) return null;
+  const distance =
+    meters >= 1000 ? `${(meters / 1000).toFixed(1)}km` : `${Math.round(meters / 10) * 10}m`;
+  const minutes = Math.max(1, Math.round(meters / WALK_METERS_PER_MIN));
+  return { distance, walk: meters <= WALK_MAX_METERS ? `歩いて約${minutes}分` : null };
 };
 
 /** 日本時間の「18:32」。 */
@@ -480,10 +553,19 @@ export function CarLocationPanel({
   const [satellite, setSatellite] = useState(false);
   const mapElementRef = useRef<HTMLDivElement>(null);
   // styles は配色に合わせた地図の色(航空写真から戻すときに使う)。
-  const mapRef = useRef<{ map: GMap; pin: CarPin; circle: GCircle; styles: unknown[] } | null>(null);
+  const mapRef = useRef<{
+    map: GMap;
+    pin: CarPin;
+    circle: GCircle;
+    styles: unknown[];
+    api: MapsApi;
+    you: YouPin | null;
+  } | null>(null);
+  // 車とスマホの両方が入る広さに合わせたときの、車とスマホの間の距離(大きく変わったら合わせ直す)。
+  const fitRef = useRef<number | null>(null);
   const [mapCreated, setMapCreated] = useState(false);
   const satelliteRef = useRef(satellite);
-  // iPhone の GPS(車の電源が入っている間だけ追う)。
+  // iPhone の GPS(車の電源が入っている間と駐車中に追う。この画面に出すだけで、どこにも送らない)。
   const [phoneFix, setPhoneFix] = useState<PhoneFix | null>(null);
   // 地図が車を追いかけているか(指で地図を動かしたら止め、照準のボタンで戻す)。
   const [following, setFollowing] = useState(true);
@@ -573,8 +655,10 @@ export function CarLocationPanel({
 
   // 車の電源が入っている間は、iPhone の GPS で車の位置を毎秒追う。
   // しばらく届かなければ(電波・許可が無いなど)使わず、車から届いた位置に戻す。
+  // 駐車中も追って、地図にスマホ(あなた)の今いる場所を出す。
+  const hasPark = park !== null;
   useEffect(() => {
-    if (!live || !navigator.geolocation) return;
+    if (!hasPark || !navigator.geolocation) return;
     let stale = 0;
     let motion: PhoneMotion | null = null;
     let last: PhoneFix | null = null;
@@ -630,7 +714,7 @@ export function CarLocationPanel({
       navigator.geolocation.clearWatch(watch);
       window.clearTimeout(stale);
     };
-  }, [live]);
+  }, [hasPark]);
 
   // iPhone が車の中にあれば、iPhone の GPS を車の位置にする。
   const phoneInCar = live && phoneFix !== null && park !== null && isPhoneInCar(phoneFix, park, clock);
@@ -709,7 +793,7 @@ export function CarLocationPanel({
           followRef.current = false;
           setFollowing(false);
         });
-        mapRef.current = { map, pin, circle, styles: look.styles };
+        mapRef.current = { map, pin, circle, styles: look.styles, api, you: null };
         setMapCreated(true);
         api.event.addListenerOnce(map, "tilesloaded", () => setMapState("ready"));
       })
@@ -738,7 +822,7 @@ export function CarLocationPanel({
       shownRef.current = point;
       current.pin.moveTo(point);
       current.circle.setCenter(point);
-      if (followRef.current) current.map.setCenter(point);
+      if (followRef.current && !current.you?.shown) current.map.setCenter(point);
       if (t < 1) frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);
@@ -759,16 +843,80 @@ export function CarLocationPanel({
     current.map.setMapTypeId(satellite ? "hybrid" : "roadmap");
   }, [satellite]);
 
-  /** 照準のボタン: 車の位置に戻して、また追いかける。 */
+  /**
+   * 車とスマホ(あなた)の両方が入る広さにする。すぐ近くなら車を真ん中にして寄せたまま。
+   * 間の距離があまり変わっていなければ(歩いている途中など)、合わせ直さない。
+   */
+  const fitBoth = (car: LatLng, you: LatLng, force = false) => {
+    const current = mapRef.current;
+    if (!current) return;
+    const gap = distanceMeters(car, you);
+    const last = fitRef.current;
+    if (!force && last !== null && Math.abs(gap - last) < Math.max(20, last * 0.25)) return;
+    fitRef.current = gap;
+    if (gap < YOU_NEAR_METERS) {
+      current.map.setCenter(car);
+      current.map.setZoom(PARK_MAP_ZOOM);
+      return;
+    }
+    const bounds = new current.api.LatLngBounds();
+    bounds.extend(car);
+    bounds.extend(you);
+    current.map.fitBounds(bounds, { top: 90, bottom: 80, left: 50, right: 50 });
+    // 近いときに寄りすぎないように、ふだんの縮尺より大きくはしない。
+    current.api.event.addListenerOnce(current.map, "idle", () => {
+      if ((current.map.getZoom() ?? 0) > PARK_MAP_ZOOM) current.map.setZoom(PARK_MAP_ZOOM);
+    });
+  };
+
+  // 駐車中は、スマホ(あなた)の今いる場所を青い点で出す(GPS は画面に出すだけで、送らない)。
+  const you = status === "parked" && phoneFix ? phoneFix : null;
+  const youLat = you?.lat;
+  const youLng = you?.lng;
+  const youHeading = you?.heading ?? null;
+  useEffect(() => {
+    const current = mapRef.current;
+    if (!mapCreated || !current) return;
+    if (youLat === undefined || youLng === undefined) {
+      if (current.you?.shown) {
+        current.you.setMap(null);
+        current.you.shown = false;
+        fitRef.current = null;
+        // 青い点を消したら、また車を真ん中にする(追いかけている間)。
+        if (followRef.current && shownRef.current) current.map.setCenter(shownRef.current);
+      }
+      return;
+    }
+    const point = { lat: youLat, lng: youLng };
+    const layer = mapElementRef.current?.parentElement;
+    if (!layer) return;
+    current.you ??= createYouPin(current.api, point, layer);
+    current.you.moveTo(point);
+    current.you.setHeading(youHeading);
+    if (!current.you.shown) {
+      current.you.setMap(current.map);
+      current.you.shown = true;
+    }
+    if (followRef.current && shownRef.current) fitBoth(shownRef.current, point);
+  }, [mapCreated, youLat, youLng, youHeading]);
+
+  /** 照準のボタン: 車の位置に戻して(駐車中でスマホの場所が分かれば両方が入る広さにして)、また追いかける。 */
   const recenter = () => {
     const current = mapRef.current;
     const point = shownRef.current;
     if (!current || !point) return;
     followRef.current = true;
     setFollowing(true);
+    if (current.you?.shown && youLat !== undefined && youLng !== undefined) {
+      fitBoth(point, { lat: youLat, lng: youLng }, true);
+      return;
+    }
     current.map.panTo(point);
     current.map.setZoom(PARK_MAP_ZOOM);
   };
+  // 「車まで 350m・歩いて約5分」(駐車中でスマホの場所が分かるとき)。
+  const youGap = you && park ? distanceMeters(you, park) : null;
+  const youWalk = youGap === null ? null : walkText(youGap);
 
   /**
    * 「現在地を登録」: いまの車の位置を、目的地の一覧(地点リスト)に足す。車の LIST(目的地を選ぶ)にも届く。
@@ -883,6 +1031,19 @@ export function CarLocationPanel({
             </div>
           )}
           {failed && loaded ? <i className="zr-park-offline">NO SIGNAL</i> : null}
+          {youGap !== null ? (
+            <p className="zr-park-you-gap" role="status">
+              {youWalk ? (
+                <>
+                  <small>車まで</small>
+                  <b>{youWalk.distance}</b>
+                  {youWalk.walk ? <small>・{youWalk.walk}</small> : null}
+                </>
+              ) : (
+                <small>車のすぐ近くです</small>
+              )}
+            </p>
+          ) : null}
         </div>
         {park ? (
           <div className="zr-park-facts">
@@ -998,6 +1159,7 @@ export function CarLocationPanel({
         {phoneInCar
           ? "この iPhone の GPS で車の位置を動かしています。"
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
+        {you ? "青い点は、このスマホの今いる場所です。" : null}
         {carOn ? `登録した場所は、目的地として車の ${look === "retro" ? "LIST" : "DEST"} から選べます。` : null}
       </p>
       {vehicleOpen ? (
