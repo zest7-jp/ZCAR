@@ -33,10 +33,11 @@ const SAME_SPOT_METERS = 30;
 /** Google マップのコピーを読めなかったときの案内。 */
 const PASTE_NOTES: Record<PlaceImportError | "clipboard", string> = {
   clipboard: "貼り付けできませんでした。もう一度押して「ペースト」を選んでください",
-  empty: "コピーされていません。Google マップか Yahoo!マップで場所を選んで「共有」→「コピー」を押してください",
+  empty: "コピーされていません。Google マップで場所を選んで「共有」→「コピー」を押してください",
   unlinked: "車とつなぐと、地図の短いリンクから読み取れます",
   unreadable: "場所(緯度・経度)を読み取れませんでした。地図で場所を長押ししてからコピーしてください",
   network: "読み取れませんでした。電波のよい所でもう一度押してください",
+  notmaps: "Google マップのリンクだけ読めます。Google マップで「共有」→「コピー」してください",
 };
 
 /** 緯度・経度の見せ方(小数5けた ≒ 1m)。 */
@@ -44,7 +45,7 @@ const coordsText = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFix
 
 /**
  * スマホで登録するオービス(目的地のタブの下)。車の80年代の地図で、OpenStreetMap の
- * オービスと一緒に知らせる。Google マップ・Yahoo!マップのコピーか、今いる場所から足す。車にも届く。
+ * オービスと一緒に知らせる。Google マップのコピーか、今いる場所から足す。車にも届く。
  */
 export function OrbisPanel({
   points,
@@ -100,7 +101,7 @@ export function OrbisPanel({
           },
     );
 
-  /** Google マップ・Yahoo!マップで「共有」→「コピー」した場所(か「34.76,135.62」のような数字)を読む。 */
+  /** Google マップで「共有」→「コピー」した場所(か「34.76,135.62」のような数字)を読む。 */
   const pastePoint = async () => {
     if (busy) return;
     let copied = "";
@@ -208,7 +209,7 @@ export function OrbisPanel({
       </header>
       <p className="zr-navi-hint">
         車の80年代の地図で、進む向きの前方500mから知らせ、300mで声でも知らせます。OpenStreetMap
-        のオービスのほかに、ここに足した場所も使います。Google マップ・Yahoo!マップで場所を選んで
+        のオービスのほかに、ここに足した場所も使います。Google マップで場所を選んで
         「共有」→「コピー」してから、FROM MAPS を押します。名前は町名が自動で入ります。走る向き
         (上り・下り)を決めると、その向きに走るときだけ知らせます。登録した行を押すと直せます。
       </p>

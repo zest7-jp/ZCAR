@@ -18,7 +18,7 @@ export type PlaceDraft = { label: string; destination: string };
 export type TripDraft = PlaceDraft & { lat: number | null; lng: number | null };
 
 /** 読めなかった理由。画面の案内を変えるのに使う。 */
-export type PlaceImportError = "empty" | "unlinked" | "unreadable" | "network";
+export type PlaceImportError = "empty" | "unlinked" | "unreadable" | "network" | "notmaps";
 
 type ReadPlace = { name: string; address: string; lat: number | null; lng: number | null };
 
@@ -107,7 +107,7 @@ const readLinkedPlace = async (
   key: string,
   text: string,
 ): Promise<{ ok: true; place: ReadPlace } | { ok: false; error: PlaceImportError }> => {
-  let result: { ok?: boolean; name?: unknown; address?: unknown; lat?: unknown; lng?: unknown };
+  let result: { ok?: boolean; error?: unknown; name?: unknown; address?: unknown; lat?: unknown; lng?: unknown };
   try {
     const response = await fetch(PLACE_ENDPOINT, {
       method: "POST",
@@ -120,7 +120,8 @@ const readLinkedPlace = async (
   } catch {
     return failed("network");
   }
-  if (result.ok !== true) return failed("unreadable");
+  // Google マップ(maps.app.goo.gl など)ではないリンク(Yahoo!マップなど)は読まない。
+  if (result.ok !== true) return failed(result.error === "not google maps" ? "notmaps" : "unreadable");
   const number = (value: unknown) =>
     typeof value === "number" && Number.isFinite(value) ? value : null;
   return {
@@ -139,33 +140,14 @@ export type PointImport =
   | { ok: true; name: string; lat: number; lng: number }
   | { ok: false; error: PlaceImportError };
 
-/** Yahoo!マップのアドレス(…?lat=緯度&lon=経度)から場所を読む。無ければ null。 */
-export const readLinkCoords = (text: string) => {
-  const link = LINK.exec(text)?.[0];
-  if (!link) return null;
-  try {
-    const url = new URL(link);
-    const lat = url.searchParams.get("lat");
-    const lng = url.searchParams.get("lon") ?? url.searchParams.get("lng");
-    if (lat === null || lng === null || lat.trim() === "" || lng.trim() === "") return null;
-    const point = { lat: Number(lat), lng: Number(lng) };
-    return Number.isFinite(point.lat) && Number.isFinite(point.lng) && Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180
-      ? point
-      : null;
-  } catch {
-    return null;
-  }
-};
-
 /**
- * コピーした内容から、場所(緯度・経度)を読む。「34.76,135.62」のような数字、
- * 場所の入った Yahoo!マップのアドレス、Google マップ・Yahoo!マップの短いリンク(サーバーでたどる)。
- * 名前も読めれば返す。
+ * コピーした内容から、場所(緯度・経度)を読む。「34.76,135.62」のような数字か、
+ * Google マップのリンク(サーバーでたどる)。名前も読めれば返す。
  */
 export const readCopiedPoint = async (key: string, copied: string): Promise<PointImport> => {
   const text = copied.trim();
   if (!text) return failed("empty");
-  const coords = readCoords(text.replace(/[()]/g, "")) ?? readLinkCoords(text);
+  const coords = readCoords(text.replace(/[()]/g, ""));
   if (coords) return { ok: true, name: "", ...coords };
   if (!LINK.test(text)) return failed("unreadable");
   if (!key) return failed("unlinked");
