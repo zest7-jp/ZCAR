@@ -1151,7 +1151,7 @@ export function CarLocationPanel({
                 {clock > 0
                   ? elapsedParts(clock - shownAt).map(([value, unit]) => (
                       <span key={unit}>
-                        {segNumber(String(value), 46)}
+                        {segNumber(String(value), 30)}
                         <em>{unit}</em>
                       </span>
                     ))
@@ -1163,7 +1163,7 @@ export function CarLocationPanel({
                 <dt>{shownLabel}</dt>
                 {/* 日付は時刻の下に置く(横に並べると、iPhone では右の端で切れるため)。 */}
                 <dd className="is-when">
-                  {segNumber(clockText(shownAt), 18)}
+                  {segNumber(clockText(shownAt), 16)}
                   <small>{sameDay ? "今日" : dateText(shownAt)}</small>
                 </dd>
               </div>
@@ -1171,7 +1171,7 @@ export function CarLocationPanel({
                 <div>
                   <dt>速度</dt>
                   <dd>
-                    {segNumber(String(Math.round(kmh)), 18)}
+                    {segNumber(String(Math.round(kmh)), 16)}
                     <em>km/h</em>
                   </dd>
                 </div>
@@ -1179,7 +1179,7 @@ export function CarLocationPanel({
                 <div>
                   <dt>誤差</dt>
                   <dd>
-                    ±{segNumber(String(Math.round(shownAccuracy)), 18)}
+                    ±{segNumber(String(Math.round(shownAccuracy)), 16)}
                     <em>m</em>
                   </dd>
                 </div>
