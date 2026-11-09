@@ -32,6 +32,8 @@ const MAX_PLACES = 30;
 /** スマホで登録したオービスの数と、名前の長さ(画面側の MAX_ORBIS_POINTS・MAX_ORBIS_LABEL と同じ)。 */
 const MAX_ORBIS_POINTS = 100;
 const MAX_ORBIS_LABEL = 12;
+/** 今回だけの行き先の名前の長さ(画面側の MAX_TRIP_LABEL と同じ)。 */
+const MAX_TRIP_LABEL = 20;
 const MIN_KEY_LENGTH = 8;
 const MAX_KEY_LENGTH = 128;
 
@@ -232,6 +234,34 @@ if (isset($incoming['orbis']) && is_array($incoming['orbis'])) {
         }
     }
     $clean['orbis'] = $points;
+}
+
+// 今回だけの行き先(一度きり。目的地の一覧には足さない)。null は「消した」(着いた・取り消した)。
+if (array_key_exists('trip', $incoming)) {
+    $trip = $incoming['trip'];
+    if ($trip === null) {
+        $clean['trip'] = null;
+    } elseif (is_array($trip)) {
+        $id = isset($trip['id']) && is_string($trip['id']) ? $trip['id'] : '';
+        $label = isset($trip['label']) && is_string($trip['label']) ? trim($trip['label']) : '';
+        $target = isset($trip['destination']) && is_string($trip['destination']) ? trim($trip['destination']) : '';
+        $sentAt = $trip['sentAt'] ?? null;
+        $lat = $trip['lat'] ?? null;
+        $lng = $trip['lng'] ?? null;
+        $hasPoint = (is_int($lat) || is_float($lat)) && (is_int($lng) || is_float($lng))
+            && abs((float) $lat) <= 90 && abs((float) $lng) <= 180;
+        if (preg_match('/^[A-Za-z0-9_-]{1,40}$/', $id) && $target !== ''
+            && (is_int($sentAt) || is_float($sentAt)) && $sentAt > 0) {
+            $clean['trip'] = [
+                'id' => $id,
+                'label' => mb_substr($label, 0, MAX_TRIP_LABEL, 'UTF-8'),
+                'destination' => mb_substr($target, 0, MAX_DESTINATION_TEXT, 'UTF-8'),
+                'lat' => $hasPoint ? (float) $lat : null,
+                'lng' => $hasPoint ? (float) $lng : null,
+                'sentAt' => (int) $sentAt,
+            ];
+        }
+    }
 }
 
 // 給油記録。消す操作が無いので、送られてきた分を検査してから

@@ -3,7 +3,9 @@
  * Z CAR 目的地をショートカットから送る (エックスサーバー上の PHP で動きます)
  *
  * iPhone の「ショートカット」アプリから、Google マップで共有した場所を受け取り、
- * 車とスマホの目的地の一覧に足します(車にも自動で届きます)。
+ * 「今回だけ」の行き先にします(車にも自動で届きます)。目的地の一覧には足しません
+ * (食事のお店など一度きりの所。残したいときは、スマホの Z CAR の「登録する」)。
+ * 車の START がそこへ案内し、着いたら消えて、START は★の場所に戻ります。
  *
  * 1. 鍵を作る(スマホの Z CAR が呼ぶ。POST・JSON):
  *      {"key":"同期の合言葉","issue":true}  ->  {"ok":true,"token":"…"}
@@ -12,7 +14,7 @@
  *      share.php?k=鍵   本文 {"text":"共有された内容"}(キーの名前は問わない)
  *      ->  通知にそのまま出す文(text/plain)
  *
- * この鍵でできるのは目的地を足すことだけです(給油記録や目的地を読むことはできません)。
+ * この鍵でできるのは今回だけの行き先を送ることだけです(給油記録や目的地を読むことはできません)。
  * サーバーには鍵そのものは置かず、ハッシュだけを置きます。
  */
 
@@ -24,8 +26,8 @@ const MAX_BODY_BYTES = 8192;
 const MAX_TEXT_LENGTH = 2000;
 const MIN_KEY_LENGTH = 8;
 const MAX_KEY_LENGTH = 128;
-/** 目的地の上限(settings.php・スマホと同じ)。 */
-const MAX_PLACES = 30;
+/** 今回だけの行き先の名前の長さ(settings.php・スマホと同じ)。 */
+const MAX_TRIP_LABEL = 20;
 
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -148,39 +150,33 @@ $place = resolvePlace($text);
 if ($place === 'no link' || $place === 'not google maps') {
     reply('Google マップの場所を共有してください。');
 }
-$entry = is_array($place) ? placeEntry($place) : null;
+$entry = is_array($place) ? placeEntry($place, MAX_TRIP_LABEL) : null;
 if ($entry === null) {
     reply('場所を読み取れませんでした。Z CAR の目的地の「FROM MAPS」でも試してください。');
 }
 
-// 目的地の一覧に足す。
+// 今回だけの行き先にする(前に送った分は、新しいものに替わる)。
 $stored = json_decode((string) file_get_contents($settingsFile), true);
 if (!is_array($stored) || !is_array($stored['settings'] ?? null)) {
     reply('Z CAR の設定を読めませんでした。Z CAR を一度開いてから送ってください。');
 }
 $settings = $stored['settings'];
-if (!isset($settings['places']) || !is_array($settings['places'])) {
-    // 前の版の1〜5の枠しか無いときは、Z CAR が一覧に移してから足す。
-    reply('Z CAR を一度開いてから送ってください。');
-}
-$places = $settings['places'];
-foreach ($places as $existing) {
-    if (is_array($existing) && ($existing['destination'] ?? '') === $entry['destination']) {
-        reply("「{$entry['label']}」は、もう目的地にあります。");
-    }
-}
-if (count($places) >= MAX_PLACES) {
-    reply('目的地がいっぱいです(' . MAX_PLACES . '件まで)。Z CAR で減らしてから送ってください。');
-}
-$places[] = [
-    'id' => 'share-' . base_convert((string) time(), 10, 36) . bin2hex(random_bytes(3)),
+$now = (int) round(microtime(true) * 1000);
+$lat = $place['lat'] ?? null;
+$lng = $place['lng'] ?? null;
+$hasPoint = (is_int($lat) || is_float($lat)) && (is_int($lng) || is_float($lng));
+$settings['trip'] = [
+    'id' => 't' . base_convert((string) time(), 10, 36) . bin2hex(random_bytes(3)),
     'label' => $entry['label'],
     'destination' => $entry['destination'],
+    // 着いたかを見るための場所(分からなければ null。車は12時間で消す)。
+    'lat' => $hasPoint ? (float) $lat : null,
+    'lng' => $hasPoint ? (float) $lng : null,
+    'sentAt' => $now,
 ];
-$settings['places'] = $places;
 
 $payload = json_encode(
-    ['updatedAt' => (int) round(microtime(true) * 1000), 'settings' => $settings],
+    ['updatedAt' => $now, 'settings' => $settings],
     JSON_UNESCAPED_UNICODE,
 );
 // 上書きする前の内容を1世代だけ控えておく(settings.php と同じ)。
@@ -191,4 +187,4 @@ if ($payload === false || !writeAtomic($settingsFile, $payload)) {
     reply('保存できませんでした。少しあとで、もう一度送ってください。');
 }
 
-reply("「{$entry['label']}」を目的地に追加しました。車にも届きます。");
+reply("「{$entry['label']}」を今回だけの行き先にしました。車の START で案内します。");

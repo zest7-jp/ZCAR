@@ -13,11 +13,13 @@ import {
   legacyStopsBase,
   mergeChangedOrbis,
   mergeChangedPlaces,
+  mergeChangedTrip,
   mergeFuelEntries,
   MIN_SYNC_KEY_LENGTH,
   pushFuelEntries,
   pushSyncedFields,
   sanitizeSyncedSettings,
+  sanitizeTrip,
   SHARED_EDIT_FIELDS,
   type FuelEntry,
   type NavPlace,
@@ -148,8 +150,15 @@ export function useSharedSync({
           if (changedHere) {
             // 比べる元(前回そろっていた内容)は変えない。送るときに、もう片方の
             // 変更と重ね合わせるため。元が分からない初回は、目的地を空から
-            // 足し合わせる(どちらで足した場所も消さない)。
-            nextBase[field] = base ? base[field] : field === "places" || field === "orbis" ? "[]" : remoteJson;
+            // 足し合わせる(どちらで足した場所も消さない)。今回だけの行き先も、
+            // 初回は「無かった」ことにして、サーバーに届いている分を消さない。
+            nextBase[field] = base
+              ? base[field]
+              : field === "places" || field === "orbis"
+                ? "[]"
+                : field === "trip"
+                  ? "null"
+                  : remoteJson;
           } else {
             Object.assign(take, { [field]: remote });
             nextBase[field] = remoteJson;
@@ -237,8 +246,8 @@ export function useSharedSync({
       setStatus((now) => ({ ...now, state: "syncing" }));
       let fields = changed;
       // 目的地・オービスの一覧は、もう片方で足した・直したものを消さないよう、
-      // 最新に自分の変更だけ重ねる。
-      if (changed.places || changed.orbis) {
+      // 最新に自分の変更だけ重ねる。今回だけの行き先も、新しく届いたものを古い「消した」で消さない。
+      if (changed.places || changed.orbis || "trip" in changed) {
         try {
           const latest = sanitizeSyncedSettings((await fetchSharedSettings(syncKey)).settings);
           if (changed.places) {
@@ -259,6 +268,15 @@ export function useSharedSync({
             fields = { ...fields, orbis: merged };
             if (JSON.stringify(merged) !== JSON.stringify(changed.orbis)) {
               setSettings((now) => ({ ...now, orbis: merged }));
+            }
+          }
+          if ("trip" in changed) {
+            const mine = changed.trip ?? null;
+            const before = base.values.trip ? sanitizeTrip(JSON.parse(base.values.trip)) : null;
+            const merged = mergeChangedTrip(mine, before, latest.trip);
+            fields = { ...fields, trip: merged };
+            if (JSON.stringify(merged) !== JSON.stringify(mine)) {
+              setSettings((now) => ({ ...now, trip: merged }));
             }
           }
         } catch {

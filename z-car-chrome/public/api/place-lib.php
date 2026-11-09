@@ -218,10 +218,10 @@ function resolvePlace(string $text)
 const PIN_LABEL = '地図の場所';
 
 /**
- * 読んだ場所から、目的地の名前(8文字まで)と行き先を作る。
+ * 読んだ場所から、目的地の名前(ふつうは8文字まで)と行き先を作る。
  * 名前と住所があれば両方(ナビが店を見つけやすい)。住所が無ければ場所(緯度,経度)。
  */
-function placeEntry(array $place): ?array
+function placeEntry(array $place, int $labelLength = 8): ?array
 {
     $name = trim((string) ($place['name'] ?? ''));
     $address = trim((string) ($place['address'] ?? ''));
@@ -241,7 +241,7 @@ function placeEntry(array $place): ?array
         return null;
     }
     return [
-        'label' => mb_substr($name !== '' ? $name : ($address !== '' ? $address : PIN_LABEL), 0, 8, 'UTF-8'),
+        'label' => mb_substr($name !== '' ? $name : ($address !== '' ? $address : PIN_LABEL), 0, $labelLength, 'UTF-8'),
         'destination' => mb_substr($destination, 0, 200, 'UTF-8'),
     ];
 }
