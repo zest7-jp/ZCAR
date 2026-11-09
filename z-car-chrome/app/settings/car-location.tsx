@@ -340,7 +340,7 @@ const YOU_LINE_GAP_TO = 26;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**
- * 駐車中に出す、スマホ(あなた)の今いる場所。目立たない薄いグレーの点を照準の角(YOU)で囲み、
+ * 駐車中に出す、スマホ(あなた)の今いる場所。目立たない薄いグレーの点を照準の角(上に「現在地」)で囲み、
  * 歩いている向きの扇を出す。点から車の印へ、流れる光る点線(薄いグレーから琥珀色)と矢印を引き、
  * 線の真ん中に「車まで」の札を置く
  * (札は画面の部品。ここでは置き場所を、地図の枠の --zr-you-mid-x・--zr-you-mid-y に入れる)。
@@ -353,7 +353,7 @@ const createYouPin = (maps: MapsApi, position: LatLng, layer: HTMLElement): YouP
   element.innerHTML =
     '<i class="zr-park-you-cone"></i>' +
     '<i class="zr-park-you-frame"></i>' +
-    '<b class="zr-park-you-tag">YOU</b>' +
+    '<b class="zr-park-you-tag">現在地</b>' +
     '<span class="zr-park-you-dot"></span>';
   const line = document.createElementNS(SVG_NS, "svg");
   line.setAttribute("class", "zr-park-you-line");
