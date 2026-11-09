@@ -356,12 +356,14 @@ export const legacyStopsBase = (value: unknown): Record<string, string> | null =
 export const placeLabel = (place: NavPlace) =>
   place.label.trim() || place.destination.trim().slice(0, MAX_DESTINATION_LABEL);
 
-/** START で選べる行き先1件分(登録した目的地)。 */
+/** START で選べる行き先1件分(登録した目的地か、今回だけの行き先)。 */
 export type NavChoice = {
-  /** 目的地の id。START の行き先(startTarget)にそのまま入る。 */
+  /** 目的地の id。START の行き先(startTarget)にそのまま入る(今回だけの行き先は入れない)。 */
   key: string;
   label: string;
   destination: string;
+  /** 今回だけの行き先(一覧に登録していない)なら true。 */
+  once?: boolean;
 };
 
 /** 目的地を、車とスマホで同じ並び(登録した順・並び替えた順)にする。 */
@@ -427,6 +429,131 @@ export const moveNavChoice = (settings: Settings, key: string, step: -1 | 1): Se
   return { ...settings, places, startTarget: starred ? starred.key : settings.startTarget };
 };
 
+/**
+ * 今回だけの行き先(一度きり。食事のお店など)。目的地の一覧には足さず、あるあいだは
+ * START がここへ案内する。着いたら(車が近くで遅くなったら)消え、START は★の場所に戻る。
+ * 行かなくても TRIP_TTL_MS たつと消える。
+ */
+export type NavTrip = {
+  id: string;
+  /** 名前(お店の名前など)。 */
+  label: string;
+  /** Googleマップに渡す住所または検索語。 */
+  destination: string;
+  /** その場所(着いたかを見るのに使う)。分からなければ null。 */
+  lat: number | null;
+  lng: number | null;
+  /** 送った時刻(ミリ秒)。 */
+  sentAt: number;
+};
+
+/** 今回だけの行き先の名前の長さ(サーバー側の MAX_TRIP_LABEL と同じ値)。 */
+export const MAX_TRIP_LABEL = 20;
+
+/** 今回だけの行き先は、行かなくてもこの時間で消える(ミリ秒)。 */
+export const TRIP_TTL_MS = 12 * 60 * 60 * 1000;
+
+/** 文字数で切る(絵文字などが途中で割れないように)。 */
+const clipText = (text: string, length: number) => Array.from(text).slice(0, length).join("");
+
+/** 新しい今回だけの行き先の id。 */
+export const createTripId = () =>
+  `t${Date.now().toString(36)}${Math.floor(Math.random() * 36 ** 4)
+    .toString(36)
+    .padStart(4, "0")}`;
+
+/** 保存・同期されてきた今回だけの行き先を整える(壊れていれば null)。 */
+export const sanitizeTrip = (value: unknown): NavTrip | null => {
+  if (!value || typeof value !== "object") return null;
+  const { id, label, destination, lat, lng, sentAt } = value as Partial<NavTrip>;
+  if (typeof id !== "string" || !PLACE_ID_PATTERN.test(id)) return null;
+  if (typeof destination !== "string" || !destination.trim()) return null;
+  if (typeof sentAt !== "number" || !Number.isFinite(sentAt) || sentAt <= 0) return null;
+  const point =
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180;
+  return {
+    id,
+    label: clipText(typeof label === "string" ? label.trim() : "", MAX_TRIP_LABEL),
+    destination: clipText(destination.trim(), MAX_DESTINATION_TEXT),
+    lat: point ? lat : null,
+    lng: point ? lng : null,
+    sentAt,
+  };
+};
+
+/** 今回だけの行き先を作る。行き先が空なら null。 */
+export const createTrip = (draft: {
+  label: string;
+  destination: string;
+  lat?: number | null;
+  lng?: number | null;
+}): NavTrip | null =>
+  sanitizeTrip({ id: createTripId(), ...draft, sentAt: Date.now() });
+
+/** 今回だけの行き先を、START で選べる1件の形にする。 */
+export const tripChoice = (trip: NavTrip): NavChoice => ({
+  key: trip.id,
+  label: trip.label || clipText(trip.destination, MAX_DESTINATION_LABEL),
+  destination: trip.destination,
+  once: true,
+});
+
+/**
+ * 今回だけの行き先の住所(画面に出す分)。行き先は「名前 住所」(ナビが店を見つけやすい)なので、
+ * 名前と同じ頭は外して、名前を二度出さない。
+ */
+export const tripAddress = (trip: NavTrip) =>
+  trip.label && trip.destination.startsWith(`${trip.label} `)
+    ? trip.destination.slice(trip.label.length + 1)
+    : trip.destination;
+
+/** START で案内する行き先。今回だけの行き先があればそこ、無ければ★の場所。 */
+export const resolveNavTarget = (
+  settings: Pick<Settings, "places" | "startTarget" | "trip">,
+): NavChoice | null =>
+  settings.trip
+    ? tripChoice(settings.trip)
+    : resolveStartTarget(listNavChoices(settings), settings.startTarget);
+
+/** 今回だけの行き先が、もう目的地の一覧にあるか(同じ行き先)。 */
+export const tripRegistered = (settings: Pick<Settings, "places" | "trip">) =>
+  settings.trip !== null &&
+  settings.places.some((place) => place.destination === settings.trip?.destination);
+
+/**
+ * 今回だけの行き先を、目的地の一覧にも登録する(次からも選べるように)。
+ * 今回の行き先(START)はそのまま。着いたら今回だけの分は消え、★は元の場所のまま。
+ * もう一覧にあるか、一覧がいっぱいなら、そのまま返す。
+ */
+export const registerTrip = (settings: Settings): Settings => {
+  const trip = settings.trip;
+  if (!trip || tripRegistered(settings) || settings.places.length >= MAX_PLACES) return settings;
+  const label = clipText(trip.label, MAX_DESTINATION_LABEL);
+  return {
+    ...settings,
+    places: [...settings.places, { id: createPlaceId(), label, destination: trip.destination }],
+  };
+};
+
+/**
+ * 送る前に、今回だけの行き先を最新に重ねる。自分で消した(着いた・× を押した)ときは、
+ * サーバーにあるのが前と同じ行き先のときだけ消す。そのあいだにもう片方(ショートカットなど)から
+ * 新しい行き先が届いていたら、そちらを残す。before は「前回サーバーと一致していた行き先」。
+ */
+export const mergeChangedTrip = (
+  mine: NavTrip | null,
+  before: NavTrip | null,
+  latest: NavTrip | null | undefined,
+): NavTrip | null => {
+  if (mine !== null || !latest) return mine;
+  return latest.id === before?.id ? null : latest;
+};
+
 export type Settings = {
   /** 前のバージョンの出発(店舗)・帰宅の枠。読んだら目的地に移すので、いつも空。 */
   storeName: string;
@@ -458,6 +585,8 @@ export type Settings = {
   places: NavPlace[];
   /** 車の START で案内する目的地の id(★)。空なら一覧の一番上。 */
   startTarget: string;
+  /** 今回だけの行き先(一覧に登録しない)。あるあいだは START がここへ案内する。 */
+  trip: NavTrip | null;
   /** スマホで登録したオービス(車の地図で知らせる。OpenStreetMap の分とは別)。 */
   orbis: OrbisPoint[];
   /** 満タン法の給油記録。車とスマホのどちらで記録しても共有する。 */
@@ -487,6 +616,7 @@ export const defaults: Settings = {
   syncedAt: 0,
   places: placesFromSlots(defaultMapDestinations),
   startTarget: "",
+  trip: null,
   orbis: [],
   fuelEntries: [],
   inspectionDue: "",
@@ -505,6 +635,7 @@ export const SYNCED_FIELDS = [
   "carId",
   "places",
   "startTarget",
+  "trip",
   "orbis",
   "fuelEntries",
   "inspectionDue",
@@ -604,6 +735,10 @@ export const sanitizeSyncedSettings = (
   if (Array.isArray(value.orbis)) {
     cleaned.orbis = sanitizeOrbisPoints(value.orbis);
   }
+  // 今回だけの行き先(null は「消した」)。
+  if ("trip" in value) {
+    cleaned.trip = sanitizeTrip(value.trip);
+  }
   return cleaned;
 };
 
@@ -624,6 +759,7 @@ export const SHARED_EDIT_FIELDS = [
   "homeDest",
   "places",
   "startTarget",
+  "trip",
   "orbis",
   "inspectionDue",
   "oilChangedOn",
@@ -922,6 +1058,7 @@ export const readSettings = (): Settings => {
       storeDest: "",
       homeDest: "",
       startTarget: typeof stored.startTarget === "string" ? stored.startTarget : "",
+      trip: sanitizeTrip(stored.trip),
       orbis: sanitizeOrbisPoints(stored.orbis),
       inspectionDue: isDateKey(stored.inspectionDue) ? stored.inspectionDue : "",
       oilChangedOn: isDateKey(stored.oilChangedOn) ? stored.oilChangedOn : "",

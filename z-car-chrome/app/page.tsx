@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react
 import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import { useParkingReport } from "./hooks/use-parking-report";
 import { useSharedSync } from "./hooks/use-shared-sync";
+import { useTripExpiry } from "./hooks/use-trip-expiry";
 import {
   buildSyncHandoffUrl,
   CAR_DEVICE_KEY,
@@ -26,9 +27,11 @@ import {
   fuelSummaryMonth,
   mergeFuelEntries,
   readSettings,
-  resolveStartTarget,
+  resolveNavTarget,
   saveNavChoice,
   SETTINGS_STORAGE_KEY,
+  tripAddress,
+  tripChoice,
   writeSettings,
   type NavChoice,
   type Settings,
@@ -57,6 +60,7 @@ import {
 } from "./shifts";
 import { WorkdayMarks } from "./workday-marks";
 import { readCoords } from "./place-import";
+import { distanceMeters } from "./parking";
 import {
   combineOrbisSpots,
   fetchOsmOrbis,
@@ -119,6 +123,12 @@ const ORBIS_RESPEAK_MS = 5 * 60 * 1000;
 const ORBIS_ZOOM_MAX = 16;
 /** 止まって GPS の向きが消えても、この間は前の向きで前方を見る。 */
 const ORBIS_HEADING_KEEP_MS = 2 * 60 * 1000;
+/**
+ * 今回だけの行き先に「着いた」とみなす近さ(m)と速さ(km/h)。この近さで、この速さより遅くなったら
+ * (駐車場に入る・止まる)今回だけの行き先を消し、START を★の場所に戻す。前を通り過ぎるだけでは消さない。
+ */
+const TRIP_ARRIVE_M = 150;
+const TRIP_ARRIVE_KMH = 10;
 const readRetroZoom = () => {
   if (typeof window === "undefined") return RETRO_MAP_LOOK.zoom;
   try {
@@ -350,8 +360,11 @@ export default function Home() {
   const allNavChoices = listNavChoices(settings);
   // DEST の「選ぶ」に出す候補(住所があるものだけ)。
   const navChoices = allNavChoices.filter((entry) => entry.destination);
-  // START で案内する行き先(★)。車とスマホのどちらで★を付けても同じになる。
-  const navTarget = resolveStartTarget(allNavChoices, settings.startTarget);
+  // START で案内する行き先。今回だけの行き先(スマホから送った一度きりの所)があればそこ、
+  // 無ければ★の場所。車とスマホのどちらで★を付けても同じになる。
+  const navTarget = resolveNavTarget(settings);
+  // 今回だけの行き先(LIST の一番上に出す)。
+  const onceChoice = settings.trip ? tripChoice(settings.trip) : null;
   const [clock, setClock] = useState("--:--");
   const [californiaClock, setCaliforniaClock] = useState("--:--");
   const [russiaClock, setRussiaClock] = useState("--:--");
@@ -835,6 +848,35 @@ export default function Home() {
     };
   }, []);
 
+  /**
+   * GPS が届くたびに、今回だけの行き先に着いたかを見る(車載機だけ)。着いたら消して、
+   * START を★の場所に戻す(スマホにも届く)。場所が分からない行き先は、12時間で消える分だけ。
+   */
+  const tripRef = useRef(settings.trip);
+  const carDeviceRef = useRef(false);
+  useEffect(() => {
+    tripRef.current = settings.trip;
+    carDeviceRef.current = carDevice;
+  });
+  const checkTripRef = useRef<(coords: GeolocationCoordinates) => void>(() => undefined);
+  useEffect(() => {
+    checkTripRef.current = (coords) => {
+      const trip = tripRef.current;
+      if (!trip || trip.lat === null || trip.lng === null || !carDeviceRef.current) return;
+      if (coords.accuracy > TRIP_ARRIVE_M) return;
+      const kmh = coords.speed !== null && Number.isFinite(coords.speed) ? coords.speed * 3.6 : null;
+      if (kmh !== null && kmh > TRIP_ARRIVE_KMH) return;
+      const meters = distanceMeters(
+        { lat: coords.latitude, lng: coords.longitude },
+        { lat: trip.lat, lng: trip.lng },
+      );
+      if (meters > TRIP_ARRIVE_M) return;
+      setSettings((current) => (current.trip?.id === trip.id ? { ...current, trip: null } : current));
+    };
+  }, []);
+  // 行かなくても、12時間たてば消す。
+  useTripExpiry(settings.trip, setSettings);
+
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
@@ -870,6 +912,7 @@ export default function Home() {
         });
         setLocationStatus("ready");
         checkOrbisRef.current(position.coords);
+        checkTripRef.current(position.coords);
       },
       () =>
         setLocationStatus((current) =>
@@ -1724,6 +1767,7 @@ export default function Home() {
     // 360度に丸めない向き(北をまたいでも、車の印が逆向きに一回りしないように)。
     heading: location?.heading ?? null,
     destLabel: navTarget ? navTarget.label : null,
+    destOnce: navTarget?.once === true,
     workDays,
   };
   const startNavigation = navTarget
@@ -2300,7 +2344,7 @@ export default function Home() {
                     </svg>
                   </span>
                   <span className="green-navi-text">
-                    <small>START</small>
+                    <small>{navTarget?.once ? "START · 今回だけ" : "START"}</small>
                     <strong>{navTarget ? navTarget.label : "NO DEST"}</strong>
                   </span>
                   <span className="green-navi-go" aria-hidden="true">
@@ -2617,9 +2661,20 @@ export default function Home() {
           </div>
 
           {destMode === "pick" ? (
-            navChoices.length ? (
+            navChoices.length || onceChoice ? (
               <div className="dest-choices is-pick">
-                {/* ★が START の行き先。押した場所に★が移る(スマホにも届く)。 */}
+                {/* 今回だけの行き先(スマホから送った一度きりの所)。あるあいだは、ここが START の行き先。 */}
+                {onceChoice && settings.trip ? (
+                  <button type="button" className="is-active is-once" aria-pressed="true" onClick={closeDestDialog}>
+                    <StarMark filled />
+                    <b>
+                      {onceChoice.label}
+                      <em>今回だけ</em>
+                    </b>
+                    <small>{tripAddress(settings.trip)}</small>
+                  </button>
+                ) : null}
+                {/* ★が START の行き先。押した場所に★が移る(スマホにも届く)。今回だけの行き先は消える。 */}
                 {navChoices.map((choice) => {
                   const starred = choice.key === navTarget?.key;
                   return (
@@ -2629,7 +2684,7 @@ export default function Home() {
                       className={starred ? "is-active" : undefined}
                       aria-pressed={starred}
                       onClick={() => {
-                        setSettings((current) => ({ ...current, startTarget: choice.key }));
+                        setSettings((current) => ({ ...current, startTarget: choice.key, trip: null }));
                         closeDestDialog();
                       }}
                     >

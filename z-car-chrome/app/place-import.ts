@@ -3,7 +3,7 @@
 // サーバー(public/api/place.php)に読んでもらう。
 
 import { distanceMeters } from "./parking";
-import { MAX_DESTINATION_LABEL, MAX_DESTINATION_TEXT } from "./settings-store";
+import { MAX_DESTINATION_LABEL, MAX_DESTINATION_TEXT, MAX_TRIP_LABEL } from "./settings-store";
 
 export const PLACE_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/place.php`;
 export const SHARE_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/share.php`;
@@ -13,6 +13,9 @@ const PIN_LABEL = "地図の場所";
 
 /** 目的地の欄に入れる内容。 */
 export type PlaceDraft = { label: string; destination: string };
+
+/** 今回だけの行き先にするときの内容(名前は長めに残し、着いたかを見るための場所も持つ)。 */
+export type TripDraft = PlaceDraft & { lat: number | null; lng: number | null };
 
 /** 読めなかった理由。画面の案内を変えるのに使う。 */
 export type PlaceImportError = "empty" | "unlinked" | "unreadable" | "network";
@@ -24,15 +27,16 @@ const LINK = /https?:\/\/[^\s<>"']+/;
 /** 文字数で切る(絵文字などが途中で割れないように)。 */
 const clip = (text: string, length: number) => Array.from(text).slice(0, length).join("");
 
-/** 読んだ名前・住所・場所から、目的地の欄の内容を作る。 */
-const toDraft = ({ name, address, lat, lng }: ReadPlace): PlaceDraft | null => {
+/** 読んだ名前・住所・場所から、目的地の欄の内容を作る(今回だけの行き先にするときの内容も)。 */
+const toDraft = ({ name, address, lat, lng }: ReadPlace): { draft: PlaceDraft; trip: TripDraft } | null => {
   const coords = lat !== null && lng !== null ? `${lat.toFixed(6)},${lng.toFixed(6)}` : "";
   // 名前と住所があれば両方(ナビが店を見つけやすい)。住所が無ければ場所(緯度,経度)。
-  const destination = name && address ? `${name} ${address}` : address || coords || name;
+  const destination = clip(name && address ? `${name} ${address}` : address || coords || name, MAX_DESTINATION_TEXT);
   if (!destination) return null;
+  const label = name || address || PIN_LABEL;
   return {
-    label: clip(name || address || PIN_LABEL, MAX_DESTINATION_LABEL),
-    destination: clip(destination, MAX_DESTINATION_TEXT),
+    draft: { label: clip(label, MAX_DESTINATION_LABEL), destination },
+    trip: { label: clip(label, MAX_TRIP_LABEL), destination, lat, lng },
   };
 };
 
@@ -54,11 +58,13 @@ export const isSamePlace = (a: string, b: string) => {
 };
 
 /** 読んだ結果。読めなければ、その理由。 */
-export type PlaceImport = { ok: true; draft: PlaceDraft } | { ok: false; error: PlaceImportError };
+export type PlaceImport =
+  | { ok: true; draft: PlaceDraft; trip: TripDraft }
+  | { ok: false; error: PlaceImportError };
 
 const failed = (error: PlaceImportError) => ({ ok: false as const, error });
-const done = (draft: PlaceDraft | null): PlaceImport =>
-  draft ? { ok: true, draft } : failed("unreadable");
+const done = (read: { draft: PlaceDraft; trip: TripDraft } | null): PlaceImport =>
+  read ? { ok: true, ...read } : failed("unreadable");
 
 /**
  * コピーした内容を読んで、目的地の欄の内容を返す。

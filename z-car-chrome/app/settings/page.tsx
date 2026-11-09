@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSharedSync } from "../hooks/use-shared-sync";
+import { useTripExpiry } from "../hooks/use-trip-expiry";
 import {
   defaults,
   fuelMonthName,
@@ -23,8 +24,13 @@ import {
   PHONE_LONG_EDGE_MAX,
   readSettings,
   readSyncKeyFromHash,
+  registerTrip,
   resolveStartTarget,
   saveNavChoice,
+  createTrip,
+  tripAddress,
+  tripChoice,
+  tripRegistered,
   writeSettings,
   type FuelEntry,
   type MeterDesign,
@@ -43,6 +49,7 @@ import {
   shareUrlFor,
   type PlaceDraft,
   type PlaceImportError,
+  type TripDraft,
 } from "../place-import";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
@@ -190,6 +197,8 @@ export default function PhoneSettingsPage() {
   const [themesOpen, setThemesOpen] = useState(false);
   // Google マップのコピーを読み取っているところ。
   const [pasting, setPasting] = useState(false);
+  // 貼り付けて読んだ場所(「今回だけ」にするときの、長めの名前と場所)。
+  const [pasted, setPasted] = useState<TripDraft | null>(null);
   // 「Google マップから直接送る」(ショートカットの作り方)を開いているところ。
   const [shortcutOpen, setShortcutOpen] = useState(false);
   const [shortcutFailed, setShortcutFailed] = useState(false);
@@ -488,9 +497,13 @@ export default function PhoneSettingsPage() {
 
   // --- 目的地(車の LIST と同じ並び) ---
   const choices = listNavChoices(draft);
-  // ★の付いた場所(車の START の行き先)。
+  // ★の付いた場所(車の START の行き先。今回だけの行き先があるあいだは、着いたあとに戻る所)。
   const startChoice = resolveStartTarget(choices, draft.startTarget);
+  // 今回だけの行き先(一覧に登録しない一度きりの所)。あるあいだは、ここが START の行き先。
+  const onceChoice = draft.trip ? tripChoice(draft.trip) : null;
   const sendNote = linked ? "・車に送ります" : "";
+  // 行かなくても、12時間たてば消す。
+  useTripExpiry(draft.trip, setDraft);
 
   /** 場所を開く(もう一度押すと閉じる)。null は新しい目的地を足すとき。 */
   const openEditor = (choice: NavChoice | null) => {
@@ -531,15 +544,57 @@ export default function PhoneSettingsPage() {
       }
       return;
     }
-    // 同じ行き先がもうあれば足さない(ショートカットから送ったときと同じ)。
+    // 同じ行き先がもうあれば足さない(★を押せば、そこが START の行き先になる)。
     const same = draft.places.find((place) => place.destination === result.draft.destination);
     if (same) {
-      setToast(`「${same.label || result.draft.label}」は、もう目的地にあります`);
+      setToast(`「${same.label || result.draft.label}」は、もう目的地にあります。★ を押すと START の行き先になります`);
       return;
     }
     setEditKey(NEW_PLACE_KEY);
     setEditDraft(result.draft);
-    setToast("読み取りました。確かめて「追加する」を押してください");
+    setPasted(result.trip);
+    setToast("読み取りました。「今回だけ」か「追加する」を押してください");
+  };
+
+  /**
+   * 新しい目的地の欄の内容を、今回だけの行き先にする(一覧には足さない)。車の START がそこへ案内し、
+   * 着いたら消える。貼り付けて読んだ場所なら、長めの名前と、着いたかを見るための場所も使う。
+   */
+  const sendOnce = () => {
+    const destination = editDraft.destination.trim();
+    const read = pasted && pasted.destination === destination ? pasted : null;
+    const trip = createTrip({
+      // 名前を直していなければ、読んだ長めの名前(8文字で切っていない)にする。
+      label: read && Array.from(read.label).slice(0, MAX_DESTINATION_LABEL).join("") === editDraft.label.trim()
+        ? read.label
+        : editDraft.label,
+      destination,
+      lat: read?.lat ?? null,
+      lng: read?.lng ?? null,
+    });
+    if (!trip) return;
+    setDraft((current) => ({ ...current, trip }));
+    setEditKey(null);
+    setPasted(null);
+    setToast(`今回だけ → ${tripChoice(trip).label}${sendNote}`);
+  };
+
+  /** 今回だけの行き先を消す(START は★の場所に戻る)。 */
+  const clearOnce = () => {
+    setDraft((current) => ({ ...current, trip: null }));
+    setMenuKey(null);
+    setToast(`今回だけの行き先を消しました${sendNote}`);
+  };
+
+  /** 今回だけの行き先を、目的地の一覧にも登録する(今回の行き先はそのまま。着いたら今回だけの分は消える)。 */
+  const registerOnce = () => {
+    if (!onceChoice) return;
+    if (draft.places.length >= MAX_PLACES) {
+      setToast(`目的地は${MAX_PLACES}件までです。要らない場所を消してください`);
+      return;
+    }
+    setDraft((current) => registerTrip(current));
+    setToast(`「${Array.from(onceChoice.label).slice(0, MAX_DESTINATION_LABEL).join("")}」を目的地に登録しました${sendNote}`);
   };
 
   // ショートカットの作り方を開いたら、送り先の鍵を用意しておく。
@@ -599,7 +654,10 @@ export default function PhoneSettingsPage() {
     }
     setMenuKey(choice.key);
   };
-  const menuChoice = choices.find((choice) => choice.key === menuKey && choice.destination) ?? null;
+  const menuChoice =
+    (onceChoice && onceChoice.key === menuKey ? onceChoice : null) ??
+    choices.find((choice) => choice.key === menuKey && choice.destination) ??
+    null;
 
   /**
    * iPhone の共有メニューに住所を出す。そこでカーナビタイムを選ぶと、その場所を探して開く
@@ -685,10 +743,10 @@ export default function PhoneSettingsPage() {
   const moveChoice = (choice: NavChoice, step: -1 | 1) =>
     setDraft((current) => moveNavChoice(current, choice.key, step));
 
-  /** ★を付け替える。★の場所が、車の START の行き先になる。 */
+  /** ★を付け替える。★の場所が、車の START の行き先になる(今回だけの行き先があれば消す)。 */
   const starChoice = (choice: NavChoice) => {
-    if (!choice.destination || startChoice?.key === choice.key) return;
-    setDraft((current) => ({ ...current, startTarget: choice.key }));
+    if (!choice.destination || (!onceChoice && startChoice?.key === choice.key)) return;
+    setDraft((current) => ({ ...current, startTarget: choice.key, trip: null }));
     setToast(`START → ${choice.label}${sendNote}`);
   };
 
@@ -725,11 +783,21 @@ export default function PhoneSettingsPage() {
           />
         </div>
       </label>
-      <div className="zr-editor-actions">
+      <div className={choice ? "zr-editor-actions" : "zr-editor-actions is-new"}>
         <button type="button" className="zr-ghost" onClick={() => setEditKey(null)}>
           やめる
         </button>
-        <button type="submit" className="zr-primary" disabled={!editDraft.destination.trim()}>
+        {/* 新しい場所は、一覧に登録せず「今回だけ」の行き先にもできる(食事のお店など)。 */}
+        {choice ? null : (
+          <button type="button" className="zr-once-go" disabled={!editDraft.destination.trim()} onClick={sendOnce}>
+            今回だけ
+          </button>
+        )}
+        <button
+          type="submit"
+          className="zr-primary"
+          disabled={!editDraft.destination.trim() || (!choice && draft.places.length >= MAX_PLACES)}
+        >
           {choice ? "保存する" : "追加する"}
         </button>
       </div>
@@ -1131,9 +1199,58 @@ export default function PhoneSettingsPage() {
               行を押すとメニュー。<b>カーナビタイム</b>や<b>Google マップ</b>で開けます。
             </p>
           )}
+          {!sorting && onceChoice ? (
+            <div className="zr-once" role="group" aria-label="今回だけの行き先">
+              <p className="zr-once-head">
+                <small>ONE TIME</small>
+                <b>今回だけ</b>
+                <button type="button" className="zr-once-close" aria-label="今回だけの行き先を消す" onClick={clearOnce}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                </button>
+              </p>
+              <ul className="zr-places">
+                <li className="is-start">
+                  <div className="zr-place-row">
+                    <span className="zr-star" aria-hidden="true">
+                      <StarMark filled />
+                    </span>
+                    <button
+                      type="button"
+                      className="zr-place"
+                      aria-haspopup="dialog"
+                      onClick={() => setMenuKey(onceChoice.key)}
+                    >
+                      <span className="zr-place-name">
+                        <b>{onceChoice.label}</b>
+                        <em>START</em>
+                      </span>
+                      <span className="zr-place-addr">{draft.trip ? tripAddress(draft.trip) : onceChoice.destination}</span>
+                      <i aria-hidden="true" />
+                    </button>
+                    <span className="zr-del-space" aria-hidden="true" />
+                  </div>
+                </li>
+              </ul>
+              <p className="zr-once-foot">
+                <span>
+                  着いたら消えます。
+                  {startChoice ? `★ は「${startChoice.label}」に戻ります` : null}
+                </span>
+                {tripRegistered(draft) ? (
+                  <em className="zr-once-saved">登録済み</em>
+                ) : (
+                  <button type="button" className="zr-once-save" onClick={registerOnce}>
+                    登録する
+                  </button>
+                )}
+              </p>
+            </div>
+          ) : null}
           <ul className={sorting ? "zr-places is-sorting" : "zr-places"}>
             {choices.map((choice, index) => {
-              const starred = startChoice?.key === choice.key && !sorting;
+              const starred = startChoice?.key === choice.key && !sorting && !onceChoice;
               const editing = editKey === choice.key;
               if (sorting) {
                 // 並び替え中: 名前と住所と ▲▼ だけ(★・メニュー・削除は出さない)。
@@ -1239,14 +1356,16 @@ export default function PhoneSettingsPage() {
               </li>
             ) : null}
           </ul>
-          {!sorting && draft.places.length < MAX_PLACES && editKey !== NEW_PLACE_KEY ? (
+          {!sorting && editKey !== NEW_PLACE_KEY ? (
             <div className="zr-add-row">
-              <button type="button" className="zr-add" onClick={() => openEditor(null)}>
-                <i aria-hidden="true" />
-                <b>ADD PLACE</b>
-                <small>目的地を追加</small>
-              </button>
-              {/* Google マップで「共有」→「コピー」した場所を貼り付ける。 */}
+              {draft.places.length < MAX_PLACES ? (
+                <button type="button" className="zr-add" onClick={() => openEditor(null)}>
+                  <i aria-hidden="true" />
+                  <b>ADD PLACE</b>
+                  <small>目的地を追加</small>
+                </button>
+              ) : null}
+              {/* Google マップで「共有」→「コピー」した場所を貼り付ける(一覧がいっぱいでも「今回だけ」にはできる)。 */}
               <button
                 type="button"
                 className="zr-add is-paste"
@@ -1425,7 +1544,7 @@ export default function PhoneSettingsPage() {
           >
             <header className="zr-sheet-head">
               <span>
-                <small>DESTINATION</small>
+                <small>{menuChoice.once ? "ONE TIME · 今回だけ" : "DESTINATION"}</small>
                 <b>{menuChoice.label}</b>
               </span>
               <button type="button" onClick={() => setMenuKey(null)}>
@@ -1450,16 +1569,22 @@ export default function PhoneSettingsPage() {
               >
                 Google マップで開く
               </a>
-              <button
-                type="button"
-                className="zr-ghost"
-                onClick={() => {
-                  setMenuKey(null);
-                  openEditor(menuChoice);
-                }}
-              >
-                この目的地を直す
-              </button>
+              {menuChoice.once ? (
+                <button type="button" className="zr-ghost" onClick={clearOnce}>
+                  今回だけの行き先を消す
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="zr-ghost"
+                  onClick={() => {
+                    setMenuKey(null);
+                    openEditor(menuChoice);
+                  }}
+                >
+                  この目的地を直す
+                </button>
+              )}
             </div>
           </section>
         </div>
@@ -1607,7 +1732,8 @@ export default function PhoneSettingsPage() {
               {linked ? (
                 <>
                   <p className="zr-note zr-share-lead">
-                    Google マップの「共有」から、目的地に直接送れるようにします(車にも届きます)。
+                    Google マップの「共有」から、車へ直接送れるようにします。送った所は「今回だけ」の行き先になり、
+                    車の START で案内します(目的地の一覧には足しません。着いたら消えます)。
                     最初に1回だけ、iPhone の「ショートカット」アプリで準備します。
                   </p>
                   <button
@@ -1627,10 +1753,11 @@ export default function PhoneSettingsPage() {
                     ))}
                   </ol>
                   <p className="zr-note">
-                    <b>使い方</b> Google マップで「共有」→「Z CAR に送る」。追加すると通知が出ます。
+                    <b>使い方</b> Google マップで「共有」→「Z CAR に送る」。届くと通知が出ます。
+                    次からも行く所は、目的地のタブの「登録する」で一覧に残せます。
                   </p>
                   <p className="zr-note">
-                    送り先には専用の鍵が入っています。他の人には教えないでください(この鍵でできるのは、目的地を足すことだけです)。
+                    送り先には専用の鍵が入っています。他の人には教えないでください(この鍵でできるのは、今回だけの行き先を送ることだけです)。
                   </p>
                 </>
               ) : (

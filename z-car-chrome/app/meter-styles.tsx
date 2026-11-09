@@ -50,6 +50,8 @@ export type ClusterData = {
   heading: number | null;
   /** START の行き先の名前。無ければ null。 */
   destLabel: string | null;
+  /** START の行き先が、今回だけの行き先(一覧に登録していない一度きりの所)か。 */
+  destOnce: boolean;
   /** 今週(月曜〜日曜)でシフトのある曜日(0 が日曜)。曜日の札に五行の色を付ける。 */
   workDays: number[];
 };
@@ -568,6 +570,37 @@ const keyWord = (box: typeof RETRO_DEST, word: string, note: string, color: stri
     </g>
   );
 };
+/** START の下に出す、今回だけの行き先の名前の長さ(キーの幅に入る数)。長ければ最後を … にする。 */
+const START_NOTE_CHARS = 9;
+const startNote = (label: string) => {
+  const chars = Array.from(label);
+  return chars.length > START_NOTE_CHARS ? `${chars.slice(0, START_NOTE_CHARS - 1).join("")}…` : label;
+};
+
+/**
+ * 今回だけの行き先のとき: START の下の字を行き先の名前にし、キーの上の線に「今回だけ」の札を付ける。
+ * 下に消えている「ナビ開始」があるので、名前の所はキーの地の色で隠してから書く。
+ */
+const OnceStart = ({ label }: { label: string }) => {
+  const box = RETRO_START;
+  const cx = box.x + box.w / 2;
+  return (
+    <g className="ms-retro-once">
+      <rect x={box.x + 7} y={box.y + 52} width={box.w - 14} height={20} fill="#020403" />
+      <rect x={box.x + 7} y={box.y + 52} width={box.w - 14} height={20} fill={RETRO.cyan} fillOpacity=".04" />
+      <g filter="url(#ms-vfd)">
+        <text x={cx} y={box.y + 66} fill={RETRO.cyan} fontSize="11.5" fontWeight="700" textAnchor="middle" letterSpacing="1" className="ms-ja">
+          {startNote(label)}
+        </text>
+      </g>
+      <rect x={cx - 31} y={box.y - 7} width="62" height="15" rx="4" fill={RETRO.amber} />
+      <text x={cx} y={box.y + 4.2} fill="#160b00" fontSize="10.5" fontWeight="900" textAnchor="middle" letterSpacing=".6" className="ms-ja">
+        今回だけ
+      </text>
+    </g>
+  );
+};
+
 /** 右の列の段(上から燃料・水温・電圧)の上の位置。少し詰めて、下に縦長の箱をとる。 */
 const RETRO_RIGHT = { fuelBar: 36, range: 66, coolantBar: 130, coolant: 156, battery: 220 };
 
@@ -943,9 +976,10 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
         <SevenSeg text={data.voltage === null ? "--.-" : data.voltage.toFixed(1)} x={960} y={RETRO_RIGHT.battery} h={30} color={RETRO.green} align="end" />
         {onStart ? (
           <g className="ms-retro-start-lit" filter="url(#ms-vfd)">
-            {keyWord(RETRO_START, "START", "ナビ開始", RETRO.cyan, "go")}
+            {keyWord(RETRO_START, "START", data.destOnce ? "" : "ナビ開始", RETRO.cyan, "go")}
           </g>
         ) : null}
+        {onStart && data.destOnce && data.destLabel ? <OnceStart label={data.destLabel} /> : null}
         {eco >= 0.5 ? ecoLamp(true) : null}
         <g filter="url(#ms-vfd)">
           {Array.from({ length: Math.round(eco * ECO_SEGMENTS) }, (_, i) => (
@@ -959,7 +993,11 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
       <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
       <Hit
         box={[RETRO_START.x, RETRO_START.y, RETRO_START.w, RETRO_START.h]}
-        label={data.destLabel ? `${data.destLabel} へのナビをGoogleマップで開始する` : "目的地が設定されていません"}
+        label={
+          data.destLabel
+            ? `${data.destOnce ? "今回だけの行き先 " : ""}${data.destLabel} へのナビをGoogleマップで開始する`
+            : "目的地が設定されていません"
+        }
         onPress={onStart}
       />
     </Board>

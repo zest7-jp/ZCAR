@@ -9988,3 +9988,126 @@ main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-
   .ms-orbis-band.is-warn,
   .ms-orbis-band.is-over { animation: none; }
 }
+
+/* --- 今回だけの行き先(一覧に登録しない一度きりの所。食事のお店など) --- */
+/* スマホ: 目的地の一覧の上に、琥珀色の枠で出す。★ と START も琥珀色。 */
+.zr-once {
+  margin: 2px 0 14px;
+  padding: 8px 12px 12px;
+  border: 1.5px solid var(--zr-amber, #ffb02e);
+  border-radius: 14px;
+  background: rgba(255, 176, 46, .07);
+  box-shadow: 0 0 14px rgba(255, 176, 46, .2);
+}
+.zr-once-head { display: flex; align-items: center; gap: 9px; margin: 0 2px; }
+.zr-once-head small {
+  color: var(--zr-amber, #ffb02e);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .2em;
+}
+.zr-once-head b { color: #ffd27a; font-size: 15px; font-weight: 900; }
+.zr-once-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -4px -10px -4px auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ffd27a;
+  cursor: pointer;
+}
+.zr-once-close svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.zr-once .zr-places { margin: 0; }
+.zr-once .zr-places li { border-top-color: rgba(255, 176, 46, .25); }
+.zr-once .zr-places li.is-start { background: linear-gradient(90deg, rgba(255, 176, 46, .1), transparent 70%); }
+.zr-once .zr-star { cursor: default; }
+.zr-once .star-mark.is-filled {
+  fill: var(--zr-amber, #ffb02e);
+  stroke: var(--zr-amber, #ffb02e);
+  filter: drop-shadow(0 0 6px rgba(255, 176, 46, .6));
+}
+.zr-once .zr-place-name em { border-color: rgba(255, 176, 46, .6); color: #ffc65e; }
+.zr-once-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 2px 0;
+  color: #d9c08a;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.zr-once-foot span { flex: 1; min-width: 0; }
+.zr-once-save {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(var(--zr-accent-rgb), .75);
+  border-radius: 10px;
+  background: rgba(var(--zr-accent-rgb), .06);
+  color: var(--zr-accent-strong);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.zr-once-saved { flex: none; color: var(--zr-muted); font-size: 12px; font-style: normal; font-weight: 800; }
+/* 新しい目的地の欄: やめる・今回だけ・追加する。「今回だけ」は琥珀色で塗る(車の札と同じ色)。 */
+.zr-editor-actions.is-new { grid-template-columns: auto auto 1fr; }
+.zr-once-go {
+  min-height: 54px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--zr-amber, #ffb02e);
+  box-shadow: 0 0 14px rgba(255, 176, 46, .45);
+  color: #1a0d00;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+.zr-once-go:disabled { opacity: .35; box-shadow: none; cursor: default; }
+main.zr[data-style="retro"] .zr-once-go { border-radius: 14px; }
+/* 車の LIST(目的地を選ぶ): 一番上に、琥珀色の行と「今回だけ」の札。 */
+.dest-choices button.is-once {
+  border-color: #b97a1c;
+  background: linear-gradient(180deg, rgba(60, 38, 6, .9), rgba(20, 12, 2, .95));
+}
+.dest-choices button.is-once b { color: #ffc65e; }
+.dest-choices button.is-once b em {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #ffb02e;
+  color: #160b00;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  vertical-align: 2px;
+}
+.dest-choices button.is-once .star-mark.is-filled {
+  fill: #ffb02e;
+  stroke: #ffb02e;
+  filter: drop-shadow(0 0 5px rgba(255, 176, 46, .55));
+}
+/* 今回だけの行き先の名前は長いことがある(20文字まで)ので、2行まで折り返す。 */
+.zr-once .zr-place-name { align-items: center; }
+.zr-once .zr-place-name b {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+/* 名前と説明は、言葉の切れ目(空白・句点)で折り返す(「守口 / 店」のように切らない)。 */
+.zr-once .zr-place-name b,
+.zr-once-foot span {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
