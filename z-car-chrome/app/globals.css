@@ -10105,3 +10105,9 @@ main.zr[data-style="retro"] .zr-once-go { border-radius: 14px; }
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+/* 名前と説明は、言葉の切れ目(空白・句点)で折り返す(「守口 / 店」のように切らない)。 */
+.zr-once .zr-place-name b,
+.zr-once-foot span {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
