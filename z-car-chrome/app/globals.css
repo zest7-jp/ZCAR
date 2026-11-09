@@ -9050,8 +9050,9 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
 .zr-park-pin.is-parked { --zr-state: #8a8a8a; --zr-state-rgb: 138, 138, 138; }
 
 /*
- * 駐車中のスマホ(あなた)の今いる場所: 青い点を照準の角(YOU)で囲み、歩いている向きの扇。
- * 青い点から車の印へ、流れる光る点線(水色から琥珀色)と矢印。線の真ん中に「車まで」の札。
+ * 駐車中のスマホ(あなた)の今いる場所: 目立たない薄いグレーの点を、照準の角(YOU)で囲み、歩いている向きの扇。
+ * 点から車の印へ、流れる光る点線(薄いグレーから琥珀色)と矢印。線の真ん中に「車まで」の札。
+ * 主役は車なので、スマホの側は薄いグレーで控えめにし、車の側(矢印・札)だけ琥珀色で光らせる。
  */
 .zr-park-you { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; }
 .zr-park-you-cone {
@@ -9061,7 +9062,7 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
   display: none;
   width: 68px;
   height: 62px;
-  background: linear-gradient(to top, rgba(66, 150, 255, .85), rgba(66, 150, 255, 0));
+  background: linear-gradient(to top, rgba(200, 208, 213, .4), rgba(200, 208, 213, 0));
   clip-path: polygon(50% 100%, 6% 0, 94% 0);
   transform: rotate(var(--zr-you-heading, 0deg));
   transform-origin: 50% 100%;
@@ -9069,7 +9070,7 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
 .zr-park-you.has-heading .zr-park-you-cone { display: block; }
 /* 照準の角(4つのかぎ)。 */
 .zr-park-you-frame {
-  --zr-frame: var(--zr-accent, #52ffd6);
+  --zr-frame: rgba(200, 208, 213, .7);
   position: absolute;
   left: -18px;
   top: -18px;
@@ -9085,35 +9086,33 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
     linear-gradient(var(--zr-frame), var(--zr-frame)) right bottom / 10px 2.5px,
     linear-gradient(var(--zr-frame), var(--zr-frame)) right bottom / 2.5px 10px;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 0 4px var(--zr-frame));
 }
 .zr-park-you-tag {
   position: absolute;
   left: 0;
   top: -33px;
   transform: translateX(-50%);
-  color: var(--zr-accent, #52ffd6);
+  color: rgba(200, 208, 213, .75);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: .22em;
   line-height: 1;
-  text-shadow: 0 0 6px var(--zr-accent, #52ffd6);
   white-space: nowrap;
 }
 .zr-park-you-dot {
   position: absolute;
-  left: -11px;
-  top: -11px;
-  width: 22px;
-  height: 22px;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
   box-sizing: border-box;
-  border: 3px solid #fff;
+  border: 2px solid rgba(235, 239, 241, .85);
   border-radius: 50%;
-  background: #2f8bff;
-  box-shadow: 0 0 10px rgba(66, 150, 255, .9), 0 1px 4px rgba(0, 0, 0, .5);
+  background: #a9b2b8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .6);
 }
-/* 青い点から車への点線(地図が近すぎて短いときは出さない)。 */
+/* スマホの点から車への点線(地図が近すぎて短いときは出さない)。 */
 .zr-park-you-line {
   position: absolute;
   inset: 0;
@@ -9125,14 +9124,14 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
   pointer-events: none;
 }
 .zr-park-you-line.is-on { display: block; }
-.zr-park-you-line-from { stop-color: var(--zr-accent, #52ffd6); }
+.zr-park-you-line-from { stop-color: #c8cfd3; }
 .zr-park-you-line-to { stop-color: var(--zr-amber, #ffb02e); }
 .zr-park-you-line-path {
   fill: none;
   stroke-width: 3;
   stroke-dasharray: 2 7;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 4px rgba(var(--zr-accent-rgb), .9));
+  filter: drop-shadow(0 0 3px rgba(255, 176, 46, .45));
   animation: zr-you-flow 1s linear infinite;
 }
 @keyframes zr-you-flow {

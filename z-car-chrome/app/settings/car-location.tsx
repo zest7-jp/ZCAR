@@ -324,7 +324,7 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
 
 type YouPin = GOverlay & {
   moveTo: (point: LatLng) => void;
-  /** 車の場所(青い点から、ここへ光る点線を引く)。null なら線を引かない。 */
+  /** 車の場所(スマホの点から、ここへ光る点線を引く)。null なら線を引かない。 */
   setCar: (point: LatLng | null) => void;
   /** 歩いている向き(北が0、時計回りの度)。止まっていて分からなければ null(扇を隠す)。 */
   setHeading: (degrees: number | null) => void;
@@ -332,7 +332,7 @@ type YouPin = GOverlay & {
   shown: boolean;
 };
 
-/** 青い点と車の印が画面の上でこれより近いと、点線は引かず、「車まで」の札は地図の左下に出す(px)。 */
+/** スマホの点と車の印が画面の上でこれより近いと、点線は引かず、「車まで」の札は地図の左下に出す(px)。 */
 const YOU_LINE_MIN_PX = 90;
 /** 点線の両端の空き(照準の角と車の印にかからないように)。 */
 const YOU_LINE_GAP_FROM = 22;
@@ -340,8 +340,9 @@ const YOU_LINE_GAP_TO = 26;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**
- * 駐車中に出す、スマホ(あなた)の今いる場所。青い点を照準の角(YOU)で囲み、歩いている向きの扇を出す。
- * 青い点から車の印へ、流れる光る点線(水色から琥珀色)と矢印を引き、線の真ん中に「車まで」の札を置く
+ * 駐車中に出す、スマホ(あなた)の今いる場所。目立たない薄いグレーの点を照準の角(YOU)で囲み、
+ * 歩いている向きの扇を出す。点から車の印へ、流れる光る点線(薄いグレーから琥珀色)と矢印を引き、
+ * 線の真ん中に「車まで」の札を置く
  * (札は画面の部品。ここでは置き場所を、地図の枠の --zr-you-mid-x・--zr-you-mid-y に入れる)。
  * 地図(80年代は緑っぽく色づけしてある)の外の layer に置くので、どのテーマでも色が変わらない。
  * 地図を動かすたびに draw が呼ばれるので、そのつど地図の上の位置に置き直す。
@@ -937,7 +938,7 @@ export function CarLocationPanel({
     });
   };
 
-  // 駐車中は、スマホ(あなた)の今いる場所を青い点で出す(GPS は画面に出すだけで、送らない)。
+  // 駐車中は、スマホ(あなた)の今いる場所を薄いグレーの点で出す(GPS は画面に出すだけで、送らない)。
   const you = status === "parked" && phoneFix ? phoneFix : null;
   const youLat = you?.lat;
   const youLng = you?.lng;
@@ -950,7 +951,7 @@ export function CarLocationPanel({
         current.you.setMap(null);
         current.you.shown = false;
         fitRef.current = null;
-        // 青い点を消したら、また車を真ん中にする(追いかけている間)。
+        // スマホの点を消したら、また車を真ん中にする(追いかけている間)。
         if (followRef.current && shownRef.current) current.map.setCenter(shownRef.current);
       }
       return;
@@ -1236,7 +1237,7 @@ export function CarLocationPanel({
         {phoneInCar
           ? "この iPhone の GPS で車の位置を動かしています。"
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
-        {you ? "青い点は、このスマホの今いる場所です。" : null}
+        {you ? "グレーの点は、このスマホの今いる場所です。" : null}
         {carOn ? `登録した場所は、目的地として車の ${look === "retro" ? "LIST" : "DEST"} から選べます。` : null}
       </p>
       {vehicleOpen ? (
