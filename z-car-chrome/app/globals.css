@@ -9089,20 +9089,6 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
   background: #2f8bff;
   box-shadow: 0 0 10px rgba(66, 150, 255, .9), 0 1px 4px rgba(0, 0, 0, .5);
 }
-.zr-park-you-label {
-  position: absolute;
-  left: 0;
-  top: -46px;
-  padding: 3px 8px;
-  border-radius: 8px;
-  background: rgba(2, 8, 6, .85);
-  color: #8fc4ff;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  transform: translateX(-50%);
-}
 /* 地図の左下: 「車まで 350m・歩いて約5分」。Google のロゴの上。 */
 .zr-park-you-gap {
   position: absolute;

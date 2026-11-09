@@ -332,7 +332,7 @@ type YouPin = GOverlay & {
 
 /**
  * 駐車中に出す、スマホ(あなた)の今いる場所の青い点(iPhone の地図と同じ形)。
- * まわりの薄い輪と、歩いている向きの扇、上に「あなた」。
+ * まわりの薄い輪と、歩いている向きの扇(文字は出さない。下の説明で「青い点は、このスマホ」)。
  * 地図(80年代は緑っぽく色づけしてある)の外の layer に置くので、どのテーマでも青く見える。
  * 地図を動かすたびに draw が呼ばれるので、そのつど地図の上の位置に置き直す。
  */
@@ -342,8 +342,7 @@ const createYouPin = (maps: MapsApi, position: LatLng, layer: HTMLElement): YouP
   element.innerHTML =
     '<i class="zr-park-you-halo"></i>' +
     '<i class="zr-park-you-cone"></i>' +
-    '<span class="zr-park-you-dot"></span>' +
-    '<b class="zr-park-you-label">あなた</b>';
+    '<span class="zr-park-you-dot"></span>';
   const Base = maps.OverlayView as unknown as new () => GOverlay;
   class Pin extends Base {
     private point = position;
