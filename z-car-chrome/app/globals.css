@@ -9049,21 +9049,12 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
 .zr-park-state.is-parked,
 .zr-park-pin.is-parked { --zr-state: #8a8a8a; --zr-state-rgb: 138, 138, 138; }
 
-/* 駐車中のスマホ(あなた)の今いる場所: iPhone の地図と同じ青い点。薄い輪と、歩いている向きの扇。 */
+/*
+ * 駐車中のスマホ(あなた)の今いる場所: 目立たない薄いグレーの点を、照準の角(上に「現在地」)で囲み、歩いている向きの扇。
+ * 点から車の印へ、流れる光る点線(薄いグレーから琥珀色)と矢印。線の真ん中に「車まで」の札。
+ * 主役は車なので、スマホの側は薄いグレーで控えめにし、車の側(矢印・札)だけ琥珀色で光らせる。
+ */
 .zr-park-you { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; }
-.zr-park-you-halo {
-  position: absolute;
-  left: -26px;
-  top: -26px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(66, 150, 255, .2);
-  animation: zr-you-halo 2.4s ease-in-out infinite;
-}
-@keyframes zr-you-halo {
-  50% { transform: scale(1.25); opacity: .55; }
-}
 .zr-park-you-cone {
   position: absolute;
   left: -34px;
@@ -9071,25 +9062,89 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
   display: none;
   width: 68px;
   height: 62px;
-  background: linear-gradient(to top, rgba(66, 150, 255, .85), rgba(66, 150, 255, 0));
+  background: linear-gradient(to top, rgba(200, 208, 213, .4), rgba(200, 208, 213, 0));
   clip-path: polygon(50% 100%, 6% 0, 94% 0);
   transform: rotate(var(--zr-you-heading, 0deg));
   transform-origin: 50% 100%;
 }
 .zr-park-you.has-heading .zr-park-you-cone { display: block; }
+/* 照準の角(4つのかぎ)。 */
+.zr-park-you-frame {
+  --zr-frame: rgba(200, 208, 213, .7);
+  position: absolute;
+  left: -18px;
+  top: -18px;
+  width: 36px;
+  height: 36px;
+  background:
+    linear-gradient(var(--zr-frame), var(--zr-frame)) left top / 10px 2.5px,
+    linear-gradient(var(--zr-frame), var(--zr-frame)) left top / 2.5px 10px,
+    linear-gradient(var(--zr-frame), var(--zr-frame)) right top / 10px 2.5px,
+    linear-gradient(var(--zr-frame), var(--zr-frame)) right top / 2.5px 10px,
+    linear-gradient(var(--zr-frame), var(--zr-frame)) left bottom / 10px 2.5px,
+    linear-gradient(var(--zr-frame), var(--zr-frame)) left bottom / 2.5px 10px,
+    linear-gradient(var(--zr-frame), var(--zr-frame)) right bottom / 10px 2.5px,
+    linear-gradient(var(--zr-frame), var(--zr-frame)) right bottom / 2.5px 10px;
+  background-repeat: no-repeat;
+}
+.zr-park-you-tag {
+  position: absolute;
+  left: 0;
+  top: -34px;
+  transform: translateX(-50%);
+  color: rgba(200, 208, 213, .8);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  line-height: 1;
+  white-space: nowrap;
+}
 .zr-park-you-dot {
   position: absolute;
-  left: -11px;
-  top: -11px;
-  width: 22px;
-  height: 22px;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
   box-sizing: border-box;
-  border: 3px solid #fff;
+  border: 2px solid rgba(235, 239, 241, .85);
   border-radius: 50%;
-  background: #2f8bff;
-  box-shadow: 0 0 10px rgba(66, 150, 255, .9), 0 1px 4px rgba(0, 0, 0, .5);
+  background: #a9b2b8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .6);
 }
-/* 地図の左下: 「車まで 350m・歩いて約5分」。Google のロゴの上。 */
+/* スマホの点から車への点線(地図が近すぎて短いときは出さない)。 */
+.zr-park-you-line {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: none;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.zr-park-you-line.is-on { display: block; }
+.zr-park-you-line-from { stop-color: #c8cfd3; }
+.zr-park-you-line-to { stop-color: var(--zr-amber, #ffb02e); }
+.zr-park-you-line-path {
+  fill: none;
+  stroke-width: 3;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px rgba(255, 176, 46, .45));
+  animation: zr-you-flow 1s linear infinite;
+}
+@keyframes zr-you-flow {
+  to { stroke-dashoffset: -9; }
+}
+.zr-park-you-line-head {
+  fill: none;
+  stroke: var(--zr-amber, #ffb02e);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(255, 176, 46, .9));
+}
+/* 「車まで 350m 4分」の札。ふだんは線の真ん中、近くて線を引かないときは地図の左下(Google のロゴの上)。 */
 .zr-park-you-gap {
   position: absolute;
   left: 12px;
@@ -9099,23 +9154,31 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
   align-items: baseline;
   gap: 6px;
   margin: 0;
-  padding: 7px 12px;
-  border: 1.5px solid rgba(var(--zr-accent-rgb), .6);
-  border-radius: 12px;
-  background: rgba(2, 8, 6, .88);
+  padding: 6px 12px;
+  border: 1.5px solid var(--zr-amber, #ffb02e);
+  border-radius: 999px;
+  background: rgba(10, 7, 0, .92);
+  box-shadow: 0 0 12px rgba(255, 176, 46, .5);
+  white-space: nowrap;
   pointer-events: none;
 }
-.zr-park-you-gap small { color: var(--zr-muted); font-size: 12px; font-weight: 700; }
+.zr-park-map[data-you-line="on"] .zr-park-you-gap {
+  left: var(--zr-you-mid-x);
+  top: var(--zr-you-mid-y);
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+.zr-park-you-gap small { color: #e8c98a; font-size: 12px; font-weight: 800; }
 .zr-park-you-gap b {
-  color: var(--zr-accent-strong);
+  color: #ffc65e;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 0 8px rgba(var(--zr-accent-rgb), .7);
+  text-shadow: 0 0 8px rgba(255, 176, 46, .9);
 }
 @media (prefers-reduced-motion: reduce) {
-  .zr-park-you-halo { animation: none; }
+  .zr-park-you-line-path { animation: none; }
 }
 /* 地図の上の車の印(地図の部品の中に置かれる)。真ん中に状態の八卦。 */
 .zr-park-pin {

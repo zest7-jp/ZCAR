@@ -324,45 +324,111 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
 
 type YouPin = GOverlay & {
   moveTo: (point: LatLng) => void;
+  /** 車の場所(スマホの点から、ここへ光る点線を引く)。null なら線を引かない。 */
+  setCar: (point: LatLng | null) => void;
   /** 歩いている向き(北が0、時計回りの度)。止まっていて分からなければ null(扇を隠す)。 */
   setHeading: (degrees: number | null) => void;
   /** いま地図に出しているか。 */
   shown: boolean;
 };
 
+/** スマホの点と車の印が画面の上でこれより近いと、点線は引かず、「車まで」の札は地図の左下に出す(px)。 */
+const YOU_LINE_MIN_PX = 90;
+/** 点線の両端の空き(照準の角と車の印にかからないように)。 */
+const YOU_LINE_GAP_FROM = 22;
+const YOU_LINE_GAP_TO = 26;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
 /**
- * 駐車中に出す、スマホ(あなた)の今いる場所の青い点(iPhone の地図と同じ形)。
- * まわりの薄い輪と、歩いている向きの扇(文字は出さない。下の説明で「青い点は、このスマホ」)。
- * 地図(80年代は緑っぽく色づけしてある)の外の layer に置くので、どのテーマでも青く見える。
+ * 駐車中に出す、スマホ(あなた)の今いる場所。目立たない薄いグレーの点を照準の角(上に「現在地」)で囲み、
+ * 歩いている向きの扇を出す。点から車の印へ、流れる光る点線(薄いグレーから琥珀色)と矢印を引き、
+ * 線の真ん中に「車まで」の札を置く
+ * (札は画面の部品。ここでは置き場所を、地図の枠の --zr-you-mid-x・--zr-you-mid-y に入れる)。
+ * 地図(80年代は緑っぽく色づけしてある)の外の layer に置くので、どのテーマでも色が変わらない。
  * 地図を動かすたびに draw が呼ばれるので、そのつど地図の上の位置に置き直す。
  */
 const createYouPin = (maps: MapsApi, position: LatLng, layer: HTMLElement): YouPin => {
   const element = document.createElement("div");
   element.className = "zr-park-you";
   element.innerHTML =
-    '<i class="zr-park-you-halo"></i>' +
     '<i class="zr-park-you-cone"></i>' +
+    '<i class="zr-park-you-frame"></i>' +
+    '<b class="zr-park-you-tag">現在地</b>' +
     '<span class="zr-park-you-dot"></span>';
+  const line = document.createElementNS(SVG_NS, "svg");
+  line.setAttribute("class", "zr-park-you-line");
+  line.setAttribute("aria-hidden", "true");
+  line.innerHTML =
+    '<defs><linearGradient id="zr-you-line-grad" gradientUnits="userSpaceOnUse">' +
+    '<stop offset="0" class="zr-park-you-line-from"></stop><stop offset="1" class="zr-park-you-line-to"></stop>' +
+    "</linearGradient></defs>" +
+    '<line class="zr-park-you-line-path" stroke="url(#zr-you-line-grad)"></line>' +
+    '<polyline class="zr-park-you-line-head" points="-9,-7 0,0 -9,7"></polyline>';
+  const gradient = line.querySelector("linearGradient") as SVGElement;
+  const path = line.querySelector("line") as SVGElement;
+  const head = line.querySelector("polyline") as SVGElement;
+  const hideLine = () => {
+    line.classList.remove("is-on");
+    delete layer.dataset.youLine;
+  };
   const Base = maps.OverlayView as unknown as new () => GOverlay;
   class Pin extends Base {
     private point = position;
+    private car: LatLng | null = null;
     shown = false;
     onAdd() {
+      layer.appendChild(line);
       layer.appendChild(element);
     }
     draw() {
-      const pixel = this.getProjection()?.fromLatLngToContainerPixel?.(
-        new maps.LatLng(this.point.lat, this.point.lng),
-      );
-      if (!pixel) return;
-      element.style.left = `${pixel.x}px`;
-      element.style.top = `${pixel.y}px`;
+      const projection = this.getProjection();
+      const pixel = (point: LatLng) =>
+        projection?.fromLatLngToContainerPixel?.(new maps.LatLng(point.lat, point.lng)) ?? null;
+      const you = pixel(this.point);
+      if (!you) return;
+      element.style.left = `${you.x}px`;
+      element.style.top = `${you.y}px`;
+      const car = this.car ? pixel(this.car) : null;
+      const length = car ? Math.hypot(car.x - you.x, car.y - you.y) : 0;
+      if (!car || length < YOU_LINE_MIN_PX) {
+        hideLine();
+        return;
+      }
+      const ux = (car.x - you.x) / length;
+      const uy = (car.y - you.y) / length;
+      const ends = {
+        x1: you.x + ux * YOU_LINE_GAP_FROM,
+        y1: you.y + uy * YOU_LINE_GAP_FROM,
+        x2: car.x - ux * YOU_LINE_GAP_TO,
+        y2: car.y - uy * YOU_LINE_GAP_TO,
+      };
+      for (const node of [path, gradient]) {
+        for (const [name, value] of Object.entries(ends)) node.setAttribute(name, value.toFixed(1));
+      }
+      const angle = (Math.atan2(uy, ux) * 180) / Math.PI;
+      head.setAttribute("transform", `translate(${ends.x2.toFixed(1)} ${ends.y2.toFixed(1)}) rotate(${angle.toFixed(1)})`);
+      line.classList.add("is-on");
+      // 「車まで」の札は線の真ん中。地図の枠からはみ出さないように寄せる。
+      const chip = layer.querySelector<HTMLElement>(".zr-park-you-gap");
+      const half = (chip?.offsetWidth ?? 140) / 2;
+      const clamp = (value: number, low: number, high: number) => Math.min(Math.max(value, low), Math.max(low, high));
+      const midX = clamp((you.x + car.x) / 2, half + 8, layer.clientWidth - half - 8);
+      const midY = clamp((you.y + car.y) / 2, 26, layer.clientHeight - 44);
+      layer.style.setProperty("--zr-you-mid-x", `${midX.toFixed(1)}px`);
+      layer.style.setProperty("--zr-you-mid-y", `${midY.toFixed(1)}px`);
+      layer.dataset.youLine = "on";
     }
     onRemove() {
       element.remove();
+      line.remove();
+      hideLine();
     }
     moveTo(point: LatLng) {
       this.point = point;
+      this.draw();
+    }
+    setCar(point: LatLng | null) {
+      this.car = point;
       this.draw();
     }
     setHeading(degrees: number | null) {
@@ -373,13 +439,16 @@ const createYouPin = (maps: MapsApi, position: LatLng, layer: HTMLElement): YouP
   return new Pin() as YouPin;
 };
 
-/** 「車まで 350m・歩いて約5分」の距離と時間。すぐ近くなら null(「車のすぐ近くです」)。 */
+/**
+ * 「車まで 350m 4分」の距離と、歩いてかかる分。すぐ近くなら null(「車のすぐ近くです」)。
+ * 遠い(3km より先)ときは、歩く時間は出さない(minutes が null)。
+ */
 const walkText = (meters: number) => {
   if (meters < 15) return null;
   const distance =
     meters >= 1000 ? `${(meters / 1000).toFixed(1)}km` : `${Math.round(meters / 10) * 10}m`;
   const minutes = Math.max(1, Math.round(meters / WALK_METERS_PER_MIN));
-  return { distance, walk: meters <= WALK_MAX_METERS ? `歩いて約${minutes}分` : null };
+  return { distance, minutes: meters <= WALK_MAX_METERS ? minutes : null };
 };
 
 /** 日本時間の「18:32」。 */
@@ -821,6 +890,7 @@ export function CarLocationPanel({
       shownRef.current = point;
       current.pin.moveTo(point);
       current.circle.setCenter(point);
+      if (current.you?.shown) current.you.setCar(point);
       if (followRef.current && !current.you?.shown) current.map.setCenter(point);
       if (t < 1) frame = requestAnimationFrame(step);
     };
@@ -868,7 +938,7 @@ export function CarLocationPanel({
     });
   };
 
-  // 駐車中は、スマホ(あなた)の今いる場所を青い点で出す(GPS は画面に出すだけで、送らない)。
+  // 駐車中は、スマホ(あなた)の今いる場所を薄いグレーの点で出す(GPS は画面に出すだけで、送らない)。
   const you = status === "parked" && phoneFix ? phoneFix : null;
   const youLat = you?.lat;
   const youLng = you?.lng;
@@ -881,7 +951,7 @@ export function CarLocationPanel({
         current.you.setMap(null);
         current.you.shown = false;
         fitRef.current = null;
-        // 青い点を消したら、また車を真ん中にする(追いかけている間)。
+        // スマホの点を消したら、また車を真ん中にする(追いかけている間)。
         if (followRef.current && shownRef.current) current.map.setCenter(shownRef.current);
       }
       return;
@@ -890,6 +960,7 @@ export function CarLocationPanel({
     const layer = mapElementRef.current?.parentElement;
     if (!layer) return;
     current.you ??= createYouPin(current.api, point, layer);
+    current.you.setCar(shownRef.current);
     current.you.moveTo(point);
     current.you.setHeading(youHeading);
     if (!current.you.shown) {
@@ -1031,12 +1102,20 @@ export function CarLocationPanel({
           )}
           {failed && loaded ? <i className="zr-park-offline">NO SIGNAL</i> : null}
           {youGap !== null ? (
-            <p className="zr-park-you-gap" role="status">
+            <p
+              className="zr-park-you-gap"
+              role="status"
+              aria-label={
+                youWalk
+                  ? `車まで ${youWalk.distance}${youWalk.minutes === null ? "" : `、歩いて約${youWalk.minutes}分`}`
+                  : "車のすぐ近くです"
+              }
+            >
               {youWalk ? (
                 <>
                   <small>車まで</small>
                   <b>{youWalk.distance}</b>
-                  {youWalk.walk ? <small>・{youWalk.walk}</small> : null}
+                  {youWalk.minutes === null ? null : <small>{youWalk.minutes}分</small>}
                 </>
               ) : (
                 <small>車のすぐ近くです</small>
@@ -1158,7 +1237,7 @@ export function CarLocationPanel({
         {phoneInCar
           ? "この iPhone の GPS で車の位置を動かしています。"
           : "車で Z CAR を開いている間に届いた、最後の場所です。"}
-        {you ? "青い点は、このスマホの今いる場所です。" : null}
+        {you ? "グレーの点は、このスマホの今いる場所です。" : null}
         {carOn ? `登録した場所は、目的地として車の ${look === "retro" ? "LIST" : "DEST"} から選べます。` : null}
       </p>
       {vehicleOpen ? (
