@@ -20,10 +20,25 @@ const LABELS = [
   { text: "西", angle: 270 },
 ];
 
+/** 外から点(オービス)へ流れる3つの山形(›››)。外側ほど薄く、順に光って点へ流れる。 */
+const FLOW = [
+  "-12,57 0,46 12,57",
+  "-12,41 0,30 12,41",
+  "-12,25 0,14 12,25",
+];
+const Flow = () => (
+  <>
+    {FLOW.map((points) => (
+      <polyline key={points} points={points} />
+    ))}
+  </>
+);
+
 /**
- * オービスの「走る向き」を選ぶダイヤル。その場所の小さな地図(北が上)の上に、丸い目盛りと
- * 矢印を重ねる。ダイヤルを指でなぞる(回す)と、矢印がその向きになる。◀ ▶ で 5度ずつ、
- * 「両方の向き」で向きなし(上り・下りどちらでも知らせる)。
+ * オービスの「走る向き」を選ぶダイヤル。その場所の小さな地図(北が上)の上に、丸い目盛りと、
+ * 外から点(オービス)へ流れる山形(›››)を重ねる。車が来る方の外側を押す(なぞる)と、
+ * そちらから来て点を通る向きになる。◀ ▶ で 5度ずつ、「両方の向き」で向きなし
+ * (上り・下りどちらでも知らせる。上と下の両方から流れる)。
  */
 export function OrbisDial({
   lat,
@@ -67,14 +82,17 @@ export function OrbisDial({
     };
   }, [lat, lng, mapsKey]);
 
-  /** 押した(なぞった)所の向きにする。真ん中のあたりは向きが決まらないので見ない。 */
+  /**
+   * 押した(なぞった)所から来る向きにする(走る向きは、押した所から点の方)。
+   * 真ん中のあたりは向きが決まらないので見ない。
+   */
   const pick = (event: PointerEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     const dx = event.clientX - (box.left + box.width / 2);
     const dy = event.clientY - (box.top + box.height / 2);
     if (Math.hypot(dx, dy) < box.width * 0.12) return;
-    const angle = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
-    onChange((Math.round(angle / STEP) * STEP) % 360);
+    const from = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
+    onChange(((Math.round(from / STEP) * STEP) + 180) % 360);
   };
   const turn = (step: number) => onChange((((direction ?? 0) + step) % 360 + 360) % 360);
   const onKey = (event: KeyboardEvent<SVGSVGElement>) => {
@@ -86,7 +104,7 @@ export function OrbisDial({
 
   return (
     <div className="zr-dial">
-      <p className="zr-dial-hint">地図の道に合わせて、ダイヤルを回して走る向きにします</p>
+      <p className="zr-dial-hint">地図の道で、車が来る方の外側を押して(なぞって)向きを決めます</p>
       <div className="zr-dial-face">
         <div ref={mapRef} className="zr-dial-map" />
         <svg
@@ -129,16 +147,19 @@ export function OrbisDial({
             </text>
           ))}
           {direction === null ? (
-            // 両方の向き: 上下に2つの矢印(どちらでも知らせる)。
-            <g className="zr-dial-both">
-              <path d="M0 -62 9 -46H-9z" />
-              <path d="M0 62 9 46H-9z" />
-              <line y1={-46} y2={46} />
+            // 両方の向き: 上と下の両方から点へ流れる(どちらから来ても知らせる)。
+            <g className="zr-dial-flow is-both">
+              <g>
+                <Flow />
+              </g>
+              <g transform="rotate(180)">
+                <Flow />
+              </g>
             </g>
           ) : (
-            <g className="zr-dial-needle" transform={`rotate(${direction})`}>
-              <line y1={-10} y2={-58} />
-              <path d="M0 -76 12 -54H-12z" />
+            // 走る向きが上になるように回す。山形は下(来る方)から点へ流れる。
+            <g className="zr-dial-flow" transform={`rotate(${direction})`}>
+              <Flow />
             </g>
           )}
           <circle className="zr-dial-spot" r="9" />
