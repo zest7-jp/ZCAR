@@ -99,12 +99,13 @@ const emptyFuelDraft = () => ({
   amountYen: "",
 });
 
-type Tab = "park" | "navi" | "fuel" | "vehicle";
+type Tab = "park" | "navi" | "orbis" | "fuel" | "vehicle";
 
 /** 並びは使う順。開いたときは車両位置(いちばん左)を出す。メーター設定は「車両」の中。 */
 const TABS: { id: Tab; ja: string; en: string }[] = [
   { id: "park", ja: "車両位置", en: "PARK" },
   { id: "navi", ja: "目的地", en: "NAVI" },
+  { id: "orbis", ja: "オービス", en: "ORBIS" },
   { id: "fuel", ja: "給油", en: "FUEL" },
   { id: "vehicle", ja: "車両", en: "VEHICLE" },
 ];
@@ -1399,8 +1400,8 @@ export default function PhoneSettingsPage() {
         </section>
       ) : null}
 
-      {/* 目的地のタブの下: 自分で登録するオービス(車の地図で知らせる)。 */}
-      {tab === "navi" && !sorting ? (
+      {/* オービスのタブ: 自分で登録するオービス(車の地図で知らせる)。登録した場所を全部出した地図と一覧。 */}
+      {tab === "orbis" ? (
         <OrbisPanel
           points={draft.orbis}
           syncKey={linked ? draft.syncKey.trim() : ""}

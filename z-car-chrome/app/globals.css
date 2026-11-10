@@ -10187,3 +10187,105 @@ main.zr[data-style="retro"] .zr-once-go { border-radius: 14px; }
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+
+/* --- オービスのタブ: 登録した場所を全部出した地図(赤いカメラの印・番号・走る向きの矢印) --- */
+.zr-tabs { grid-template-columns: repeat(5, 1fr); padding-left: 4px; padding-right: 4px; }
+.zr-tabs .is-orbis { --zr-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='13' height='10' rx='1.5'/%3E%3Cpath d='M16 10.5 21 8v8l-5-2.5'/%3E%3Ccircle cx='9.5' cy='12' r='2.2'/%3E%3C/svg%3E"); }
+.zr-orbis-map {
+  position: relative;
+  height: clamp(220px, 38dvh, 330px);
+  margin: 2px 0 12px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--zr-accent-rgb), .35);
+  border-radius: 14px;
+  background: #03150b;
+}
+.zr-orbis-map-canvas { position: absolute; inset: 0; }
+.zr-orbis-map-count {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 60, 60, .7);
+  border-radius: 999px;
+  background: rgba(20, 0, 0, .85);
+  color: #ffb3a8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+/* 印(押せる大きさは赤い丸と同じ。置く所の真ん中に丸の真ん中がくるように、半分ずらす)。 */
+.zr-orbis-mark {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.zr-orbis-mark b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  border: 2px solid #ff3c3c;
+  border-radius: 50%;
+  background: rgba(30, 0, 0, .9);
+  box-shadow: 0 0 8px #ff3c3c;
+}
+.zr-orbis-mark svg { width: 17px; height: 17px; fill: none; stroke: #ff3c3c; stroke-width: 2; stroke-linejoin: round; }
+.zr-orbis-mark em {
+  position: absolute;
+  left: 23px;
+  top: -9px;
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 6px;
+  background: #ff3c3c;
+  color: #fff;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.3;
+  text-align: center;
+}
+/* 走る向きの矢印(印のまわりを、その向きに回す)。 */
+.zr-orbis-mark-way { position: absolute; left: 15px; top: 15px; width: 0; height: 0; transform: rotate(var(--zr-way)); }
+.zr-orbis-mark-way::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: -30px;
+  width: 14px;
+  height: 14px;
+  background: var(--zr-amber, #ffb02e);
+  clip-path: polygon(50% 0, 100% 48%, 68% 48%, 68% 100%, 32% 100%, 32% 48%, 0 48%);
+  filter: drop-shadow(0 0 3px rgba(255, 176, 46, .9));
+}
+/* 一覧の行の番号(地図の印と同じ)。START の札の形(.zr-place-name em)は使わない。 */
+.zr-place-name em.zr-orbis-num {
+  flex: none;
+  align-self: center;
+  min-width: 16px;
+  padding: 1px 4px;
+  border: 0;
+  border-radius: 6px;
+  letter-spacing: 0;
+  background: #ff3c3c;
+  color: #fff;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.3;
+  text-align: center;
+}
+.zr-orbis-hint { margin-top: 12px; }
