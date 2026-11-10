@@ -28,10 +28,11 @@ export type MeterDesign = "navi" | "orbit";
 
 /**
  * テーマ(画面全体の雰囲気)。future は今の近未来のメーター(上の色と形を選べる)、
- * retro は80年代のデジタル。中身は下の METER_STYLES、絵は app/meter-styles.tsx。
+ * retro は80年代のデジタル、cyber は緑一色のサイバーパンク(80年代と同じ配置で、太い緑の線の枠)。
+ * 中身は下の METER_STYLES、絵は app/meter-styles.tsx。
  * (前にあった classic(本物の針のメーター)・bagua(八卦)・day(デイライト)はやめた。保存されていたら近未来に戻す)
  */
-export type MeterStyle = "future" | "retro";
+export type MeterStyle = "future" | "retro" | "cyber";
 
 /** 満タン法の給油記録1件分。 */
 export type FuelEntry = {
@@ -1013,6 +1014,7 @@ export type MeterStyleInfo = {
 export const METER_STYLES: MeterStyleInfo[] = [
   { id: "future", name: "FUTURE", caption: "近未来(色と形を選べる)", captionEn: "NEON COCKPIT", shortJa: "近未来", shortEn: "FUTURE" },
   { id: "retro", name: "DIGITAL 80s", caption: "80年代のデジタル", captionEn: "RETRO DIGITAL DASH", shortJa: "80年代", shortEn: "80s" },
+  { id: "cyber", name: "CYBER", caption: "緑一色のサイバーパンク", captionEn: "GREEN CYBER HUD", shortJa: "サイバー", shortEn: "CYBER" },
 ];
 
 /** テーマの説明を引く。知らない名前なら近未来。 */

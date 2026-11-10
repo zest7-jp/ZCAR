@@ -846,6 +846,83 @@ const litSegments = (value: number, y: number, color: (index: number) => string)
     <rect key={i} x={790 + i * 11} y={y} width="8.5" height="18" fill={color(i)} />
   ));
 
+/**
+ * 地図の窓(80年代とサイバーで同じ): Google マップの置き場所・待ちの字・走査線・自分の車・北の印・オービス・縮尺と ＋・−。
+ * badge は窓の左上に出す飾り(オービスの帯が出ると、その下に隠れる)。
+ */
+function CrtMap({
+  data,
+  mapRef,
+  mapReady,
+  zoom,
+  orbis,
+  badge = null,
+}: MapProps & { data: ClusterData; badge?: ReactNode }) {
+  const scale = mapScale(zoom.metersPerPx);
+  return (
+    <div className="ms-retro-crt" style={{ left: RETRO_CRT.x, top: RETRO_CRT.y, width: RETRO_CRT.w, height: RETRO_CRT.h }}>
+      <div ref={mapRef} className="ms-map-canvas" />
+      {!mapReady ? <span className="ms-retro-crt-wait">MAP LOADING</span> : null}
+      <i className="ms-retro-scan" aria-hidden="true" />
+      <svg
+        className="ms-retro-cursor"
+        viewBox="-12 -12 24 24"
+        aria-hidden="true"
+        style={{ transform: `translate(-50%, -50%) rotate(${Math.round(data.heading ?? 0)}deg)` }}
+      >
+        <polygon points="0,-10 -8,10 0,5 8,10" />
+      </svg>
+      {/* 北の印(地図はいつも北が上)。 */}
+      <svg className="ms-retro-north" viewBox="-14 -20 28 34" aria-hidden="true">
+        <polygon points="0,-19 -5,-11 5,-11" />
+        <circle cx="0" cy="2" r="10.5" />
+        <text x="0" y="6.5" textAnchor="middle">
+          N
+        </text>
+      </svg>
+      {badge}
+      {orbis ? <OrbisOnMap orbis={orbis} metersPerPx={zoom.metersPerPx} /> : null}
+      {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
+      <span className="ms-retro-scale" aria-hidden="true">
+        {scale.label}
+        <i style={{ width: scale.width }} />
+      </span>
+      <span className="ms-retro-zoom">
+        <button type="button" aria-label="地図を近くする" disabled={!zoom.onIn} onClick={zoom.onIn ?? undefined}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h14M12 5v14" />
+          </svg>
+        </button>
+        <button type="button" aria-label="地図を広くする" disabled={!zoom.onOut} onClick={zoom.onOut ?? undefined}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h14" />
+          </svg>
+        </button>
+      </span>
+    </div>
+  );
+}
+
+/** 板の上の押せる所(80年代とサイバーで同じ場所): 燃費の記録を開く2か所と、LIST・START。 */
+function ClusterHits({ data, onFuel, onDest, onStart }: ClusterProps) {
+  return (
+    <>
+      <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[AVG_FUEL_X - 8, GAUGE_ROW_TOP + 4, GAUGE_R - AVG_FUEL_X + 8, RETRO_CRT.y - GAUGE_ROW_TOP - 10]} label="燃費の記録・確認を開く" onPress={onFuel} />
+      <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
+      <Hit
+        box={[RETRO_START.x, RETRO_START.y, RETRO_START.w, RETRO_START.h]}
+        label={
+          data.destLabel
+            ? `${data.destOnce ? "今回だけの行き先 " : ""}${data.destLabel} へのナビをGoogleマップで開始する`
+            : "目的地が設定されていません"
+        }
+        onPress={onStart}
+      />
+    </>
+  );
+}
+
 export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
@@ -856,49 +933,10 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
     : [];
   const temperature = data.weather ? String(Math.round(data.weather.temperature)) : "--";
   const eco = ecoLevel(rpm, data.speed);
-  const scale = mapScale(zoom.metersPerPx);
   return (
     <Board className="ms-retro">
       <RetroFace />
-      <div className="ms-retro-crt" style={{ left: RETRO_CRT.x, top: RETRO_CRT.y, width: RETRO_CRT.w, height: RETRO_CRT.h }}>
-        <div ref={mapRef} className="ms-map-canvas" />
-        {!mapReady ? <span className="ms-retro-crt-wait">MAP LOADING</span> : null}
-        <i className="ms-retro-scan" aria-hidden="true" />
-        <svg
-          className="ms-retro-cursor"
-          viewBox="-12 -12 24 24"
-          aria-hidden="true"
-          style={{ transform: `translate(-50%, -50%) rotate(${Math.round(data.heading ?? 0)}deg)` }}
-        >
-          <polygon points="0,-10 -8,10 0,5 8,10" />
-        </svg>
-        {/* 北の印(地図はいつも北が上)。 */}
-        <svg className="ms-retro-north" viewBox="-14 -20 28 34" aria-hidden="true">
-          <polygon points="0,-19 -5,-11 5,-11" />
-          <circle cx="0" cy="2" r="10.5" />
-          <text x="0" y="6.5" textAnchor="middle">
-            N
-          </text>
-        </svg>
-        {orbis ? <OrbisOnMap orbis={orbis} metersPerPx={zoom.metersPerPx} /> : null}
-        {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
-        <span className="ms-retro-scale" aria-hidden="true">
-          {scale.label}
-          <i style={{ width: scale.width }} />
-        </span>
-        <span className="ms-retro-zoom">
-          <button type="button" aria-label="地図を近くする" disabled={!zoom.onIn} onClick={zoom.onIn ?? undefined}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 12h14M12 5v14" />
-            </svg>
-          </button>
-          <button type="button" aria-label="地図を広くする" disabled={!zoom.onOut} onClick={zoom.onOut ?? undefined}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 12h14" />
-            </svg>
-          </button>
-        </span>
-      </div>
+      <CrtMap data={data} mapRef={mapRef} mapReady={mapReady} zoom={zoom} orbis={orbis} />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
         <SevenSeg text={`${pad2(data.month)}-${pad2(data.day)}`} x={22} y={118} h={22} color={RETRO.amber} />
@@ -988,18 +1026,474 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
         </g>
       </svg>
       <RetroGlass />
-      <Hit box={[770, 10, 240, 92]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[AVG_FUEL_X - 8, GAUGE_ROW_TOP + 4, GAUGE_R - AVG_FUEL_X + 8, RETRO_CRT.y - GAUGE_ROW_TOP - 10]} label="燃費の記録・確認を開く" onPress={onFuel} />
-      <Hit box={[RETRO_DEST.x, RETRO_DEST.y, RETRO_DEST.w, RETRO_DEST.h]} label="目的地を選ぶ" onPress={onDest} />
-      <Hit
-        box={[RETRO_START.x, RETRO_START.y, RETRO_START.w, RETRO_START.h]}
-        label={
-          data.destLabel
-            ? `${data.destOnce ? "今回だけの行き先 " : ""}${data.destLabel} へのナビをGoogleマップで開始する`
-            : "目的地が設定されていません"
-        }
-        onPress={onStart}
+      <ClusterHits data={data} onFuel={onFuel} onDest={onDest} onStart={onStart} />
+    </Board>
+  );
+}
+
+// ------------------------------------------------------------------
+// 緑一色のサイバーパンク(送ってもらった緑のパックの絵に寄せる)。
+// 80年代と同じ配置(地図・LIST・START・押せる所も同じ)で、見た目だけ替える。
+// 太い平らな緑の線で囲む(角を切り、左上に見出しの札が一段高く出て、上の辺に太い張り出し)。
+// ▶▶▶ と斜線を添え、光らせない。数字と大きな英字は横に広い Michroma、
+// 小さな説明は縦長で字の間を広くとった Rajdhani(どちらも app/fonts に入れてある)。
+// ------------------------------------------------------------------
+
+const CYBER = {
+  on: "#19f59b",
+  hi: "#d4ffe8",
+  mid: "#14c47c",
+  dim: "#11583b",
+  ground: "#070908",
+  panel: "#020504",
+  ink: "#00170c",
+};
+/** 消えている棒や札の濃さ。 */
+const CYBER_OFF = 0.13;
+
+/** サイバーの地図の色(Google マップの styles): 黒い下地に、明るさの違う緑の道。字は町の名前だけ。 */
+export const CYBER_MAP_LOOK: typeof RETRO_MAP_LOOK = {
+  zoom: RETRO_MAP_LOOK.zoom,
+  background: "#010805",
+  styles: [
+    { elementType: "geometry", stylers: [{ color: "#010805" }] },
+    { elementType: "labels", stylers: [{ visibility: "off" }] },
+    { featureType: "administrative.locality", elementType: "labels.text", stylers: [{ visibility: "on" }] },
+    { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#19f59b" }] },
+    { featureType: "administrative.locality", elementType: "labels.text.stroke", stylers: [{ color: "#010805" }, { weight: 3 }] },
+    { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
+    { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+    { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#03140b" }] },
+    { featureType: "road.local", elementType: "geometry", stylers: [{ color: "#0d5234" }] },
+    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#13a568" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#19f59b" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#032a1b" }] },
+  ],
+};
+
+/** 速さの数字の右の端と、その右の説明(SPEED・km/h)は 10 右から。回転数の字の下の位置(見出しの札の下)。 */
+const SPEED_X = 466;
+const CY_RPM_Y = 46;
+
+/** 3つの窓の左上の見出しの札(字と札の幅)。 */
+const CYBER_TABS = [
+  { text: "TIME · JST", w: 100 },
+  { text: "ENGINE ×1000 r/min", w: 156 },
+  { text: "FUEL", w: 64 },
+];
+/** 角を切る大きさと、見出しの札の高さ(札の下で、上の辺が一段下がる)。 */
+const CY_CUT = 12;
+const CY_TAB_H = 14;
+/** パックの枠の形: 左上に見出しの札(一段高い)、ほかの角は切る。step なら下の辺の左が一段上がる。 */
+const cyberFrame = (box: { x: number; y: number; w: number; h: number }, tabW: number, step: boolean) => {
+  const { x, y } = box;
+  const r = x + box.w;
+  const b = y + box.h;
+  const c = CY_CUT;
+  const t = CY_TAB_H;
+  const bottom = step ? `H${x + 104}L${x + 94} ${b - 10}H${x + c}L${x} ${b - 10 - c}` : `H${x + c}L${x} ${b - c}`;
+  return `M${x} ${y + c}L${x + c} ${y}H${x + tabW}L${x + tabW + t} ${y + t}H${r - c}L${r} ${y + t + c}V${b - c}L${r - c} ${b}${bottom}Z`;
+};
+/** 左上と右下の角を切った四角。 */
+const cyberCut = (x: number, y: number, w: number, h: number, c: number) =>
+  `M${x + c} ${y}H${x + w}V${y + h - c}L${x + w - c} ${y + h}H${x}V${y + c}Z`;
+/** ▶▶▶(右向きの三角が3つ)。 */
+const CyberArrows = ({ x, y, size }: { x: number; y: number; size: number }) => (
+  <g fill={CYBER.on}>
+    {[0, 1, 2].map((i) => {
+      const left = x + i * (size + 2);
+      return <polygon key={i} points={`${left},${r2(y - size / 1.6)} ${left + size},${y} ${left},${r2(y + size / 1.6)}`} />;
+    })}
+  </g>
+);
+/** 斜線の帯(//////)。 */
+const CyberHatch = ({ x, y, count, h }: { x: number; y: number; count: number; h: number }) => (
+  <g fill={CYBER.on}>
+    {Array.from({ length: count }, (_, i) => (
+      <polygon
+        key={i}
+        points={`${r2(x + i * 6 + h * 0.6)},${y} ${r2(x + i * 6 + h * 0.6 + 3)},${y} ${x + i * 6 + 3},${y + h} ${x + i * 6},${y + h}`}
       />
+    ))}
+  </g>
+);
+/** 太い張り出し(辺に沿った緑の台形)。 */
+const cyberLedge = (x1: number, x2: number, y: number) => `${x1},${y} ${x2},${y} ${x2 - 5},${y + 5} ${x1 + 5},${y + 5}`;
+/** 回転計の1本(右に傾けた細長い四角)。 */
+const cyberTachoPoints = (bar: ReturnType<typeof tachoBar>) =>
+  `${r2(bar.x + 3)},${bar.y} ${r2(bar.x + 11)},${bar.y} ${r2(bar.x + 8)},${TACHO_BOTTOM} ${bar.x},${TACHO_BOTTOM}`;
+/** 燃料・水温の棒の i 本目(傾けた四角)。 */
+const cyberSegPoints = (i: number, y: number) => {
+  const x = 790 + i * 11;
+  return `${x + 2.5},${y} ${x + 9},${y} ${x + 6.5},${y + 18} ${x},${y + 18}`;
+};
+/** エコ運転の縦の棒の i 段目(上向きの山形)。 */
+const cyberEcoPoints = (i: number) => {
+  const { x, w } = RETRO_ECO.bar;
+  const { y } = ecoSegment(i);
+  return `${x},${r2(y + 13)} ${x + w / 2},${r2(y + 4)} ${x + w},${r2(y + 13)} ${x + w},${r2(y + 8)} ${x + w / 2},${r2(y - 1)} ${x},${r2(y + 8)}`;
+};
+/** 曜日の札の形(左上と右下を切る)。 */
+const cyberDayTag = (i: number) => cyberCut(22 + i * 32, 150, 27, 19, 5);
+
+/** 板の上の字。num は数字の字(Michroma)、それ以外は説明の字(Rajdhani)。 */
+const cyText = (
+  key: string,
+  x: number,
+  y: number,
+  text: string,
+  options: { size?: number; anchor?: "start" | "middle" | "end"; fill?: string; spacing?: number; num?: boolean; opacity?: number } = {},
+) => (
+  <text
+    key={key}
+    x={x}
+    y={y}
+    className={options.num ? "cy-num" : undefined}
+    fill={options.fill ?? CYBER.on}
+    fontSize={options.size ?? 10}
+    textAnchor={options.anchor ?? "start"}
+    letterSpacing={options.spacing ?? (options.num ? 0.5 : 2.4)}
+    opacity={options.opacity}
+  >
+    {text}
+  </text>
+);
+
+/** LIST・START の英語の幅(Michroma で字の大きさの何倍か)。印と合わせてキーの真ん中にそろえる。 */
+const CY_KEY_WORD_EM: Record<string, number> = { LIST: 3.08, START: 4.84 };
+const CY_KEY_SIZE = 17;
+/** キーの字: 1段目に印と英語、2段目に小さく日本語。 */
+const cyberKeyWord = (box: typeof RETRO_DEST, word: string, note: string, icon: "list" | "go") => {
+  const wordW = (CY_KEY_WORD_EM[word] ?? word.length) * CY_KEY_SIZE;
+  const left = r2(box.x + (box.w - (KEY_ICON_W + KEY_ICON_GAP + wordW)) / 2);
+  const base = box.y + 42;
+  const mid = r2(base - CY_KEY_SIZE * 0.38);
+  return (
+    <g>
+      {icon === "list" ? (
+        <g stroke={CYBER.on} strokeWidth="2.6" fill="none">
+          {[-7, 0, 7].map((dy) => (
+            <g key={dy}>
+              <line x1={left + 1} y1={mid + dy} x2={left + 3.5} y2={mid + dy} />
+              <line x1={left + 7.5} y1={mid + dy} x2={left + KEY_ICON_W} y2={mid + dy} />
+            </g>
+          ))}
+        </g>
+      ) : (
+        <g fill={CYBER.on}>
+          {[0, 1, 2].map((i) => {
+            const x = left + i * 7.5;
+            return <polygon key={i} points={`${x},${mid - 7} ${x + 4},${mid - 7} ${x + 10},${mid} ${x + 4},${mid + 7} ${x},${mid + 7} ${x + 6},${mid}`} />;
+          })}
+        </g>
+      )}
+      {cyText("word", left + KEY_ICON_W + KEY_ICON_GAP, base, word, { size: CY_KEY_SIZE, num: true, spacing: 1 })}
+      <text x={box.x + box.w / 2} y={box.y + 66} fill={CYBER.on} fontSize="11.5" fontWeight="700" textAnchor="middle" letterSpacing="1" className="ms-ja">
+        {note}
+      </text>
+    </g>
+  );
+};
+/** LIST・START のキーの枠: 角を切った太い線、上の辺に張り出し、右下に ▶▶▶。 */
+const cyberKey = (box: typeof RETRO_DEST, fill: number) => (
+  <g>
+    <path d={cyberCut(box.x, box.y, box.w, box.h, 12)} fill={CYBER.on} fillOpacity={fill} stroke={CYBER.on} strokeWidth="2" />
+    <polygon points={cyberLedge(box.x + 16, box.x + 60, box.y + 1)} fill={CYBER.on} />
+    <CyberArrows x={box.x + box.w - 30} y={box.y + box.h - 10} size={5} />
+  </g>
+);
+
+/**
+ * 今回だけの行き先のとき: START の下の字を行き先の名前にし、キーの上の辺に「今回だけ」の緑の札を付ける。
+ * 下に消えている「ナビ開始」があるので、名前の所はキーの地の色で隠してから書く。
+ */
+const CyberOnceStart = ({ label }: { label: string }) => {
+  const box = RETRO_START;
+  const cx = box.x + box.w / 2;
+  return (
+    <g className="ms-cyber-once">
+      <rect x={box.x + 7} y={box.y + 52} width={box.w - 14} height={20} fill="#000" />
+      <rect x={box.x + 7} y={box.y + 52} width={box.w - 14} height={20} fill={CYBER.on} fillOpacity=".1" />
+      <text x={cx} y={box.y + 66} fill={CYBER.on} fontSize="11.5" fontWeight="700" textAnchor="middle" letterSpacing="1" className="ms-ja">
+        {startNote(label)}
+      </text>
+      <polygon points={`${cx - 36},${box.y - 7} ${cx + 36},${box.y - 7} ${cx + 31},${box.y + 8} ${cx - 31},${box.y + 8}`} fill={CYBER.on} />
+      <text x={cx} y={box.y + 4.5} fill={CYBER.ink} fontSize="10.5" fontWeight="900" textAnchor="middle" letterSpacing=".6" className="ms-ja">
+        今回だけ
+      </text>
+    </g>
+  );
+};
+
+/** 点で描いた天気の絵(サイバーは緑だけ。雲は少し暗い緑)。 */
+const CyberDotIcon = memo(function CyberDotIcon({ name, x, y, size }: { name: string; x: number; y: number; size: number }) {
+  const rows = DOT_ICONS[name] ?? DOT_ICONS.cloud;
+  const off: ReactNode[] = [];
+  const on: ReactNode[] = [];
+  rows.forEach((row, j) =>
+    [...row].forEach((cell, i) => {
+      const rect = (
+        <rect
+          key={`${i}-${j}`}
+          x={r2(x + i * size)}
+          y={r2(y + j * size)}
+          width={r2(size - 0.8)}
+          height={r2(size - 0.8)}
+          fill={cell === "C" ? CYBER.mid : CYBER.on}
+        />
+      );
+      if (cell === ".") off.push(rect);
+      else on.push(rect);
+    }),
+  );
+  return (
+    <g>
+      <g opacity={0.08}>{off}</g>
+      <g>{on}</g>
+    </g>
+  );
+});
+
+/** エコ運転のランプ(ECO)。 */
+const cyberEcoLamp = (lit: boolean) => cyText("ecoLamp", RETRO_ECO.x, RETRO_ECO.lamp, "ECO", { size: 22, num: true, spacing: 3, opacity: lit ? undefined : CYBER_OFF });
+
+/** サイバーの、動かない絵(枠・見出し・仕切り・説明の字・消えている棒)。 */
+const CyberFace = memo(function CyberFace() {
+  const label = (key: string, x: number, y: number, text: string) => cyText(key, x, y, text);
+  const unit = (key: string, x: number, y: number, text: string, size = 14) => cyText(key, x, y, text, { size, spacing: 0.5 });
+  const divider = (key: string, x1: number, x2: number, y: number) => (
+    <g key={key}>
+      <rect x={x1} y={y - 2} width="24" height="4" fill={CYBER.on} />
+      <line x1={x1 + 30} y1={y} x2={x2} y2={y} stroke={CYBER.on} strokeOpacity=".45" strokeWidth="1.5" />
+    </g>
+  );
+  const texts: ReactNode[] = [
+    label("date", 22, 112, "DATE"),
+    label("temp", 22, 202, "OUT TEMP"),
+    label("world", 22, 364, "WORLD TIME"),
+    label("today", 22, 489, "TODAY DISTANCE"),
+    unit("km", 220, 531, "km"),
+    unit("deg", 122, 245, "°C", 16),
+    label("cruise", AVG_CRUISE_X, GAUGE_ROW_Y + 12, "AVG CRUISE"),
+    label("fuel", AVG_FUEL_X, GAUGE_ROW_Y + 12, "AVG FUEL"),
+    cyText("speed", SPEED_X + 10, GAUGE_ROW_Y + 14, "SPEED", { spacing: 1.8 }),
+    unit("kmh", SPEED_X + 10, GAUGE_ROW_Y + SPEED_DIGIT_H - 2, "km/h", 15),
+    unit("cruiseUnit", AVG_CRUISE_X + AVG_VALUE_END + 5, GAUGE_ROW_Y + 51, "km/h", 11),
+    unit("fuelUnit", AVG_FUEL_X + AVG_VALUE_END + 4, GAUGE_ROW_Y + 51, "km/L", 11),
+    cyText("rpm", GAUGE_R - 60, CY_RPM_Y, "RPM", { anchor: "end", spacing: 1.6 }),
+    cyText("e", 778, RETRO_RIGHT.fuelBar + 14, "E", { size: 11, fill: CYBER.mid, spacing: 0 }),
+    cyText("f", 1000, RETRO_RIGHT.fuelBar + 14, "F", { size: 11, fill: CYBER.mid, spacing: 0, anchor: "end" }),
+    label("range", 778, RETRO_RIGHT.range + 18, "SAFE RANGE"),
+    unit("rangeUnit", 966, RETRO_RIGHT.range + 31, "km"),
+    label("coolant", 778, RETRO_RIGHT.coolantBar - 9, "COOLANT"),
+    cyText("c", 778, RETRO_RIGHT.coolantBar + 14, "C", { size: 11, fill: CYBER.mid, spacing: 0 }),
+    cyText("h", 1000, RETRO_RIGHT.coolantBar + 14, "H", { size: 11, fill: CYBER.mid, spacing: 0, anchor: "end" }),
+    unit("coolantUnit", 966, RETRO_RIGHT.coolant + 29, "°C"),
+    label("battery", 778, RETRO_RIGHT.battery - 7, "BATTERY"),
+    unit("voltUnit", 968, RETRO_RIGHT.battery + 29, "V"),
+    label("eco", RETRO_ECO.x, RETRO_ECO.label, "ECO DRIVE"),
+    cyText("ecoRpm", 1000, RETRO_ECO.lamp - 3, `≤${ECO_RPM} r/min`, { size: 11, anchor: "end", spacing: 0.6 }),
+  ];
+  ["NOW", "+3H", "+6H"].forEach((when, i) => texts.push(cyText(`w${i}`, 46 + i * 78, 274, when, { anchor: "middle", spacing: 1.4 })));
+  ["CALIF.", "RUSSIA", "CHINA"].forEach((name, i) =>
+    texts.push(cyText(`c${i}`, 22, 390 + i * 30, name, { size: 12, fill: CYBER.mid, spacing: 1.8 })),
+  );
+  for (let k = 0; k <= 8; k += 1) {
+    texts.push(
+      cyText(`n${k}`, r2(GAUGE_L + k * 4 * TACHO_PITCH - (k === 8 ? 3 : 0) + 4), 124, String(k), {
+        size: 11,
+        anchor: "middle",
+        spacing: 0,
+        fill: k >= 7 ? CYBER.hi : CYBER.on,
+      }),
+    );
+  }
+  const bay = RETRO_MAP_BAY;
+  return (
+    <svg className="ms-layer ms-static" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+      <defs>
+        <pattern id="cy-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="2.2" height="6" fill={CYBER.on} opacity=".28" />
+        </pattern>
+      </defs>
+      <rect width={BOARD_W} height={BOARD_H} fill={CYBER.ground} />
+      {/* 3つの窓: 太い線の枠(左上に見出しの札)、上の辺の張り出し、左の辺の太い所。左の窓だけ右下に ▶▶▶ と斜線。 */}
+      {RETRO_WINDOWS.map((w, i) => {
+        const right = w.x + w.w;
+        const bottom = w.y + w.h;
+        return (
+          <g key={i}>
+            <path d={cyberFrame(w, CYBER_TABS[i].w, i === 0)} fill={CYBER.panel} stroke={CYBER.on} strokeWidth="2" />
+            {cyText(`tab${i}`, w.x + 16, w.y + 11, CYBER_TABS[i].text)}
+            <polygon points={cyberLedge(right - CY_CUT - 74, right - CY_CUT - 8, w.y + CY_TAB_H)} fill={CYBER.on} />
+            <polygon points={`${w.x},${w.y + 150} ${w.x + 5},${w.y + 155} ${w.x + 5},${w.y + 215} ${w.x},${w.y + 220}`} fill={CYBER.on} />
+            {i === 0 ? (
+              <>
+                <CyberArrows x={right - 44} y={bottom - 13} size={7} />
+                <CyberHatch x={w.x + 116} y={bottom - 9} count={7} h={6} />
+              </>
+            ) : null}
+          </g>
+        );
+      })}
+      {divider("d1", 22, 248, 184)}
+      {divider("d2", 22, 248, 346)}
+      {divider("d3", 22, 248, 470)}
+      {divider("d4", 778, 1002, RETRO_RIGHT.coolantBar - 26)}
+      {divider("d5", 778, 1002, RETRO_RIGHT.battery - 24)}
+      {divider("d6", 778, 1002, RETRO_RIGHT.battery + 40)}
+      {divider("d7", GAUGE_L, GAUGE_R, GAUGE_ROW_TOP)}
+      <line x1={GAUGE_SPLIT} y1={GAUGE_ROW_TOP + 10} x2={GAUGE_SPLIT} y2={GAUGE_ROW_Y + SPEED_DIGIT_H} stroke={CYBER.on} strokeOpacity=".45" strokeWidth="1.5" />
+      {/* 地図の窓の縁(地図そのものは CrtMap)。 */}
+      <path d={cyberCut(RETRO_CRT.x - 4, RETRO_CRT.y - 4, RETRO_CRT.w + 8, RETRO_CRT.h + 8, 16)} fill="#000" stroke={CYBER.on} strokeWidth="2" />
+      {/* 曜日の札(今日と出勤日は動く絵の方で点ける)。 */}
+      {WEEK_ORDER.map((dayIndex, i) => (
+        <g key={dayIndex}>
+          <path d={cyberDayTag(i)} fill="none" stroke={CYBER.dim} strokeWidth="1.2" />
+          <text x={35.5 + i * 32} y="164" textAnchor="middle" fontSize="12" fill={CYBER.dim} className="ms-ja">
+            {WEEKDAYS[dayIndex]}
+          </text>
+        </g>
+      ))}
+      {/* 日の出・日の入りの三角。 */}
+      <polygon points="150,216 156,206 162,216" fill={CYBER.on} />
+      <polygon points="150,228 156,238 162,228" fill={CYBER.mid} />
+      {texts}
+      {/* 回転計の棒(消えている方)。赤の所(6500回転より上)は斜線。 */}
+      {Array.from({ length: TACHO_BARS }, (_, i) => {
+        const bar = tachoBar(i);
+        return bar.rpm > RPM_RED ? (
+          <polygon key={i} points={cyberTachoPoints(bar)} fill="url(#cy-hatch)" stroke={CYBER.on} strokeOpacity=".5" />
+        ) : (
+          <polygon key={i} points={cyberTachoPoints(bar)} fill={CYBER.on} opacity={CYBER_OFF} />
+        );
+      })}
+      {/* 燃料と水温の棒(消えている方)。燃料の左の3本(空に近い所)は斜線。 */}
+      {Array.from({ length: BAR_SEGMENTS }, (_, i) => (
+        <g key={i}>
+          {i < 3 ? (
+            <polygon points={cyberSegPoints(i, RETRO_RIGHT.fuelBar)} fill="url(#cy-hatch)" stroke={CYBER.on} strokeOpacity=".4" />
+          ) : (
+            <polygon points={cyberSegPoints(i, RETRO_RIGHT.fuelBar)} fill={CYBER.on} opacity={CYBER_OFF} />
+          )}
+          <polygon points={cyberSegPoints(i, RETRO_RIGHT.coolantBar)} fill={CYBER.on} opacity={CYBER_OFF} />
+        </g>
+      ))}
+      {cyberEcoLamp(false)}
+      {Array.from({ length: ECO_SEGMENTS }, (_, i) => (
+        <polygon key={i} points={cyberEcoPoints(i)} fill={CYBER.on} opacity={CYBER_OFF} />
+      ))}
+      {/* 右下の箱(Google マップの小さな画面を置く所): 左上に「GOOGLE MAPS」の札。中に LIST・START。 */}
+      <path
+        d={`M${bay.x} ${bay.y + 10}L${bay.x + 10} ${bay.y}H${bay.x + 92}L${bay.x + 102} ${bay.y + 10}H${bay.x + bay.w - 10}L${bay.x + bay.w} ${bay.y + 20}V${bay.y + bay.h - 10}L${bay.x + bay.w - 10} ${bay.y + bay.h}H${bay.x}Z`}
+        fill="#000"
+        stroke={CYBER.on}
+        strokeWidth="2"
+      />
+      {cyText("bay", bay.x + 13, bay.y + 9, "GOOGLE MAPS", { size: 8.5, spacing: 1.6 })}
+      {cyberKey(RETRO_DEST, 0.04)}
+      {cyberKeyWord(RETRO_DEST, "LIST", "目的地を選ぶ", "list")}
+      {cyberKey(RETRO_START, 0.1)}
+      {/* START の字(消えている方。点いている方は、行き先があるときだけ上に重ねる)。 */}
+      <g opacity={CYBER_OFF}>{cyberKeyWord(RETRO_START, "START", "ナビ開始", "go")}</g>
+    </svg>
+  );
+});
+
+export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+  const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
+  const weatherSlots = data.weather
+    ? [
+        { code: data.weather.code, isDay: data.weather.isDay },
+        ...data.weather.hours.slice(0, 2).map((hour) => ({ code: hour.code, isDay: hour.isDay })),
+      ]
+    : [];
+  const temperature = data.weather ? String(Math.round(data.weather.temperature)) : "--";
+  const eco = ecoLevel(rpm, data.speed);
+  const num = (key: string, x: number, y: number, text: string, size: number, anchor: "start" | "end" = "start", fill?: string) =>
+    cyText(key, x, y, text, { size, anchor, num: true, fill });
+  return (
+    <Board className="ms-cyber">
+      <CyberFace />
+      <CrtMap
+        data={data}
+        mapRef={mapRef}
+        mapReady={mapReady}
+        zoom={zoom}
+        orbis={orbis}
+        badge={
+          <svg className="ms-cy-loc" viewBox="0 0 112 22" aria-hidden="true">
+            <path d="M1 1H111L104 21H1Z" fill="#000a05" fillOpacity=".88" stroke={CYBER.on} strokeWidth="1.5" />
+            {cyText("loc", 8, 15, "LOCATION", { size: 11 })}
+            {[80, 87, 94].map((x) => (
+              <rect key={x} x={x} y="7.5" width="4" height="7" fill={CYBER.on} />
+            ))}
+          </svg>
+        }
+      />
+      <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
+        {num("clock", 22, 84, data.clock, 54)}
+        {num("date", 22, 140, `${pad2(data.month)}-${pad2(data.day)}`, 22)}
+        {cyText("year", 132, 140, String(data.year), { size: 12, spacing: 2 })}
+        {/* 今日の札(緑に塗る)と、出勤日の札(緑の枠と下の線) */}
+        {WEEK_ORDER.map((dayIndex, i) => {
+          const today = dayIndex === data.weekday;
+          const work = data.workDays.includes(dayIndex);
+          if (!today && !work) return null;
+          return (
+            <g key={dayIndex} data-work={work ? "1" : undefined}>
+              <path d={cyberDayTag(i)} fill={today ? CYBER.on : "none"} stroke={CYBER.on} strokeWidth="1.5" />
+              <text x={35.5 + i * 32} y="164" textAnchor="middle" fontSize="12" fontWeight="900" fill={today ? CYBER.ink : CYBER.on} className="ms-ja">
+                {WEEKDAYS[dayIndex]}
+              </text>
+              {work ? <rect x={33.5 + i * 32} y="172" width="4" height="2" fill={CYBER.on} /> : null}
+            </g>
+          );
+        })}
+        {num("temp", 116, 246, temperature, 34, "end")}
+        {num("sunrise", 168, 216, data.sunrise ?? "--:--", 11)}
+        {num("sunset", 168, 238, data.sunset ?? "--:--", 11, "start", CYBER.mid)}
+        {weatherSlots.map((slot, i) => {
+          const kind = weatherKind(slot.code);
+          return (
+            <g key={i}>
+              <CyberDotIcon name={dotIconName(kind, slot.isDay)} x={26 + i * 78 - 2} y={281} size={3.8} />
+              {cyText(`word${i}`, 46 + i * 78, 334, WEATHER_WORD[kind], { size: 9.5, anchor: "middle", spacing: 1.2 })}
+            </g>
+          );
+        })}
+        {data.world.map((city, i) => num(`world${i}`, 248, 391 + i * 30, city.time, 17, "end"))}
+        {num("todayKm", 212, 532, Math.min(9999.9, data.todayKm).toFixed(1), 30, "end")}
+        {num("rpm", GAUGE_R, CY_RPM_Y, rpm === null ? "----" : String(Math.round(rpm)), 13, "end")}
+        {Array.from({ length: TACHO_BARS }, (_, i) => {
+          const bar = tachoBar(i);
+          return rpm !== null && bar.rpm <= rpm ? (
+            <polygon key={i} points={cyberTachoPoints(bar)} fill={bar.rpm > RPM_RED ? CYBER.hi : CYBER.on} />
+          ) : null;
+        })}
+        {num("speed", SPEED_X, GAUGE_ROW_Y + SPEED_DIGIT_H, data.speed === null ? "---" : String(Math.round(data.speed)), 64, "end")}
+        {num("cruise", AVG_CRUISE_X + AVG_VALUE_END, GAUGE_ROW_Y + 53, data.avgCruise === null ? "--" : String(Math.round(data.avgCruise)), 22, "end")}
+        {num("avgFuel", AVG_FUEL_X + AVG_VALUE_END, GAUGE_ROW_Y + 53, data.avgFuel === null ? "--.-" : data.avgFuel.toFixed(1), 20, "end")}
+        {Array.from({ length: Math.round(clamp01(data.fuelPercent / 100) * BAR_SEGMENTS) }, (_, i) => (
+          <polygon key={i} points={cyberSegPoints(i, RETRO_RIGHT.fuelBar)} fill={CYBER.on} />
+        ))}
+        {num("range", 960, RETRO_RIGHT.range + 32, String(Math.round(data.rangeKm)), 26, "end")}
+        {data.coolant === null
+          ? null
+          : Array.from({ length: Math.round(clamp01((data.coolant - 50) / 70) * BAR_SEGMENTS) }, (_, i) => (
+              <polygon key={i} points={cyberSegPoints(i, RETRO_RIGHT.coolantBar)} fill={CYBER.on} />
+            ))}
+        {num("coolant", 960, RETRO_RIGHT.coolant + 30, data.coolant === null ? "--" : String(Math.round(data.coolant)), 26, "end")}
+        {num("volt", 960, RETRO_RIGHT.battery + 30, data.voltage === null ? "--.-" : data.voltage.toFixed(1), 26, "end")}
+        {onStart ? <g className="ms-cyber-start-lit">{cyberKeyWord(RETRO_START, "START", data.destOnce ? "" : "ナビ開始", "go")}</g> : null}
+        {onStart && data.destOnce && data.destLabel ? <CyberOnceStart label={data.destLabel} /> : null}
+        {eco >= 0.5 ? cyberEcoLamp(true) : null}
+        {Array.from({ length: Math.round(eco * ECO_SEGMENTS) }, (_, i) => (
+          <polygon key={i} points={cyberEcoPoints(i)} fill={CYBER.on} />
+        ))}
+      </svg>
+      <ClusterHits data={data} onFuel={onFuel} onDest={onDest} onStart={onStart} />
     </Board>
   );
 }
@@ -1009,6 +1503,34 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
 // ------------------------------------------------------------------
 
 export function MeterStyleThumb({ style }: { style: MeterStyle }) {
+  if (style === "cyber") {
+    return (
+      <svg viewBox="0 0 120 70" className="ms-thumb" aria-hidden="true">
+        <rect width="120" height="70" fill={CYBER.ground} />
+        <path d="M5 11L11 5H40L46 11H109L115 17V59L109 65H5Z" fill={CYBER.panel} stroke={CYBER.on} strokeWidth="1.6" />
+        <polygon points="80,11 104,11 101,14 83,14" fill={CYBER.on} />
+        {Array.from({ length: 14 }, (_, i) => (
+          <polygon
+            key={i}
+            points={`${12 + i * 6.6 + 2},${r2(29 - i * 0.9)} ${12 + i * 6.6 + 5.6},${r2(29 - i * 0.9)} ${12 + i * 6.6 + 3.6},34 ${12 + i * 6.6},34`}
+            fill={CYBER.on}
+            opacity={i < 6 ? 1 : CYBER_OFF}
+          />
+        ))}
+        <text x="12" y="57" fill={CYBER.on} fontSize="17" style={{ fontFamily: '"Michroma", sans-serif' }}>
+          58
+        </text>
+        <text x="57" y="57" fill={CYBER.on} fontSize="8" fontWeight="700" style={{ fontFamily: '"Rajdhani", sans-serif' }}>
+          km/h
+        </text>
+        <g fill={CYBER.on}>
+          <polygon points="88,55 93,58 88,61" />
+          <polygon points="95,55 100,58 95,61" />
+          <polygon points="102,55 107,58 102,61" />
+        </g>
+      </svg>
+    );
+  }
   if (style === "retro") {
     return (
       <svg viewBox="0 0 120 70" className="ms-thumb" aria-hidden="true">

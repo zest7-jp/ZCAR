@@ -136,11 +136,11 @@ const vehicleStatus = (record: VehicleRecord, today: string) => {
   return { inspection, inspectionLife, oil, oilLife, condition, fuel, kmpl, driven, latest };
 };
 
-/** 大きい数字。80年代では車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
+/** 大きい数字。80年代では車と同じ7セグメント(読み上げ用の字も残す)、近未来とサイバーではそのままの字。 */
 function Big({ reading, look, h, kind }: { reading: Reading; look: MeterStyle; h: number; kind: string }) {
   return (
     <span className={`zr-car-big is-${kind} is-${reading.tone}${reading.digits ? "" : " is-text"}`}>
-      {reading.digits && look !== "future" ? (
+      {reading.digits && look === "retro" ? (
         <>
           <SegNumber text={reading.value} h={h} className="zr-seg" />
           <span className="zr-sr">{reading.value}</span>

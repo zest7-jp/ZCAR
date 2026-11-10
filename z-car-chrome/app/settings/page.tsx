@@ -1008,7 +1008,7 @@ export default function PhoneSettingsPage() {
               <strong>
                 {monthEconomy === null ? (
                   "—"
-                ) : draft.meterStyle === "future" ? (
+                ) : draft.meterStyle !== "retro" ? (
                   monthEconomy.toFixed(1)
                 ) : (
                   // 80年代のテーマでは、車と同じ7セグメントの数字(読み上げ用の字も残す)。

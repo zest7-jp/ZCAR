@@ -39,6 +39,8 @@ import {
 import { MeterDesignGauge, type GaugeValues } from "./meter-designs";
 import {
   MeterStyleThumb,
+  CYBER_MAP_LOOK,
+  CyberCluster,
   RETRO_MAP_LOOK,
   RetroCluster,
   type ClusterData,
@@ -1078,15 +1080,15 @@ export default function Home() {
   }, [weatherLocationKey]);
 
   const mapsApiKey = settings.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY;
-  // 地図はメーター(近未来のどちらの形と、80年代のテーマに地図がある)を出しているときだけ作る。
+  // 地図はメーター(近未来のどちらの形と、80年代・サイバーのテーマに地図がある)を出しているときだけ作る。
   // 地図の器はテーマ(近未来なら形)ごとに違う。
   const meterStyleId = meterStyleInfo(settings.meterStyle).id;
   const mapHost = showFuel
     ? null
     : meterStyleId === "future"
       ? meterDesignInfo(settings.meterDesign).id
-      : meterStyleId === "retro"
-        ? "retro"
+      : meterStyleId === "retro" || meterStyleId === "cyber"
+        ? meterStyleId
         : null;
 
   // 燃費画面や別の形へ移ると、地図の器が外れる(または別の器になる)ので作り直す。
@@ -1125,19 +1127,21 @@ export default function Home() {
           };
         };
         if (!greenGmapRef.current) {
-          // 80年代のテーマは、昔の車の緑の画面ふうの地図にする。
+          // 80年代のテーマは昔の車の緑の画面ふう、サイバーは黒に明るさの違う緑の道の地図にする。
           const look =
             mapHost === "retro"
               ? RETRO_MAP_LOOK
-              : {
+              : mapHost === "cyber"
+                ? CYBER_MAP_LOOK
+                : {
                   zoom: GREEN_METER_MAP_ZOOM,
                   styles: GREEN_METER_MAP_STYLES,
                   background: GREEN_METER_MAP_BACKGROUND,
                 };
           const map = new mapsApi.Map(greenMapElementRef.current, {
             center: focusPoint,
-            // 80年代は、＋・− で選んだ縮尺で始める。
-            zoom: mapHost === "retro" ? retroZoomRef.current : look.zoom,
+            // 80年代とサイバーは、＋・− で選んだ縮尺で始める。
+            zoom: mapHost === "retro" || mapHost === "cyber" ? retroZoomRef.current : look.zoom,
             styles: look.styles,
             // タイル未読込の間に出る既定の明るい下地(#e5e3df)が、
             // メーターのフィルタを通ると白く光ってしまうので暗色にする。
@@ -1169,7 +1173,7 @@ export default function Home() {
   // 80年代の地図の縮尺を変えたら、地図にも伝える。
   useEffect(() => {
     retroZoomRef.current = retroMapZoom;
-    if (mapHost === "retro") greenGmapRef.current?.setZoom(retroMapZoom);
+    if (mapHost === "retro" || mapHost === "cyber") greenGmapRef.current?.setZoom(retroMapZoom);
   }, [mapHost, retroMapZoom]);
   const changeRetroZoom = (step: number) => {
     const next = Math.min(RETRO_ZOOM_MAX, Math.max(RETRO_ZOOM_MIN, retroZoom + step));
@@ -1306,6 +1310,8 @@ export default function Home() {
   // テーマ。近未来のときだけ、上の色と形を使う。
   const activeStyle = meterStyleInfo(settings.meterStyle);
   const isFuture = activeStyle.id === "future";
+  // 80年代とサイバーは同じ配置の板(地図・LIST・START・＋−も同じ)で、見た目だけ違う。
+  const CrtCluster = activeStyle.id === "cyber" ? CyberCluster : activeStyle.id === "retro" ? RetroCluster : null;
 
   // 上のバーに出す4つの状態。
   // 見た目は前のオレンジ計器と同じ「日本語 + 英語」の二段組み。
@@ -2038,9 +2044,9 @@ export default function Home() {
           </header>
         )}
 
-        {!showFuel && activeStyle.id === "retro" ? (
+        {!showFuel && CrtCluster ? (
           <main className="fullscreen-obd" aria-label="CARISTA OBD2 vehicle monitor">
-            <RetroCluster
+            <CrtCluster
               data={clusterData}
               mapRef={greenMapElementRef}
               mapReady={greenMapReady}
