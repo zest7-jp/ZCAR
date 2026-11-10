@@ -3703,6 +3703,125 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 }
 .workday-marks span.is-today { box-shadow: inset 0 -2px #ffffff, 0 0 10px var(--wx-glow); color: #ffffff; }
 
+/* 近未来のテーマのオービス(app/orbis-ring.tsx)。色を変える filter の外から、丸い地図に重ねる。
+   丸い地図の縁の輪は、残りの距離だけ光る(500m でいっぱい、近づくほど短く)。
+   500m を切ったら警告(琥珀色が脈打つ)、制限速度を超えていたら赤。
+   連続区間の次のオービスを 500m より先から出すときは、静かな琥珀色(細い輪)。 */
+.fo-orbis { position: absolute; inset: 0; z-index: 5; pointer-events: none; --fo: #ffb02e; --fo-rgb: 255, 176, 46; }
+.fo-orbis.is-over { --fo: #ff3c3c; --fo-rgb: 255, 60, 60; }
+.fo-orbis-ring { position: absolute; overflow: visible; }
+.fo-orbis-track { fill: none; stroke: rgba(var(--fo-rgb), .22); stroke-width: 9; }
+.fo-orbis-arc,
+.fo-orbis-glow {
+  fill: none;
+  stroke: var(--fo);
+  stroke-linecap: round;
+  transition: stroke-dasharray .4s linear;
+}
+.fo-orbis-arc { stroke-width: 9; }
+.fo-orbis-glow { stroke-width: 20; opacity: .3; }
+.fo-orbis.is-show :is(.fo-orbis-track, .fo-orbis-arc) { stroke-width: 6; }
+.fo-orbis.is-show .fo-orbis-arc { opacity: .75; }
+.fo-orbis.is-show .fo-orbis-glow { display: none; }
+/* 警告の間は、光りの線だけ脈打つ。 */
+.fo-orbis:is(.is-warn, .is-over) .fo-orbis-glow { animation: fo-orbis-pulse 1s ease-in-out infinite alternate; }
+@keyframes fo-orbis-pulse {
+  from { opacity: .36; }
+  to { opacity: .06; }
+}
+/* 地図の上の印と点線: 地図と同じだけ回す(地図は進む向きが上)。印の絵は回さない。 */
+.fo-orbis-map {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 50%;
+  transition: transform .9s cubic-bezier(.2, .68, .22, 1);
+}
+.fo-orbis-map > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fo-orbis-map line { stroke: #ff3c3c; stroke-width: 2.4; stroke-dasharray: 5 5; opacity: .85; }
+.fo-orbis-mark { position: absolute; transition: transform .9s cubic-bezier(.2, .68, .22, 1); }
+.fo-orbis-mark i {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2.5px solid #ff3c3c;
+  border-radius: 50%;
+  background: rgba(40, 0, 0, .88);
+  box-shadow: 0 0 12px #ff3c3c, inset 0 0 8px rgba(255, 60, 60, .5);
+}
+:is(.fo-orbis-mark, .fo-orbis-tag) svg { fill: none; stroke-width: 2.2; stroke-linejoin: round; }
+.fo-orbis-mark svg { width: 19px; height: 19px; stroke: #ff3c3c; }
+.fo-orbis-mark circle { fill: #ff3c3c; stroke: none; }
+/* 輪の上の札(ORBIS と距離・連続区間)。 */
+.fo-orbis-tag {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px 5px 10px;
+  border: 2px solid var(--fo);
+  border-radius: 999px;
+  background: rgba(26, 6, 2, .94);
+  box-shadow: 0 0 14px rgba(var(--fo-rgb), .6);
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+.fo-orbis-tag svg { width: 18px; height: 18px; stroke: var(--fo); }
+.fo-orbis-tag circle { fill: var(--fo); stroke: none; }
+.fo-orbis-tag b { line-height: 1; }
+.fo-orbis-name { color: var(--fo); font-size: 13px; font-weight: 900; letter-spacing: .16em; }
+.fo-orbis-distance { color: #ffe9d6; font-size: 20px; font-weight: 900; }
+.fo-orbis-distance small { font-size: 11px; }
+.fo-orbis-series { display: flex; gap: 3px; }
+.fo-orbis-series b {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid rgba(var(--fo-rgb), .7);
+  border-radius: 4px;
+  color: var(--fo);
+  font-size: 10px;
+  font-weight: 900;
+}
+.fo-orbis-series b.is-now { background: var(--fo); color: #140a00; }
+.fo-orbis-series b.is-passed { opacity: .35; }
+/* 地図の中の右下: 制限速度の標識と今の速さ。 */
+.fo-orbis-speed { position: absolute; display: grid; justify-items: center; gap: 4px; transform: translate(-50%, -50%); }
+.fo-orbis-limit {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 4.5px solid #ff3c3c;
+  border-radius: 50%;
+  background: #f4f4f4;
+  color: #1a3dbb;
+  font-size: 17px;
+  font-style: normal;
+  font-weight: 900;
+  box-shadow: 0 0 10px rgba(255, 60, 60, .6);
+}
+.fo-orbis-speed b { color: var(--fo); font-size: 18px; font-weight: 900; line-height: 1; text-shadow: 0 0 10px var(--fo); }
+.fo-orbis-speed b small { margin-left: 3px; color: rgba(255, 233, 214, .75); font-size: 9px; text-shadow: none; }
+.fo-orbis-muted,
+.fo-orbis-credit {
+  position: absolute;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(10, 4, 0, .8);
+  color: #ffd27a;
+  font-size: 10px;
+  font-weight: 700;
+  transform: translate(-50%, 0);
+  white-space: nowrap;
+}
+.fo-orbis-credit { color: rgba(255, 233, 214, .7); font-size: 8px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.fo-orbis-arc, .fo-orbis-glow) { animation: none; transition: none; }
+  :is(.fo-orbis-map, .fo-orbis-mark) { transition: none; }
+}
+
 .meter-theme-dialog .meter-theme-options { margin-top: 10px; }
 .meter-theme-dialog .meter-theme-options > button { min-height: 112px; grid-template-rows: 44px auto auto; padding: 10px 12px; }
 .meter-theme-dialog .theme-preview { height: 44px; }

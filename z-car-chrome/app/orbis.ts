@@ -7,8 +7,8 @@ import { distanceMeters } from "./parking";
 
 /** 地図に印を出し始める距離(m)。 */
 export const ORBIS_SHOW_M = 500;
-/** 警告(帯の色・声)を出す距離(m)。 */
-export const ORBIS_WARN_M = 300;
+/** 警告(帯や輪の色・声)を出す距離(m)。印を出し始めるのと同じ 500m 手前から警告する。 */
+export const ORBIS_WARN_M = 500;
 
 /** オービス1か所。 */
 export type OrbisSpot = {
@@ -43,7 +43,7 @@ export type OrbisAlert = {
   /** 車から見て東・北へ何mか(地図の上に印を置くのに使う)。 */
   east: number;
   north: number;
-  /** 500m 以内は show(地図に印)、300m 以内は warn(警告)。 */
+  /** 500m 以内は warn(警告)。連続区間の次のオービスを 500m より先から出すときだけ show(印だけ静かに)。 */
   level: "show" | "warn";
   /** このオービスに近づく間に拡大した、地図の縮尺(近づくほど大きく、戻さない)。 */
   zoom: number;
@@ -214,11 +214,12 @@ export const findOrbisAhead = (
 };
 
 /**
- * 声で知らせる言葉。300m を切ったところで1回。連続区間なら、何か所目かも言う
+ * 声で知らせる言葉。500m を切ったところで1回。連続区間なら、何か所目かも言う
  * (1か所目で「全部で3か所」、途中は「2か所目」、最後は「最後」)。
  */
 export const orbisMessage = (alert: OrbisAlert) => {
-  const near = alert.distance >= ORBIS_WARN_M - 50 ? "300メートル先、" : "この先、";
+  // 初めて見つけたのが警告の距離の近く(50m 以内)なら「500メートル先」、もっと近ければ「この先」。
+  const near = alert.distance >= ORBIS_WARN_M - 50 ? `${ORBIS_WARN_M}メートル先、` : "この先、";
   const series = alert.series;
   const head = !series
     ? `${near}オービスです`

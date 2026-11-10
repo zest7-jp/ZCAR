@@ -82,7 +82,7 @@ export type OrbisView = {
   distance: number;
   east: number;
   north: number;
-  /** show は 500m 以内(印だけ静かに)、warn は 300m 以内(警告)。 */
+  /** warn は 500m 以内(警告)。show は連続区間の次のオービスを 500m より先から出すとき(印だけ静かに)。 */
   level: "show" | "warn";
   /** 制限速度と今の速さ(km/h)。分からなければ null。 */
   limit: number | null;
@@ -96,7 +96,7 @@ export type OrbisView = {
 };
 
 /** 帯に出す距離(1km 未満は 10m 単位、1km からは 0.1km 単位。連続区間の途中は 1km より先も出す)。 */
-const orbisDistance = (meters: number) =>
+export const orbisDistance = (meters: number) =>
   meters >= 1000
     ? { value: (meters / 1000).toFixed(1), unit: "km" }
     : { value: String(Math.round(meters / 10) * 10), unit: "m" };
