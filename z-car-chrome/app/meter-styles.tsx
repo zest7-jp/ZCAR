@@ -82,7 +82,7 @@ export type OrbisView = {
   distance: number;
   east: number;
   north: number;
-  /** show は 500m 以内(印だけ静かに)、warn は 300m 以内(警告)。 */
+  /** warn は 500m 以内(警告)。show は連続区間の次のオービスを 500m より先から出すとき(印だけ静かに)。 */
   level: "show" | "warn";
   /** 制限速度と今の速さ(km/h)。分からなければ null。 */
   limit: number | null;

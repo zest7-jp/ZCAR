@@ -3705,7 +3705,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 
 /* 近未来のテーマのオービス(app/orbis-ring.tsx)。色を変える filter の外から、丸い地図に重ねる。
    丸い地図の縁の輪は、残りの距離だけ光る(500m でいっぱい、近づくほど短く)。
-   500m 以内は静かな琥珀色、300m を切ったら警告(琥珀色が脈打つ)、制限速度を超えていたら赤。 */
+   500m を切ったら警告(琥珀色が脈打つ)、制限速度を超えていたら赤。
+   連続区間の次のオービスを 500m より先から出すときは、静かな琥珀色(細い輪)。 */
 .fo-orbis { position: absolute; inset: 0; z-index: 5; pointer-events: none; --fo: #ffb02e; --fo-rgb: 255, 176, 46; }
 .fo-orbis.is-over { --fo: #ff3c3c; --fo-rgb: 255, 60, 60; }
 .fo-orbis-ring { position: absolute; overflow: visible; }

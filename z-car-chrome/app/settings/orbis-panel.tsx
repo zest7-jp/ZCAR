@@ -350,7 +350,7 @@ export function OrbisPanel({
         </div>
       ) : null}
       <p className="zr-navi-hint zr-orbis-hint">
-        車の80年代の地図で、進む向きの前方500mから知らせ、300mで声でも知らせます。OpenStreetMap
+        車の地図(どのテーマでも)で、進む向きの前方500mになったら、警告と声で知らせます。OpenStreetMap
         のオービスのほかに、ここに足した場所も使います。Google マップで場所を選んで
         「共有」→「コピー」してから、FROM MAPS を押します。名前は町名が自動で入ります。走る向き
         (上り・下り)を決めると、その向きに走るときだけ知らせます。登録した行か、地図の印を押すと直せます。
