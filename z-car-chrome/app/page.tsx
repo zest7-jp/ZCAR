@@ -45,8 +45,10 @@ import {
   RETRO_MAP_LOOK,
   RetroCluster,
   type ClusterData,
+  type OrbisView,
 } from "./meter-styles";
 import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
+import { OrbisRing } from "./orbis-ring";
 import {
   addDays,
   nextShift,
@@ -464,6 +466,8 @@ export default function Home() {
   const locationWatchRef = useRef<number | null>(null);
   // google.maps objects, typed loosely because the SDK loads at runtime.
   const greenMapElementRef = useRef<HTMLDivElement>(null);
+  // 近未来の丸い地図の窓(オービスの輪を、この上に重ねる)。
+  const orbisWindowRef = useRef<HTMLDivElement>(null);
   // 中央メーターの地図タイルが1枚でも描画できたか(待機表示の出し分け用)。
   const [greenMapReady, setGreenMapReady] = useState(false);
   // メーターの真ん中を押して形を変えたとき、形の名前を少しだけ出す(数が変わるたびに出し直す)。
@@ -477,6 +481,8 @@ export default function Home() {
   const [retroZoom, setRetroZoom] = useState(readRetroZoom);
   // 地図を作り直すとき(テーマを変えたときなど)に、今の縮尺で始めるため。
   const retroZoomRef = useRef(retroZoom);
+  // 近未来の地図の縮尺(ふだんは GREEN_METER_MAP_ZOOM。オービスに近づくと寄せる)。地図を作るときに使う。
+  const futureZoomRef = useRef(GREEN_METER_MAP_ZOOM);
   // オービス: OpenStreetMap から取った分(車だけに覚える)と、いま知らせているもの。
   const [osmOrbis, setOsmOrbis] = useState<OrbisSpot[]>(() => readOsmCache()?.spots ?? []);
   const [orbisAlert, setOrbisAlert] = useState<OrbisAlert | null>(null);
@@ -1141,8 +1147,8 @@ export default function Home() {
                 };
           const map = new mapsApi.Map(greenMapElementRef.current, {
             center: focusPoint,
-            // 80年代とサイバーは、＋・− で選んだ縮尺で始める。
-            zoom: mapHost === "retro" || mapHost === "cyber" ? retroZoomRef.current : look.zoom,
+            // 80年代とサイバーは、＋・− で選んだ縮尺で始める。近未来は、オービスに近づいていれば寄せた縮尺で。
+            zoom: mapHost === "retro" || mapHost === "cyber" ? retroZoomRef.current : futureZoomRef.current,
             styles: look.styles,
             // タイル未読込の間に出る既定の明るい下地(#e5e3df)が、
             // メーターのフィルタを通ると白く光ってしまうので暗色にする。
@@ -1176,6 +1182,12 @@ export default function Home() {
     retroZoomRef.current = retroMapZoom;
     if (mapHost === "retro" || mapHost === "cyber") greenGmapRef.current?.setZoom(retroMapZoom);
   }, [mapHost, retroMapZoom]);
+  // 近未来の地図も、オービスに近づいている間は近づくほど拡大する(通り過ぎたら元の縮尺に戻る)。
+  const futureMapZoom = orbisAlert ? Math.max(GREEN_METER_MAP_ZOOM, orbisAlert.zoom) : GREEN_METER_MAP_ZOOM;
+  useEffect(() => {
+    futureZoomRef.current = futureMapZoom;
+    if (mapHost === "navi" || mapHost === "orbit") greenGmapRef.current?.setZoom(futureMapZoom);
+  }, [mapHost, futureMapZoom]);
   const changeRetroZoom = (step: number) => {
     const next = Math.min(RETRO_ZOOM_MAX, Math.max(RETRO_ZOOM_MIN, retroZoom + step));
     setRetroZoom(next);
@@ -1188,6 +1200,8 @@ export default function Home() {
   // 縮尺の目盛り用: 地図の1点が何mか(今いる所の緯度で。分からなければ大阪)。
   const retroMetersPerPx =
     (156543.03392 * Math.cos(((location?.lat ?? 34.6937) * Math.PI) / 180)) / 2 ** retroMapZoom;
+  const futureMetersPerPx =
+    (156543.03392 * Math.cos(((location?.lat ?? 34.6937) * Math.PI) / 180)) / 2 ** futureMapZoom;
 
   // --- オービス(レーダー探知機のような警告) ---
   // 知らせる場所: OpenStreetMap から取った分と、スマホで登録した分(向き付き)。
@@ -1233,6 +1247,20 @@ export default function Home() {
   // 警告の帯に出す今の速さ: メーターの速さ(OBD)、無ければ GPS の速さ。
   const orbisSpeed =
     displaySpeed ?? (location?.speed !== null && location?.speed !== undefined ? Math.round(location.speed) : null);
+  // 画面に出すオービス(80年代・サイバーは地図の窓の中、近未来は丸い地図の縁の輪)。
+  const orbisView: OrbisView | null = orbisAlert
+    ? {
+        distance: orbisAlert.distance,
+        east: orbisAlert.east,
+        north: orbisAlert.north,
+        level: orbisAlert.level,
+        limit: orbisAlert.spot.limit,
+        speed: orbisSpeed,
+        osm: orbisAlert.spot.source === "osm",
+        series: orbisAlert.series ? { index: orbisAlert.series.index, total: orbisAlert.series.total } : null,
+        muted: soundLocked(),
+      }
+    : null;
 
   const hour = new Date().getHours();
   const today = japanDateKey();
@@ -2060,23 +2088,7 @@ export default function Home() {
               data={clusterData}
               mapRef={greenMapElementRef}
               mapReady={greenMapReady}
-              orbis={
-                orbisAlert
-                  ? {
-                      distance: orbisAlert.distance,
-                      east: orbisAlert.east,
-                      north: orbisAlert.north,
-                      level: orbisAlert.level,
-                      limit: orbisAlert.spot.limit,
-                      speed: orbisSpeed,
-                      osm: orbisAlert.spot.source === "osm",
-                      series: orbisAlert.series
-                        ? { index: orbisAlert.series.index, total: orbisAlert.series.total }
-                        : null,
-                      muted: soundLocked(),
-                    }
-                  : null
-              }
+              orbis={orbisView}
               zoom={{
                 metersPerPx: retroMetersPerPx,
                 onIn: retroZoom < RETRO_ZOOM_MAX ? () => changeRetroZoom(1) : null,
@@ -2237,7 +2249,7 @@ export default function Home() {
                   </div>
                   <small className="performance-rpm-title">ENGINE SPEED · ×1000 RPM</small>
 
-                  <div className="green-gauge-map-window">
+                  <div ref={orbisWindowRef} className="green-gauge-map-window">
                     <div
                       ref={greenMapElementRef}
                       className="green-nav-map-canvas"
@@ -2276,7 +2288,7 @@ export default function Home() {
                 <article className="meter-design-gauge is-orbit" aria-label={activeDesign.name}>
                   {gaugeCorners}
                   {gaugeSwitch}
-                  <div className="orbit-map-window">
+                  <div ref={orbisWindowRef} className="orbit-map-window">
                     <div ref={greenMapElementRef} className="green-nav-map-canvas" aria-hidden="true" />
                     <div
                       className={`green-map-standby${greenMapReady ? " is-ready" : ""}`}
@@ -2373,6 +2385,16 @@ export default function Home() {
               </section>
               {/* 出勤日の曜日の札(五行の色)。色を変える filter の外から帯の上に重ねる */}
               <WorkdayMarks stripRef={weekStripRef} days={workDays} today={todayWeekdayIndex} labels={WEEKDAYS_JA} />
+              {/* オービス: 丸い地図の縁の輪・距離・制限と速さ・地図の印。警告の赤が変わらないよう、filter の外から重ねる */}
+              {orbisView ? (
+                <OrbisRing
+                  key={activeDesign.id}
+                  orbis={orbisView}
+                  windowRef={orbisWindowRef}
+                  metersPerPx={futureMetersPerPx}
+                  rotation={-greenMeterHeading}
+                />
+              ) : null}
           </main>
         )}
 
