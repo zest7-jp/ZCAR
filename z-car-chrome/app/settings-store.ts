@@ -309,6 +309,63 @@ export const sanitizeOrbisPoints = (value: unknown): OrbisPoint[] => {
   return cleaned;
 };
 
+/** 速度取締区間の始まり・終わりの場所。 */
+export type ZoneEnd = { lat: number; lng: number };
+/** スマホで登録した速度取締区間1つ(始まりと終わりの場所。車とスマホで共有。オービスとは別の一覧)。 */
+export type SpeedZone = {
+  id: string;
+  /** 名前(始まりの町名。例: 守口市京阪本通)。 */
+  label: string;
+  /** 始まり(区間の入口)と終わり(出口)。 */
+  start: ZoneEnd;
+  end: ZoneEnd;
+  /** 制限速度(km/h)。分からなければ null。 */
+  limit: number | null;
+  /** true は始まり→終わりの向きに走るときだけ知らせる。false は両方の向き。 */
+  oneWay: boolean;
+};
+/** 登録できる速度取締区間の数(サーバー側と同じ値)。名前の長さはオービスと同じ。 */
+export const MAX_SPEED_ZONES = 50;
+
+/** 場所として受け付ける値(緯度・経度)。 */
+const isZoneEnd = (value: unknown): value is ZoneEnd => {
+  const point = value as Partial<ZoneEnd> | null;
+  return (
+    !!point &&
+    typeof point === "object" &&
+    typeof point.lat === "number" &&
+    typeof point.lng === "number" &&
+    Number.isFinite(point.lat) &&
+    Number.isFinite(point.lng) &&
+    Math.abs(point.lat) <= 90 &&
+    Math.abs(point.lng) <= 180
+  );
+};
+
+/** 保存・同期されてきた速度取締区間の一覧を整える(壊れた値は捨てる)。 */
+export const sanitizeSpeedZones = (value: unknown): SpeedZone[] => {
+  if (!Array.isArray(value)) return [];
+  const cleaned: SpeedZone[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const { id, label, start, end, limit, oneWay } = entry as Partial<SpeedZone>;
+    if (typeof id !== "string" || !PLACE_ID_PATTERN.test(id) || seen.has(id)) continue;
+    if (!isZoneEnd(start) || !isZoneEnd(end)) continue;
+    seen.add(id);
+    cleaned.push({
+      id,
+      label: Array.from(typeof label === "string" ? label.trim() : "").slice(0, MAX_ORBIS_LABEL).join(""),
+      start: { lat: start.lat, lng: start.lng },
+      end: { lat: end.lat, lng: end.lng },
+      limit: isOrbisLimit(limit) ? limit : null,
+      oneWay: oneWay === true,
+    });
+    if (cleaned.length >= MAX_SPEED_ZONES) break;
+  }
+  return cleaned;
+};
+
 /** 前のバージョンの出発(店舗)・帰宅の枠の住所(いまは使わない。読んだら目的地に移す)。 */
 type LegacyStops = { storeName?: unknown; storeDest?: unknown; homeDest?: unknown };
 const LEGACY_STOP_FIELDS = ["storeName", "storeDest", "homeDest"] as const;
@@ -590,6 +647,8 @@ export type Settings = {
   trip: NavTrip | null;
   /** スマホで登録したオービス(車の地図で知らせる。OpenStreetMap の分とは別)。 */
   orbis: OrbisPoint[];
+  /** スマホで登録した速度取締区間(車の地図で知らせる)。 */
+  speedZones: SpeedZone[];
   /** 満タン法の給油記録。車とスマホのどちらで記録しても共有する。 */
   fuelEntries: FuelEntry[];
   /** 車検の満了日(YYYY-MM-DD)。空なら未登録。車とスマホで共有する。 */
@@ -619,6 +678,7 @@ export const defaults: Settings = {
   startTarget: "",
   trip: null,
   orbis: [],
+  speedZones: [],
   fuelEntries: [],
   inspectionDue: "",
   oilChangedOn: "",
@@ -638,6 +698,7 @@ export const SYNCED_FIELDS = [
   "startTarget",
   "trip",
   "orbis",
+  "speedZones",
   "fuelEntries",
   "inspectionDue",
   "oilChangedOn",
@@ -705,7 +766,7 @@ export const sanitizeSyncedSettings = (
   if (!value || typeof value !== "object") return {};
   const cleaned: Partial<SyncedSettings> = {};
   for (const field of SYNCED_FIELDS) {
-    if (field === "places" || field === "fuelEntries" || field === "orbis") continue;
+    if (field === "places" || field === "fuelEntries" || field === "orbis" || field === "speedZones") continue;
     const entry = value[field];
     if (typeof entry === "string") cleaned[field] = entry as never;
   }
@@ -736,6 +797,9 @@ export const sanitizeSyncedSettings = (
   if (Array.isArray(value.orbis)) {
     cleaned.orbis = sanitizeOrbisPoints(value.orbis);
   }
+  if (Array.isArray(value.speedZones)) {
+    cleaned.speedZones = sanitizeSpeedZones(value.speedZones);
+  }
   // 今回だけの行き先(null は「消した」)。
   if ("trip" in value) {
     cleaned.trip = sanitizeTrip(value.trip);
@@ -762,6 +826,7 @@ export const SHARED_EDIT_FIELDS = [
   "startTarget",
   "trip",
   "orbis",
+  "speedZones",
   "inspectionDue",
   "oilChangedOn",
 ] as const;
@@ -849,6 +914,26 @@ export const mergeChangedOrbis = (
       left.limit === right.limit &&
       left.direction === right.direction,
     MAX_ORBIS_POINTS,
+  );
+
+/** 速度取締区間の一覧も、目的地と同じように、自分で変えた分だけを最新に重ねる。 */
+const sameZoneEnd = (left: ZoneEnd, right: ZoneEnd) => left.lat === right.lat && left.lng === right.lng;
+export const mergeChangedSpeedZones = (
+  mine: SpeedZone[],
+  before: SpeedZone[] | null,
+  latest: SpeedZone[] | undefined,
+): SpeedZone[] =>
+  mergeChangedList(
+    mine,
+    before,
+    latest,
+    (left, right) =>
+      left.label === right.label &&
+      sameZoneEnd(left.start, right.start) &&
+      sameZoneEnd(left.end, right.end) &&
+      left.limit === right.limit &&
+      left.oneWay === right.oneWay,
+    MAX_SPEED_ZONES,
   );
 
 /** 指定した項目だけをサーバーへ送る(送らなかった項目はサーバー側でそのまま残る)。 */
@@ -1062,6 +1147,7 @@ export const readSettings = (): Settings => {
       startTarget: typeof stored.startTarget === "string" ? stored.startTarget : "",
       trip: sanitizeTrip(stored.trip),
       orbis: sanitizeOrbisPoints(stored.orbis),
+      speedZones: sanitizeSpeedZones(stored.speedZones),
       inspectionDue: isDateKey(stored.inspectionDue) ? stored.inspectionDue : "",
       oilChangedOn: isDateKey(stored.oilChangedOn) ? stored.oilChangedOn : "",
       // 古いバージョンは給油記録を別のキーに置いていたので、そこからも拾う。

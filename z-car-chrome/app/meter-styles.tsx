@@ -8,6 +8,7 @@
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { WEEKDAY_ELEMENT_COLORS } from "./workday-marks";
 import type { MeterStyle } from "./settings-store";
+import { zoneLengthText } from "./speed-zone";
 
 const BOARD_W = 1024;
 const BOARD_H = 566;
@@ -74,6 +75,8 @@ type MapProps = {
   zoom: { metersPerPx: number; onIn: (() => void) | null; onOut: (() => void) | null };
   /** 前方のオービス(無ければ null)。 */
   orbis: OrbisView | null;
+  /** 前方の・いま中を走っている速度取締区間(無ければ null)。 */
+  zone: ZoneView | null;
 };
 
 /** 地図に出すオービス。 */
@@ -94,6 +97,148 @@ export type OrbisView = {
   /** 画面にまだ触れていないので、声が出せない。 */
   muted: boolean;
 };
+
+/** 地図に出す速度取締区間。 */
+export type ZoneView = {
+  /** before は区間の手前(入口まで 500m 以内)、inside は区間の中。 */
+  state: "before" | "inside";
+  /** before は入口まで、inside は出口までの距離(m)。 */
+  distance: number;
+  /** 区間の長さ(m)。 */
+  length: number;
+  /** 入口と出口が、車から見て東・北へ何mか。 */
+  entry: { east: number; north: number };
+  exit: { east: number; north: number };
+  /** 制限速度と今の速さ(km/h)。分からなければ null。 */
+  limit: number | null;
+  speed: number | null;
+  /** 画面にまだ触れていないので、声が出せない。 */
+  muted: boolean;
+};
+
+/** 線を箱(minX〜maxX・minY〜maxY)の中だけに切る。箱に入らなければ null。 */
+const clipLine = (x1: number, y1: number, x2: number, y2: number, minX: number, minY: number, maxX: number, maxY: number) => {
+  let from = 0;
+  let to = 1;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  for (const [p, q] of [
+    [-dx, x1 - minX],
+    [dx, maxX - x1],
+    [-dy, y1 - minY],
+    [dy, maxY - y1],
+  ]) {
+    if (p === 0) {
+      if (q < 0) return null;
+      continue;
+    }
+    const t = q / p;
+    if (p < 0) {
+      if (t > to) return null;
+      from = Math.max(from, t);
+    } else {
+      if (t < from) return null;
+      to = Math.min(to, t);
+    }
+  }
+  return { x1: x1 + from * dx, y1: y1 + from * dy, x2: x1 + to * dx, y2: y1 + to * dy };
+};
+
+const px2 = (value: number) => Math.round(value * 10) / 10;
+
+/**
+ * 地図の上の区間の線の場所(点数)。地図は北が上で、車が窓(w × h)の真ん中。東・北の距離を縮尺で割る。
+ * 線は窓の少し外までに切る。入口・出口には、線に直角の短い線を引く。round は丸い地図(近未来)。
+ */
+export const zoneOnMap = (zone: ZoneView, metersPerPx: number, w: number, h: number, round = false) => {
+  const cx = w / 2;
+  const cy = h / 2;
+  const ax = cx + zone.entry.east / metersPerPx;
+  const ay = cy - zone.entry.north / metersPerPx;
+  const bx = cx + zone.exit.east / metersPerPx;
+  const by = cy - zone.exit.north / metersPerPx;
+  const length = Math.hypot(bx - ax, by - ay) || 1;
+  // 線に直角の向き(端の短い線を引く)。
+  const crossX = -(by - ay) / length;
+  const crossY = (bx - ax) / length;
+  const pad = 30;
+  const line = clipLine(ax, ay, bx, by, -pad, -pad, w + pad, h + pad);
+  // 端の短い線を引くのは、窓(丸い地図なら円)の内側だけ。
+  const inView = (x: number, y: number) =>
+    round ? Math.hypot(x - cx, y - cy) < Math.min(cx, cy) - 8 : x > 6 && x < w - 6 && y > 6 && y < h - 6;
+  const end = (x: number, y: number) => ({
+    shown: inView(x, y),
+    tick: { x1: px2(x - crossX * 13), y1: px2(y - crossY * 13), x2: px2(x + crossX * 13), y2: px2(y + crossY * 13) },
+  });
+  return {
+    line: line && { x1: px2(line.x1), y1: px2(line.y1), x2: px2(line.x2), y2: px2(line.y2) },
+    entry: end(ax, ay),
+    exit: end(bx, by),
+  };
+};
+
+/** 速度取締区間の印(盾)。 */
+export const ZoneIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 2.8 19.5 5.6v5.6c0 4.6-3.1 8.6-7.5 10-4.4-1.4-7.5-5.4-7.5-10V5.6z" />
+    <path d="M8.6 11.6l2.4 2.4 4.4-4.6" />
+  </svg>
+);
+
+/** 区間の線(地図の絵の一部として、走査線の下に引く): 太い紫の点線と、入口・出口の短い線。 */
+function ZoneLine({ zone, metersPerPx }: { zone: ZoneView; metersPerPx: number }) {
+  const at = zoneOnMap(zone, metersPerPx, RETRO_CRT.w, RETRO_CRT.h);
+  if (!at.line) return null;
+  return (
+    <svg className="ms-zone-line" viewBox={`0 0 ${RETRO_CRT.w} ${RETRO_CRT.h}`} aria-hidden="true">
+      <line className="ms-zone-glow" {...at.line} />
+      <line className="ms-zone-road" {...at.line} />
+      {at.entry.shown ? <line className="ms-zone-tick" {...at.entry.tick} /> : null}
+      {at.exit.shown ? <line className="ms-zone-tick" {...at.exit.tick} /> : null}
+    </svg>
+  );
+}
+
+/**
+ * 区間の帯(地図の上。オービスの帯と同じ場所で、色は紫): 盾の印・「取締区間」・距離
+ * (手前は「300 m 先から 1.5km」、中は「残り 1.2 km」)・制限速度と今の速さ(制限より速いと赤)。
+ * オービスの帯が出ているときは、地図の左下に出す(今の速さと、オービスに制限があれば制限も、
+ * オービスの帯に出ているので、区間の分は出さない)。
+ */
+function ZoneBand({ zone, orbis }: { zone: ZoneView; orbis: OrbisView | null }) {
+  const distance = orbisDistance(zone.distance);
+  const limit = orbis?.limit != null ? null : zone.limit;
+  const speed = orbis ? null : zone.speed;
+  const over = zone.limit !== null && zone.speed !== null && zone.speed > zone.limit;
+  return (
+    <div className={`ms-zone-band${zone.state === "before" ? " is-before" : ""}${orbis ? " is-low" : ""}`} role="status">
+      <ZoneIcon />
+      <b className="ms-zone-name">取締区間</b>
+      {zone.state === "inside" ? <small className="ms-zone-sub">残り</small> : null}
+      <b className="ms-zone-num">
+        {distance.value}
+        <small> {distance.unit}</small>
+      </b>
+      {zone.state === "before" ? <small className="ms-zone-sub">先から {zoneLengthText(zone.length)}</small> : null}
+      {zone.muted && !orbis ? <small className="ms-zone-muted">画面に触れると声が出ます</small> : null}
+      {limit !== null || speed !== null ? (
+        <span className="ms-zone-speed">
+          {limit !== null ? (
+            <i className="ms-orbis-limit" aria-label={`制限速度 ${limit}`}>
+              {limit}
+            </i>
+          ) : null}
+          {speed !== null ? (
+            <b className={over ? "is-over" : undefined} aria-label={`いまの速さ ${speed}`}>
+              {speed}
+              <small>km/h</small>
+            </b>
+          ) : null}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 /** 帯に出す距離(1km 未満は 10m 単位、1km からは 0.1km 単位。連続区間の途中は 1km より先も出す)。 */
 export const orbisDistance = (meters: number) =>
@@ -856,12 +1001,14 @@ function CrtMap({
   mapReady,
   zoom,
   orbis,
+  zone,
   badge = null,
 }: MapProps & { data: ClusterData; badge?: ReactNode }) {
   const scale = mapScale(zoom.metersPerPx);
   return (
     <div className="ms-retro-crt" style={{ left: RETRO_CRT.x, top: RETRO_CRT.y, width: RETRO_CRT.w, height: RETRO_CRT.h }}>
       <div ref={mapRef} className="ms-map-canvas" />
+      {zone ? <ZoneLine zone={zone} metersPerPx={zoom.metersPerPx} /> : null}
       {!mapReady ? <span className="ms-retro-crt-wait">MAP LOADING</span> : null}
       <i className="ms-retro-scan" aria-hidden="true" />
       <svg
@@ -880,7 +1027,9 @@ function CrtMap({
           N
         </text>
       </svg>
-      {badge}
+      {/* 左上の飾りは、速度取締区間の帯が出ている間は出さない(帯の角から見えないように)。 */}
+      {zone ? null : badge}
+      {zone ? <ZoneBand zone={zone} orbis={orbis} /> : null}
       {orbis ? <OrbisOnMap orbis={orbis} metersPerPx={zoom.metersPerPx} /> : null}
       {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
       <span className="ms-retro-scale" aria-hidden="true">
@@ -923,7 +1072,7 @@ function ClusterHits({ data, onFuel, onDest, onStart }: ClusterProps) {
   );
 }
 
-export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, zone, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -936,7 +1085,7 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
   return (
     <Board className="ms-retro">
       <RetroFace />
-      <CrtMap data={data} mapRef={mapRef} mapReady={mapReady} zoom={zoom} orbis={orbis} />
+      <CrtMap data={data} mapRef={mapRef} mapReady={mapReady} zoom={zoom} orbis={orbis} zone={zone} />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
         <SevenSeg text={`${pad2(data.month)}-${pad2(data.day)}`} x={22} y={118} h={22} color={RETRO.amber} />
@@ -1401,7 +1550,7 @@ const CyberFace = memo(function CyberFace() {
   );
 });
 
-export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, zone, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -1422,6 +1571,7 @@ export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
         mapReady={mapReady}
         zoom={zoom}
         orbis={orbis}
+        zone={zone}
         badge={
           <svg className="ms-cy-loc" viewBox="0 0 112 22" aria-hidden="true">
             <path d="M1 1H111L104 21H1Z" fill="#000a05" fillOpacity=".88" stroke={CYBER.on} strokeWidth="1.5" />

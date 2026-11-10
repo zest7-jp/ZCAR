@@ -12,6 +12,7 @@ import {
   fetchSharedSettings,
   legacyStopsBase,
   mergeChangedOrbis,
+  mergeChangedSpeedZones,
   mergeChangedPlaces,
   mergeChangedTrip,
   mergeFuelEntries,
@@ -24,6 +25,7 @@ import {
   type FuelEntry,
   type NavPlace,
   type OrbisPoint,
+  type SpeedZone,
   type Settings,
   type SyncedSettings,
 } from "../settings-store";
@@ -154,7 +156,7 @@ export function useSharedSync({
             // 初回は「無かった」ことにして、サーバーに届いている分を消さない。
             nextBase[field] = base
               ? base[field]
-              : field === "places" || field === "orbis"
+              : field === "places" || field === "orbis" || field === "speedZones"
                 ? "[]"
                 : field === "trip"
                   ? "null"
@@ -245,9 +247,9 @@ export function useSharedSync({
     const timer = window.setTimeout(async () => {
       setStatus((now) => ({ ...now, state: "syncing" }));
       let fields = changed;
-      // 目的地・オービスの一覧は、もう片方で足した・直したものを消さないよう、
+      // 目的地・オービス・速度取締区間の一覧は、もう片方で足した・直したものを消さないよう、
       // 最新に自分の変更だけ重ねる。今回だけの行き先も、新しく届いたものを古い「消した」で消さない。
-      if (changed.places || changed.orbis || "trip" in changed) {
+      if (changed.places || changed.orbis || changed.speedZones || "trip" in changed) {
         try {
           const latest = sanitizeSyncedSettings((await fetchSharedSettings(syncKey)).settings);
           if (changed.places) {
@@ -268,6 +270,16 @@ export function useSharedSync({
             fields = { ...fields, orbis: merged };
             if (JSON.stringify(merged) !== JSON.stringify(changed.orbis)) {
               setSettings((now) => ({ ...now, orbis: merged }));
+            }
+          }
+          if (changed.speedZones) {
+            const before = base.values.speedZones
+              ? (JSON.parse(base.values.speedZones) as SpeedZone[])
+              : null;
+            const merged = mergeChangedSpeedZones(changed.speedZones, before, latest.speedZones);
+            fields = { ...fields, speedZones: merged };
+            if (JSON.stringify(merged) !== JSON.stringify(changed.speedZones)) {
+              setSettings((now) => ({ ...now, speedZones: merged }));
             }
           }
           if ("trip" in changed) {

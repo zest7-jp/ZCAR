@@ -401,8 +401,11 @@ const beep = () => {
   }
 };
 
-/** 声で知らせる。日本語の声が無い・話し始めないときは、ピッという音にする。 */
-export const speakOrbis = (text: string) => {
+/**
+ * 声で知らせる。日本語の声が無い・話し始めないときは、ピッという音にする。
+ * queue なら、いま話している声を止めずに、あとに続けて言う(オービスと速度取締区間が同時のとき)。
+ */
+export const speakOrbis = (text: string, queue = false) => {
   const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
   if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
     beep();
@@ -429,7 +432,7 @@ export const speakOrbis = (text: string) => {
       settled = true;
     };
     utterance.onerror = fallBack;
-    synth.cancel();
+    if (!queue) synth.cancel();
     synth.speak(utterance);
     window.setTimeout(() => {
       if (!synth.speaking) fallBack();

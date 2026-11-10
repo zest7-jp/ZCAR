@@ -46,9 +46,11 @@ import {
   RetroCluster,
   type ClusterData,
   type OrbisView,
+  type ZoneView,
 } from "./meter-styles";
 import { DEFAULT_GMAPS_KEY, loadGoogleMaps, NIGHT_MAP_STYLES } from "./google-maps";
 import { OrbisRing } from "./orbis-ring";
+import { findSpeedZone, zoneMessage, type ZoneAlert } from "./speed-zone";
 import {
   addDays,
   nextShift,
@@ -126,6 +128,8 @@ const RETRO_ZOOM_KEY = "zcar-retro-map-zoom";
 const ORBIS_RESPEAK_MS = 5 * 60 * 1000;
 /** オービスに近づいたときに拡大する、一番大きな縮尺(目盛りが 100m になるくらい)。 */
 const ORBIS_ZOOM_MAX = 16;
+/** 近未来の丸い地図で、速度取締区間を知らせている間の縮尺(区間の線が見える大きさ。目盛りが 1km くらい)。 */
+const ZONE_MAP_ZOOM = 13;
 /** 止まって GPS の向きが消えても、この間は前の向きで前方を見る。 */
 const ORBIS_HEADING_KEEP_MS = 2 * 60 * 1000;
 /**
@@ -492,6 +496,10 @@ export default function Home() {
   const orbisSpokenRef = useRef(new Map<string, number>());
   const orbisFetchRef = useRef({ busy: false, failedAt: 0 });
   const lastHeadingRef = useRef<{ heading: number; at: number } | null>(null);
+  // 速度取締区間(スマホで登録した分): いま知らせているもの。
+  const [zoneAlert, setZoneAlert] = useState<ZoneAlert | null>(null);
+  const zoneAlertRef = useRef<ZoneAlert | null>(null);
+  const zoneSpokenRef = useRef(new Map<string, number>());
   const weatherLatitude = location ? Number(location.lat.toFixed(2)) : null;
   const weatherLongitude = location ? Number(location.lng.toFixed(2)) : null;
   const weatherLocationKey =
@@ -826,9 +834,14 @@ export default function Home() {
 
   /**
    * GPS が届くたびに、進む向きの前方のオービスを探す。500m を切ったら声で1回知らせる。
+   * 速度取締区間も見る(入口の 500m 手前で声で1回。手前で知らせずに入ったら、入ったところで1回)。
    * 止まって向きが分からなくなっても、少しの間は前の向きで見る(信号待ちなど)。
    * (GPS の見張りは出発のときに1回だけ始めるので、中身は ref に入れておく)
    */
+  const speedZonesRef = useRef(settings.speedZones);
+  useEffect(() => {
+    speedZonesRef.current = settings.speedZones;
+  }, [settings.speedZones]);
   const checkOrbisRef = useRef<(coords: GeolocationCoordinates) => void>(() => undefined);
   useEffect(() => {
     checkOrbisRef.current = (coords) => {
@@ -849,11 +862,30 @@ export default function Home() {
       );
       orbisAlertRef.current = alert;
       setOrbisAlert(alert);
-      if (alert?.level !== "warn") return;
-      const spokenAt = orbisSpokenRef.current.get(alert.spot.id) ?? 0;
-      if (now - spokenAt < ORBIS_RESPEAK_MS) return;
-      orbisSpokenRef.current.set(alert.spot.id, now);
-      speakOrbis(orbisMessage(alert));
+      const zone = findSpeedZone(
+        speedZonesRef.current,
+        { lat: coords.latitude, lng: coords.longitude, heading },
+        zoneAlertRef.current,
+      );
+      zoneAlertRef.current = zone;
+      setZoneAlert(zone);
+      let spoke = false;
+      if (alert?.level === "warn") {
+        const spokenAt = orbisSpokenRef.current.get(alert.spot.id) ?? 0;
+        if (now - spokenAt >= ORBIS_RESPEAK_MS) {
+          orbisSpokenRef.current.set(alert.spot.id, now);
+          speakOrbis(orbisMessage(alert));
+          spoke = true;
+        }
+      }
+      if (zone) {
+        const spokenAt = zoneSpokenRef.current.get(zone.zone.id) ?? 0;
+        if (now - spokenAt >= ORBIS_RESPEAK_MS) {
+          zoneSpokenRef.current.set(zone.zone.id, now);
+          // オービスと同時なら、オービスの声のあとに続けて言う。
+          speakOrbis(zoneMessage(zone), spoke);
+        }
+      }
     };
   }, []);
 
@@ -1183,7 +1215,12 @@ export default function Home() {
     if (mapHost === "retro" || mapHost === "cyber") greenGmapRef.current?.setZoom(retroMapZoom);
   }, [mapHost, retroMapZoom]);
   // 近未来の地図も、オービスに近づいている間は近づくほど拡大する(通り過ぎたら元の縮尺に戻る)。
-  const futureMapZoom = orbisAlert ? Math.max(GREEN_METER_MAP_ZOOM, orbisAlert.zoom) : GREEN_METER_MAP_ZOOM;
+  // 速度取締区間を知らせている間も、区間の線が見えるように少し寄せる(抜けたら元に戻る)。
+  const futureMapZoom = Math.max(
+    GREEN_METER_MAP_ZOOM,
+    orbisAlert?.zoom ?? 0,
+    zoneAlert ? ZONE_MAP_ZOOM : 0,
+  );
   useEffect(() => {
     futureZoomRef.current = futureMapZoom;
     if (mapHost === "navi" || mapHost === "orbit") greenGmapRef.current?.setZoom(futureMapZoom);
@@ -1258,6 +1295,19 @@ export default function Home() {
         speed: orbisSpeed,
         osm: orbisAlert.spot.source === "osm",
         series: orbisAlert.series ? { index: orbisAlert.series.index, total: orbisAlert.series.total } : null,
+        muted: soundLocked(),
+      }
+    : null;
+  // 画面に出す速度取締区間(80年代・サイバーは地図の線と札、近未来は丸い地図の線と紫の輪)。
+  const zoneView: ZoneView | null = zoneAlert
+    ? {
+        state: zoneAlert.state,
+        distance: zoneAlert.distance,
+        length: zoneAlert.length,
+        entry: zoneAlert.entry,
+        exit: zoneAlert.exit,
+        limit: zoneAlert.zone.limit,
+        speed: orbisSpeed,
         muted: soundLocked(),
       }
     : null;
@@ -2089,6 +2139,7 @@ export default function Home() {
               mapRef={greenMapElementRef}
               mapReady={greenMapReady}
               orbis={orbisView}
+              zone={zoneView}
               zoom={{
                 metersPerPx: retroMetersPerPx,
                 onIn: retroZoom < RETRO_ZOOM_MAX ? () => changeRetroZoom(1) : null,
@@ -2385,11 +2436,13 @@ export default function Home() {
               </section>
               {/* 出勤日の曜日の札(五行の色)。色を変える filter の外から帯の上に重ねる */}
               <WorkdayMarks stripRef={weekStripRef} days={workDays} today={todayWeekdayIndex} labels={WEEKDAYS_JA} />
-              {/* オービス: 丸い地図の縁の輪・距離・制限と速さ・地図の印。警告の赤が変わらないよう、filter の外から重ねる */}
-              {orbisView ? (
+              {/* オービスと速度取締区間: 丸い地図の縁の輪・距離・制限と速さ・地図の印と区間の線。
+                  警告の赤が変わらないよう、filter の外から重ねる */}
+              {orbisView || zoneView ? (
                 <OrbisRing
                   key={activeDesign.id}
                   orbis={orbisView}
+                  zone={zoneView}
                   windowRef={orbisWindowRef}
                   metersPerPx={futureMetersPerPx}
                   rotation={-greenMeterHeading}
