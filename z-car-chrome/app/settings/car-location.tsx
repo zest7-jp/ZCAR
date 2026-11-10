@@ -24,6 +24,9 @@ const PARK_MAP_ZOOM = 17;
  * 寄った地図のまま。遠ければ、車とスマホの両方が入る広さにする。
  */
 const YOU_NEAR_METERS = 40;
+/** スマホと車の間の距離が、これ(m)と、前に合わせたときの距離のこの割合の、大きい方より変わったら合わせ直す。 */
+const YOU_REFIT_METERS = 40;
+const YOU_REFIT_RATIO = 0.4;
 /** 「歩いて約5分」の歩く速さ(m/分。不動産の広告と同じ 80m)。これ(m)より遠ければ歩く時間は出さない。 */
 const WALK_METERS_PER_MIN = 80;
 const WALK_MAX_METERS = 3000;
@@ -332,8 +335,12 @@ type YouPin = GOverlay & {
   shown: boolean;
 };
 
-/** スマホの点と車の印が画面の上でこれより近いと、点線は引かず、「車まで」の札は地図の左下に出す(px)。 */
-const YOU_LINE_MIN_PX = 90;
+/**
+ * スマホの点と車の印が画面の上でこれより近いと、点線は引かず、「車まで」の札は地図の左下に出す(px)。
+ * 引いている線はこれより近くなったら消し、消えている線はこれより離れたら引く(境目で出たり消えたりしない)。
+ */
+const YOU_LINE_HIDE_PX = 80;
+const YOU_LINE_SHOW_PX = 100;
 /** 点線の両端の空き(照準の角と車の印にかからないように)。 */
 const YOU_LINE_GAP_FROM = 22;
 const YOU_LINE_GAP_TO = 26;
@@ -390,7 +397,8 @@ const createYouPin = (maps: MapsApi, position: LatLng, layer: HTMLElement): YouP
       element.style.top = `${you.y}px`;
       const car = this.car ? pixel(this.car) : null;
       const length = car ? Math.hypot(car.x - you.x, car.y - you.y) : 0;
-      if (!car || length < YOU_LINE_MIN_PX) {
+      const min = line.classList.contains("is-on") ? YOU_LINE_HIDE_PX : YOU_LINE_SHOW_PX;
+      if (!car || length < min) {
         hideLine();
         return;
       }
@@ -635,6 +643,10 @@ export function CarLocationPanel({
   const satelliteRef = useRef(satellite);
   // iPhone の GPS(車の電源が入っている間と駐車中に追う。この画面に出すだけで、どこにも送らない)。
   const [phoneFix, setPhoneFix] = useState<PhoneFix | null>(null);
+  // 最後に届いた iPhone の GPS が新しいか(PHONE_FIX_STALE_MS 以内)。車の位置として使うのは新しい間だけ。
+  // 駐車中のスマホの点は、止まっていて GPS がしばらく届かなくても、最後の場所に出し続ける
+  // (届かないたびに消すと、点と地図が一瞬消えたり切り替わったりして、ちらつく)。
+  const [phoneFresh, setPhoneFresh] = useState(false);
   // 地図が車を追いかけているか(指で地図を動かしたら止め、照準のボタンで戻す)。
   const [following, setFollowing] = useState(true);
   const followRef = useRef(true);
@@ -770,12 +782,17 @@ export function CarLocationPanel({
           motion,
         };
         setPhoneFix(last);
+        setPhoneFresh(true);
         // 「車の中か」は時間で走れる距離を見るので、GPS が届くたびに時計も進める(15秒おきでは遅れる)。
         setClock(Date.now() + offsetRef.current);
         window.clearTimeout(stale);
-        stale = window.setTimeout(() => setPhoneFix(null), PHONE_FIX_STALE_MS);
+        stale = window.setTimeout(() => setPhoneFresh(false), PHONE_FIX_STALE_MS);
       },
-      () => setPhoneFix(null),
+      (error) => {
+        // 届かない(時間切れ・電波)ときは古いことにするだけ。場所を使うのを断られたときだけ消す。
+        setPhoneFresh(false);
+        if (error.code === error.PERMISSION_DENIED) setPhoneFix(null);
+      },
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 20_000 },
     );
     return () => {
@@ -785,7 +802,8 @@ export function CarLocationPanel({
   }, [hasPark]);
 
   // iPhone が車の中にあれば、iPhone の GPS を車の位置にする。
-  const phoneInCar = live && phoneFix !== null && park !== null && isPhoneInCar(phoneFix, park, clock);
+  const phoneInCar =
+    live && phoneFresh && phoneFix !== null && park !== null && isPhoneInCar(phoneFix, park, clock);
   // 走っているか止まっているかも、iPhone が車の中にあれば iPhone の GPS の速さで決める
   // (車からは走っている間1分おきにしか届かないので、信号で止まった・走り出したがすぐには分からない)。
   const phoneMotion = phoneInCar ? phoneFix.motion : null;
@@ -921,7 +939,8 @@ export function CarLocationPanel({
     if (!current) return;
     const gap = distanceMeters(car, you);
     const last = fitRef.current;
-    if (!force && last !== null && Math.abs(gap - last) < Math.max(20, last * 0.25)) return;
+    // GPS の誤差で距離が少し変わっただけでは合わせ直さない(地図が動いて、切り替わったように見える)。
+    if (!force && last !== null && Math.abs(gap - last) < Math.max(YOU_REFIT_METERS, last * YOU_REFIT_RATIO)) return;
     fitRef.current = gap;
     if (gap < YOU_NEAR_METERS) {
       current.map.setCenter(car);
@@ -931,11 +950,11 @@ export function CarLocationPanel({
     const bounds = new current.api.LatLngBounds();
     bounds.extend(car);
     bounds.extend(you);
+    // 近いときに寄りすぎないように、ふだんの縮尺より大きくはしない。合わせている間だけ上限を付けて、
+    // 寄ってから戻す(2回動いて、ちらついて見える)ことをしない。合わせ終わったら上限は外す(指で寄れる)。
+    current.map.setOptions({ maxZoom: PARK_MAP_ZOOM });
     current.map.fitBounds(bounds, { top: 90, bottom: 80, left: 50, right: 50 });
-    // 近いときに寄りすぎないように、ふだんの縮尺より大きくはしない。
-    current.api.event.addListenerOnce(current.map, "idle", () => {
-      if ((current.map.getZoom() ?? 0) > PARK_MAP_ZOOM) current.map.setZoom(PARK_MAP_ZOOM);
-    });
+    current.api.event.addListenerOnce(current.map, "idle", () => current.map.setOptions({ maxZoom: null }));
   };
 
   // 駐車中は、スマホ(あなた)の今いる場所を薄いグレーの点で出す(GPS は画面に出すだけで、送らない)。
@@ -1132,7 +1151,7 @@ export function CarLocationPanel({
                 {clock > 0
                   ? elapsedParts(clock - shownAt).map(([value, unit]) => (
                       <span key={unit}>
-                        {segNumber(String(value), 46)}
+                        {segNumber(String(value), 30)}
                         <em>{unit}</em>
                       </span>
                     ))
@@ -1144,7 +1163,7 @@ export function CarLocationPanel({
                 <dt>{shownLabel}</dt>
                 {/* 日付は時刻の下に置く(横に並べると、iPhone では右の端で切れるため)。 */}
                 <dd className="is-when">
-                  {segNumber(clockText(shownAt), 18)}
+                  {segNumber(clockText(shownAt), 16)}
                   <small>{sameDay ? "今日" : dateText(shownAt)}</small>
                 </dd>
               </div>
@@ -1152,7 +1171,7 @@ export function CarLocationPanel({
                 <div>
                   <dt>速度</dt>
                   <dd>
-                    {segNumber(String(Math.round(kmh)), 18)}
+                    {segNumber(String(Math.round(kmh)), 16)}
                     <em>km/h</em>
                   </dd>
                 </div>
@@ -1160,7 +1179,7 @@ export function CarLocationPanel({
                 <div>
                   <dt>誤差</dt>
                   <dd>
-                    ±{segNumber(String(Math.round(shownAccuracy)), 18)}
+                    ±{segNumber(String(Math.round(shownAccuracy)), 16)}
                     <em>m</em>
                   </dd>
                 </div>
@@ -1233,13 +1252,12 @@ export function CarLocationPanel({
           </button>
         </div>
       ) : null}
-      <p className="zr-note">
-        {phoneInCar
-          ? "この iPhone の GPS で車の位置を動かしています。"
-          : "車で Z CAR を開いている間に届いた、最後の場所です。"}
-        {you ? "グレーの点は、このスマホの今いる場所です。" : null}
-        {carOn ? `登録した場所は、目的地として車の ${look === "retro" ? "LIST" : "DEST"} から選べます。` : null}
-      </p>
+      {phoneInCar || carOn ? (
+        <p className="zr-note">
+          {phoneInCar ? "この iPhone の GPS で車の位置を動かしています。" : null}
+          {carOn ? `登録した場所は、目的地として車の ${look === "retro" ? "LIST" : "DEST"} から選べます。` : null}
+        </p>
+      ) : null}
       {vehicleOpen ? (
         <VehicleSheet
           record={vehicle}
