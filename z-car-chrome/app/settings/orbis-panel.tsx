@@ -11,6 +11,7 @@ import {
   type OrbisPoint,
 } from "../settings-store";
 import { directionName, OrbisDial } from "./orbis-dial";
+import { OrbisMap } from "./orbis-map";
 import { townAt } from "./town-name";
 
 /**
@@ -44,8 +45,9 @@ const PASTE_NOTES: Record<PlaceImportError | "clipboard", string> = {
 const coordsText = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
 /**
- * スマホで登録するオービス(目的地のタブの下)。車の80年代の地図で、OpenStreetMap の
+ * スマホで登録するオービス(下のタブの「オービス」)。車の80年代の地図で、OpenStreetMap の
  * オービスと一緒に知らせる。Google マップのコピーか、今いる場所から足す。車にも届く。
+ * 一番上に、登録した場所を全部出した地図(番号は一覧の行と同じ。印を押すと直す欄が開く)。
  */
 export function OrbisPanel({
   points,
@@ -100,6 +102,21 @@ export function OrbisPanel({
             direction: point.direction,
           },
     );
+
+  /** 地図の印を押したとき: その場所を直す欄を開いて、欄が見える所まで動かす。 */
+  const pick = (point: OrbisPoint) => {
+    setDraft({
+      editId: point.id,
+      lat: point.lat,
+      lng: point.lng,
+      label: point.label,
+      limit: point.limit === null ? "" : String(point.limit),
+      direction: point.direction,
+    });
+    window.requestAnimationFrame(() =>
+      document.querySelector(".zr-orbis-editor")?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+  };
 
   /** Google マップで「共有」→「コピー」した場所(か「34.76,135.62」のような数字)を読む。 */
   const pastePoint = async () => {
@@ -207,15 +224,10 @@ export function OrbisPanel({
           <b>オービス</b>
         </span>
       </header>
-      <p className="zr-navi-hint">
-        車の80年代の地図で、進む向きの前方500mから知らせ、300mで声でも知らせます。OpenStreetMap
-        のオービスのほかに、ここに足した場所も使います。Google マップで場所を選んで
-        「共有」→「コピー」してから、FROM MAPS を押します。名前は町名が自動で入ります。走る向き
-        (上り・下り)を決めると、その向きに走るときだけ知らせます。登録した行を押すと直せます。
-      </p>
+      {points.length ? <OrbisMap points={points} mapsKey={mapsKey} onPick={pick} /> : null}
       {points.length ? (
         <ul className="zr-places zr-orbis-list">
-          {points.map((point) => (
+          {points.map((point, index) => (
             <li key={point.id} className={draft?.editId === point.id ? "is-editing" : undefined}>
               <div className="zr-place-row">
                 <button
@@ -225,6 +237,8 @@ export function OrbisPanel({
                   onClick={() => edit(point)}
                 >
                   <span className="zr-place-name">
+                    {/* 地図の印と同じ番号。 */}
+                    <em className="zr-orbis-num">{index + 1}</em>
                     <b>{point.label || "オービス"}</b>
                     {point.limit ? <small>制限 {point.limit}km/h</small> : null}
                   </span>
@@ -335,6 +349,12 @@ export function OrbisPanel({
           </button>
         </div>
       ) : null}
+      <p className="zr-navi-hint zr-orbis-hint">
+        車の80年代の地図で、進む向きの前方500mから知らせ、300mで声でも知らせます。OpenStreetMap
+        のオービスのほかに、ここに足した場所も使います。Google マップで場所を選んで
+        「共有」→「コピー」してから、FROM MAPS を押します。名前は町名が自動で入ります。走る向き
+        (上り・下り)を決めると、その向きに走るときだけ知らせます。登録した行か、地図の印を押すと直せます。
+      </p>
       <p className="zr-note">
         移動式のオービスは場所が決まっていないので、知らせられません。地図から取るオービスの場所は ©
         OpenStreetMap の協力者によるものです。
