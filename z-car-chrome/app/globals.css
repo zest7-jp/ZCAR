@@ -1,6 +1,12 @@
 @import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
+/* サイバーのテーマの字(SIL Open Font License 1.1。app/fonts に許諾の文と一緒に入れてある)。
+   数字と大きな英字は横に広い Michroma、小さな説明は縦長の Rajdhani。使う画面を開いたときだけ読み込む。 */
+@font-face { font-family: "Michroma"; src: url("./fonts/michroma-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("./fonts/rajdhani-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("./fonts/rajdhani-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+
 :root {
   color-scheme: dark;
   --panel: #12161b;
@@ -3614,10 +3620,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .meter-theme-options > button small { color: #748078; font-size: 7px; letter-spacing: .11em; }
 .meter-theme-options > button em { color: #68ce80; font-size: 7px; font-style: normal; font-weight: 900; letter-spacing: .13em; }
 
-/* テーマ(近未来・80年代)。色の札より上に2つ並べる。 */
+/* テーマ(近未来・80年代・サイバー)。色の札より上に3つ並べる。 */
 .meter-style-options {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 15px;
 }
@@ -8623,7 +8629,7 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
 /* スマホ: テーマの一覧(近未来・80年代の小さな見本) */
 .zr-styles {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 .zr-style {
@@ -9525,9 +9531,9 @@ main.zr[data-style="retro"] .zr-park-key:disabled::after { opacity: .3; box-shad
   white-space: nowrap;
 }
 .zr-seg { display: block; overflow: visible; }
-main.zr:not([data-style="future"]) .zr-park-facts dt { white-space: nowrap; }
+main.zr[data-style="retro"] .zr-park-facts dt { white-space: nowrap; }
 /* 7セグメントの数字と単位(時間・分)を、下でそろえて横に並べる。 */
-main.zr:not([data-style="future"]) .zr-park-elapsed strong > span { display: inline-flex; align-items: flex-end; }
+main.zr[data-style="retro"] .zr-park-elapsed strong > span { display: inline-flex; align-items: flex-end; }
 
 /* ------------------------------------------------------------------
    スマホの見た目を、車のテーマに合わせる(近未来は、この上のふつうの形)。
@@ -9679,6 +9685,137 @@ main.zr[data-style="retro"] .zr-car-big.is-none { color: var(--zr-muted); }
 main.zr[data-style="retro"] .zr-park-car-stats b:not(.is-none) { color: #ffc65e; text-shadow: 0 0 8px rgba(255, 176, 46, .8); }
 main.zr[data-style="retro"] .zr-park-car-stats b:is(.is-soon, .is-over) { color: #ff6a5a; text-shadow: 0 0 8px rgba(255, 90, 74, .8); }
 main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-amber); background: rgba(2, 4, 3, .96); box-shadow: 0 0 16px rgba(255, 176, 46, .4), 0 12px 28px rgba(0, 0, 0, .6); }
+
+/* サイバー: 送ってもらった緑のパックの絵に寄せる。太い平らな緑の線で囲む(左上と右下の角を切り、切り口は太く)。
+   上の辺に太い張り出し、▶▶▶ と斜線。光らせない。数字は Michroma、英語の小さな説明は Rajdhani。 */
+main.zr[data-style="cyber"] {
+  --zr-accent: #19f59b;
+  --zr-accent-strong: #d4ffe8;
+  --zr-accent-rgb: 25, 245, 155;
+  --zr-ink: #d6ffe8;
+  --zr-muted: #4fa77f;
+  --zr-edge: rgba(25, 245, 155, .18);
+  --zr-field: #000a05;
+  --zr-panel: #020504;
+  --zr-amber: #19f59b;
+  --zr-amber-rgb: 25, 245, 155;
+  background: #070908;
+}
+main.zr[data-style="cyber"] .zr-brand b { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 19px; font-weight: 400; letter-spacing: .12em; }
+main.zr[data-style="cyber"] .zr-brand small { color: #19f59b; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .3em; }
+main.zr[data-style="cyber"] .zr-reload-stamp { color: #4fa77f; opacity: 1; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 11px; letter-spacing: .08em; }
+/* 角を切った太い線の枠(カード)。上の辺の右に太い張り出し。 */
+main.zr[data-style="cyber"] :is(.zr-panel, .zr-park-card, .zr-hero, .zr-link) {
+  position: relative;
+  border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M15 1L63 1L63 49L49 63L1 63L1 15Z' fill='%23020504' fill-opacity='1' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 20V14L14 2H20' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 44V50L50 62H44' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 20 fill / 20px / 0 stretch;
+  box-shadow: none;
+}
+main.zr[data-style="cyber"] :is(.zr-panel, .zr-park-card, .zr-hero)::before {
+  content: "";
+  position: absolute;
+  z-index: 7;
+  top: 0;
+  right: 40px;
+  width: 80px;
+  height: 5px;
+  background: #19f59b;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 5px 100%);
+  pointer-events: none;
+}
+main.zr[data-style="cyber"] .zr-panel::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: 9px;
+  width: 30px;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='10' viewBox='0 0 30 10'%3E%3Cg fill='%2319f59b'%3E%3Cpolygon points='0,0 8,5 0,10'/%3E%3Cpolygon points='10,0 18,5 10,10'/%3E%3Cpolygon points='20,0 28,5 20,10'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+}
+main.zr[data-style="cyber"] .zr-park-card { overflow: visible; }
+main.zr[data-style="cyber"] .zr-park-map { margin: 2px 2px 0; border-radius: 0; background: #000a05; clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%, 0 14px); }
+main.zr[data-style="cyber"] .zr-park-map::after { box-shadow: inset 0 0 36px rgba(0, 0, 0, .55); }
+main.zr[data-style="cyber"] :is(.zr-theme, .zr-design, .zr-style) { border: 1.5px solid #11583b; border-radius: 0; background: #020504; box-shadow: none; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+main.zr[data-style="cyber"] :is(.zr-theme, .zr-design, .zr-style).is-active { border-color: #19f59b; box-shadow: inset 0 0 0 1px #19f59b; }
+main.zr[data-style="cyber"] :is(.zr-panel-head small, .zr-themes-toggle small, .zr-car-tile > small) { font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-weight: 700; letter-spacing: .24em; }
+main.zr[data-style="cyber"] .zr-panel-head small { display: inline-block; padding: 3px 9px 2px; border: 2px solid #19f59b; color: #19f59b; font-size: 10px; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+main.zr[data-style="cyber"] .zr-panel-head b { color: #d4ffe8; }
+/* 数字(停めてからの時間・時刻・燃費・車両情報)は Michroma。傾けず、光らせない。 */
+main.zr[data-style="cyber"] :is(.zr-park-elapsed strong, .zr-hero-value strong) { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-weight: 400; letter-spacing: 0; transform: none; text-shadow: none; }
+main.zr[data-style="cyber"] .zr-park-elapsed strong { font-size: 25px; }
+main.zr[data-style="cyber"] .zr-hero-value strong { font-size: clamp(42px, 6.4dvh, 66px); }
+main.zr[data-style="cyber"] :is(.zr-park-elapsed, .zr-hero-value) em { color: #19f59b; }
+main.zr[data-style="cyber"] :is(.zr-park-elapsed small, .zr-park-facts dt, .zr-hero-stats dt) { color: #19f59b; }
+main.zr[data-style="cyber"] .zr-park-facts { border-top: 2px solid #19f59b; background: transparent; }
+main.zr[data-style="cyber"] :is(.zr-park-facts dd, .zr-hero-stats dd) { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 14px; font-weight: 400; }
+main.zr[data-style="cyber"] .zr-park-facts dd :is(small, em) { color: #4fa77f; font-family: inherit; }
+main.zr[data-style="cyber"] .zr-park-facts dd small { font-family: system-ui, sans-serif; }
+main.zr[data-style="cyber"] .zr-hero-stats dd em { font-family: "Rajdhani", "Noto Sans JP", sans-serif; }
+main.zr[data-style="cyber"] .zr-park-state { border: 2px solid #19f59b; border-radius: 0; background: rgba(0, 10, 5, .88); font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .24em; box-shadow: none; text-shadow: none; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+main.zr[data-style="cyber"] .zr-park-state, main.zr[data-style="cyber"] .zr-park-pin { --zr-state: #19f59b; --zr-state-rgb: 25, 245, 155; }
+main.zr[data-style="cyber"] .zr-park-state small { color: #d4ffe8; }
+/* スマホの点からの線は緑へ(車の側が緑)。札は角を切った太い線。 */
+main.zr[data-style="cyber"] .zr-park-you-line-to { stop-color: #19f59b; }
+main.zr[data-style="cyber"] .zr-park-you-line-path,
+main.zr[data-style="cyber"] .zr-park-you-line-head { filter: none; }
+main.zr[data-style="cyber"] .zr-park-you-line-head { stroke: #19f59b; }
+main.zr[data-style="cyber"] .zr-park-you-gap { border: 2px solid #19f59b; border-radius: 0; background: rgba(0, 12, 6, .94); box-shadow: none; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+main.zr[data-style="cyber"] .zr-park-you-gap small { color: #19f59b; }
+main.zr[data-style="cyber"] .zr-park-you-gap b { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 17px; font-weight: 400; text-shadow: none; }
+/* 大事なボタンは塗りの薄い枠と ▶▶▶、ほかは塗らない枠。 */
+main.zr[data-style="cyber"] .zr-primary { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%2319f59b' fill-opacity='0.12' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 16V10L10 2H16' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 48V54L54 62H48' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; box-shadow: none; color: #19f59b; letter-spacing: .14em; text-shadow: none; }
+main.zr[data-style="cyber"] .zr-primary:disabled { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%2319f59b' fill-opacity='0.03' stroke='%2319f59b' stroke-opacity='0.3' stroke-width='2'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; color: rgba(25, 245, 155, .35); }
+main.zr[data-style="cyber"] .zr-park-go .zr-primary::after { content: ""; flex: 0 0 auto; width: 30px; height: 10px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='10' viewBox='0 0 30 10'%3E%3Cg fill='%2319f59b'%3E%3Cpolygon points='0,0 8,5 0,10'/%3E%3Cpolygon points='10,0 18,5 10,10'/%3E%3Cpolygon points='20,0 28,5 20,10'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; }
+main.zr[data-style="cyber"] :is(.zr-ghost, .zr-park-tools button, .zr-sheet-head button) { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%23020504' fill-opacity='1' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; box-shadow: none; color: #19f59b; text-shadow: none; }
+main.zr[data-style="cyber"] .zr-park-tools button { background: none; }
+main.zr[data-style="cyber"] .zr-park-tools button:is([aria-pressed="true"], .is-off) { color: #d4ffe8; }
+main.zr[data-style="cyber"] .zr-park-go .zr-park-key { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%2319f59b' fill-opacity='0.12' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 16V10L10 2H16' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 48V54L54 62H48' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; }
+main.zr[data-style="cyber"] .zr-park-key b { font-family: "Michroma", "Rajdhani", sans-serif; font-size: 19px; font-weight: 400; letter-spacing: .08em; }
+main.zr[data-style="cyber"] .zr-add { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M8.8 0.8L63.2 0.8L63.2 55.2L55.2 63.2L0.8 63.2L0.8 8.8Z' fill='%23000' fill-opacity='0' stroke='%2319f59b' stroke-opacity='1' stroke-width='1.6' stroke-dasharray='5 3'/%3E%3C/svg%3E") 14 fill / 14px / 0 stretch; color: #19f59b; }
+main.zr[data-style="cyber"] .zr-add b { font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-weight: 700; letter-spacing: .2em; }
+main.zr[data-style="cyber"] .zr-field > div { border-color: rgba(25, 245, 155, .35); border-radius: 0; background: #020504; }
+main.zr[data-style="cyber"] .zr-sort { border: 2px solid #19f59b; border-radius: 0; background: rgba(25, 245, 155, .06); color: #19f59b; box-shadow: none; text-shadow: none; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+main.zr[data-style="cyber"] .zr-sort[aria-pressed="true"] { background: #19f59b; color: #00170c; }
+main.zr[data-style="cyber"] .zr-move button { border-radius: 0; box-shadow: none; }
+main.zr[data-style="cyber"] .zr-place-name em { border: 1.5px solid #19f59b; border-radius: 0; color: #19f59b; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: .2em; }
+main.zr[data-style="cyber"] .star-mark.is-filled { filter: none; }
+/* 今回だけの行き先: 塗りの薄い枠の左下に斜線。 */
+main.zr[data-style="cyber"] .zr-once { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%2319f59b' fill-opacity='0.05' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 16V10L10 2H16' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 48V54L54 62H48' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; position: relative; box-shadow: none; }
+main.zr[data-style="cyber"] .zr-once::after { content: ""; position: absolute; left: 14px; bottom: -2px; width: 44px; height: 8px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='8' viewBox='0 0 44 8'%3E%3Cg fill='%2319f59b'%3E%3Cpolygon points='4.5,0 7.5,0 3,8 0,8'/%3E%3Cpolygon points='10.5,0 13.5,0 9,8 6,8'/%3E%3Cpolygon points='16.5,0 19.5,0 15,8 12,8'/%3E%3Cpolygon points='22.5,0 25.5,0 21,8 18,8'/%3E%3Cpolygon points='28.5,0 31.5,0 27,8 24,8'/%3E%3Cpolygon points='34.5,0 37.5,0 33,8 30,8'/%3E%3Cpolygon points='40.5,0 43.5,0 39,8 36,8'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; pointer-events: none; }
+main.zr[data-style="cyber"] .zr-once-head small { font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .26em; }
+main.zr[data-style="cyber"] .zr-once-head b { color: #d4ffe8; }
+main.zr[data-style="cyber"] .zr-once .star-mark.is-filled { filter: none; }
+main.zr[data-style="cyber"] .zr-once .zr-place-name em { border-color: #19f59b; color: #19f59b; }
+main.zr[data-style="cyber"] :is(.zr-once-save, .zr-once-go) { border: 2px solid #19f59b; border-radius: 0; background: rgba(25, 245, 155, .12); color: #19f59b; box-shadow: none; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+/* 下のタブ: 上に太い緑の線、選んでいるタブの上に太い張り出し。 */
+main.zr[data-style="cyber"] .zr-tabs { border-top: 2px solid #19f59b; background: rgba(4, 6, 5, .96); box-shadow: none; }
+main.zr[data-style="cyber"] .zr-tabs button { color: #11583b; }
+main.zr[data-style="cyber"] .zr-tabs button.is-active { color: #19f59b; text-shadow: none; }
+main.zr[data-style="cyber"] .zr-tabs button.is-active::before { filter: none; }
+main.zr[data-style="cyber"] .zr-tabs button.is-active::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 22%;
+  right: 22%;
+  height: 5px;
+  background: #19f59b;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 5px 100%);
+}
+main.zr[data-style="cyber"] .zr-sheet-card { border-top: 2px solid #19f59b; border-radius: 0; background: #020504; }
+main.zr[data-style="cyber"] .zr-themes-toggle { border-color: rgba(25, 245, 155, .4); border-radius: 0; background: #020504; box-shadow: none; }
+/* 車両情報のタイル: 角を切った線の枠に Michroma の数字。期限が近い・過ぎたものだけ赤(警告)。 */
+main.zr[data-style="cyber"] .zr-car-tile { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%23020504' fill-opacity='1' stroke='%2319f59b' stroke-opacity='0.55' stroke-width='2'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; box-shadow: none; }
+main.zr[data-style="cyber"] .zr-car-tile.is-editing { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%23020504' fill-opacity='1' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 16V10L10 2H16' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 48V54L54 62H48' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; }
+main.zr[data-style="cyber"] .zr-car-big { color: #19f59b; }
+main.zr[data-style="cyber"] .zr-car-big b { font-family: "Michroma", "Rajdhani", sans-serif; font-size: 30px; font-weight: 400; }
+main.zr[data-style="cyber"] .zr-car-tile:not(.is-wide) .zr-car-big b { font-size: 21px; }
+main.zr[data-style="cyber"] .zr-car-big.is-text b { font-family: inherit; }
+main.zr[data-style="cyber"] .zr-car-big:is(.is-soon, .is-over) { color: #ff6a5a; }
+main.zr[data-style="cyber"] .zr-car-big.is-none { color: var(--zr-muted); }
+main.zr[data-style="cyber"] .zr-park-car-stats b:not(.is-none) { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-weight: 400; }
+main.zr[data-style="cyber"] .zr-park-car-stats b:is(.is-soon, .is-over) { color: #ff6a5a; }
+main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f59b; border-radius: 0; background: rgba(2, 5, 4, .97); box-shadow: 0 12px 28px rgba(0, 0, 0, .6); clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
 
 /* ORBIT NAVI: 大きな丸い地図(HTML)の上に、回転計の輪(SVG)を重ねる */
 .orbit-map-window {
@@ -10057,6 +10194,79 @@ main.zr[data-style="retro"] :is(.zr-toast, .zr-paired) { border-color: var(--zr-
 #app.meter-style-retro .meter-reload small span { color: #9c7a3e; }
 #app.meter-style-retro .meter-reload b { color: #ffb02e; }
 #app.meter-style-retro .meter-full-button { border-color: rgba(82, 255, 214, .4); color: #52ffd6; }
+
+/* ------------------------------------------------------------------
+   緑一色のサイバーパンクのテーマ(app/meter-styles.tsx の CyberCluster)。
+   80年代と同じ 1024x566 の板。太い平らな緑の線で、光らせない。数字は Michroma、説明は Rajdhani。
+   ------------------------------------------------------------------ */
+#app.meter-style-cyber.is-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  padding: 0;
+  gap: 0;
+  background: #070908;
+}
+#app.meter-style-cyber .meter-status { margin: 0; }
+.ms-cyber text { font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-weight: 700; }
+.ms-cyber text.cy-num { font-family: "Michroma", "Rajdhani", sans-serif; font-weight: 400; }
+.ms-cyber .ms-hit:active { background: rgba(25, 245, 155, .14); }
+/* 地図の窓: 左上と右下の角を切る(縁の線は板の絵)。走査線は引かず、まわりだけ少し暗くする。 */
+.ms-cyber .ms-retro-crt {
+  border-radius: 0;
+  background: #010805;
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+}
+.ms-cyber .ms-retro-scan { background: radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, .5) 100%); }
+.ms-cyber .ms-retro-cursor { fill: #d4ffe8; filter: none; }
+.ms-cyber .ms-retro-north { fill: #19f59b; filter: none; }
+.ms-cyber .ms-retro-north circle { fill: rgba(0, 10, 5, .85); stroke: #19f59b; stroke-width: 2; }
+.ms-cyber .ms-retro-north text { font: 400 9px/1 "Michroma", "Rajdhani", sans-serif; }
+.ms-cyber .ms-retro-crt-wait { color: #19f59b; font: 700 13px/1 "Rajdhani", "Noto Sans JP", sans-serif; letter-spacing: .4em; }
+.ms-cyber .ms-retro-scale { color: #19f59b; font: 700 14px/1 "Rajdhani", "Noto Sans JP", sans-serif; letter-spacing: .1em; text-shadow: none; }
+.ms-cyber .ms-retro-scale i { border-color: #19f59b; box-shadow: none; }
+.ms-cyber .ms-retro-zoom button {
+  border: 2px solid #19f59b;
+  border-radius: 0;
+  background: rgba(0, 8, 4, .9);
+  box-shadow: none;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+.ms-cyber .ms-retro-zoom svg { stroke: #19f59b; filter: none; }
+.ms-cyber .ms-retro-zoom button:active { background: rgba(25, 245, 155, .24); }
+.ms-cyber .ms-retro-zoom button:disabled { border-color: rgba(25, 245, 155, .25); }
+.ms-cyber .ms-retro-zoom button:disabled svg { stroke: rgba(25, 245, 155, .3); }
+/* 地図の左上の「LOCATION」の札(オービスの帯が出ると、その下に隠れる)。 */
+.ms-cy-loc { position: absolute; left: 10px; top: 10px; z-index: 3; width: 112px; height: 22px; pointer-events: none; }
+/* 上の状態のバー: 下に太い緑の線。説明は Rajdhani。 */
+#app.meter-style-cyber .meter-status { background: #070908; box-shadow: inset 0 -2px 0 #19f59b; }
+#app.meter-style-cyber .meter-status-item small,
+#app.meter-style-cyber .meter-status-item b,
+#app.meter-style-cyber .meter-status-detail,
+#app.meter-style-cyber .meter-reload,
+#app.meter-style-cyber .meter-reload b { font-family: "Rajdhani", "Noto Sans JP", sans-serif; }
+#app.meter-style-cyber .meter-status-item i { width: 8px; height: 4px; border-radius: 0; transform: none; background: #0a3324; }
+#app.meter-style-cyber .meter-status-item.is-ok i { background: #19f59b; box-shadow: none; }
+#app.meter-style-cyber .meter-status-item.is-warn i { background: #d4ffe8; box-shadow: none; }
+#app.meter-style-cyber .meter-status-item small { color: #11583b; font-size: 9px; letter-spacing: .16em; }
+#app.meter-style-cyber .meter-status-item small span { color: #19f59b; letter-spacing: .26em; }
+#app.meter-style-cyber .meter-status-item b { color: #14c47c; font-size: 10px; }
+#app.meter-style-cyber .meter-status-item b span { color: #19f59b; font-size: 12px; letter-spacing: .14em; text-shadow: none; }
+#app.meter-style-cyber .meter-status-item.is-warn b,
+#app.meter-style-cyber .meter-status-item.is-warn b span { color: #d4ffe8; }
+#app.meter-style-cyber .meter-status-item.is-off small,
+#app.meter-style-cyber .meter-status-item.is-off small span,
+#app.meter-style-cyber .meter-status-item.is-off b,
+#app.meter-style-cyber .meter-status-item.is-off b span { color: #11583b; }
+#app.meter-style-cyber .meter-status-item + .meter-status-item::before { background: rgba(25, 245, 155, .22); }
+#app.meter-style-cyber .meter-status-item.is-button:active,
+#app.meter-style-cyber .meter-reload:active { background: rgba(25, 245, 155, .12); }
+#app.meter-style-cyber .meter-status-detail { color: #11583b; }
+#app.meter-style-cyber .meter-reload,
+#app.meter-style-cyber .meter-reload small,
+#app.meter-style-cyber .meter-reload small span { color: #14c47c; }
+#app.meter-style-cyber .meter-reload b { color: #19f59b; }
+#app.meter-style-cyber .meter-full-button { border-color: #19f59b; border-radius: 0; color: #19f59b; }
 
 @media (prefers-reduced-motion: reduce) {
   .ms-retro-cursor { transition: none; }

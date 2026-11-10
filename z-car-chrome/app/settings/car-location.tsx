@@ -817,15 +817,15 @@ export function CarLocationPanel({
   // 自宅として覚えた場所の近くに駐車している。
   const atHome =
     status === "parked" && park !== null && homeSpot !== null && distanceMeters(park, homeSpot) <= HOME_NEAR_METERS;
-  /** 数字: 80年代のテーマでは車と同じ7セグメント(読み上げ用の字も残す)、近未来ではそのままの字。 */
+  /** 数字: 80年代のテーマでは車と同じ7セグメント(読み上げ用の字も残す)、近未来とサイバーではそのままの字。 */
   const segNumber = (text: string, height: number) =>
-    look === "future" ? (
-      text
-    ) : (
+    look === "retro" ? (
       <>
         <SegNumber text={text} h={height} className="zr-seg" />
         <span className="zr-sr">{text}</span>
       </>
+    ) : (
+      text
     );
   const shown = phoneInCar ? phoneFix : park;
   const shownLat = shown?.lat;
@@ -1255,7 +1255,7 @@ export function CarLocationPanel({
       {phoneInCar || carOn ? (
         <p className="zr-note">
           {phoneInCar ? "この iPhone の GPS で車の位置を動かしています。" : null}
-          {carOn ? `登録した場所は、目的地として車の ${look === "retro" ? "LIST" : "DEST"} から選べます。` : null}
+          {carOn ? `登録した場所は、目的地として車の ${look === "future" ? "DEST" : "LIST"} から選べます。` : null}
         </p>
       ) : null}
       {vehicleOpen ? (
