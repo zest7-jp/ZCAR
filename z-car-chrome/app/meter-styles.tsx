@@ -8,6 +8,7 @@
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { WEEKDAY_ELEMENT_COLORS } from "./workday-marks";
 import type { MeterStyle } from "./settings-store";
+import { zoneLengthText } from "./speed-zone";
 
 const BOARD_W = 1024;
 const BOARD_H = 566;
@@ -147,7 +148,7 @@ const px2 = (value: number) => Math.round(value * 10) / 10;
 
 /**
  * 地図の上の区間の線の場所(点数)。地図は北が上で、車が窓(w × h)の真ん中。東・北の距離を縮尺で割る。
- * 線は窓の少し外までに切る。札は入口・出口から、走る向きの右へ少し離して置く。round は丸い地図(近未来)。
+ * 線は窓の少し外までに切る。入口・出口には、線に直角の短い線を引く。round は丸い地図(近未来)。
  */
 export const zoneOnMap = (zone: ZoneView, metersPerPx: number, w: number, h: number, round = false) => {
   const cx = w / 2;
@@ -157,23 +158,17 @@ export const zoneOnMap = (zone: ZoneView, metersPerPx: number, w: number, h: num
   const bx = cx + zone.exit.east / metersPerPx;
   const by = cy - zone.exit.north / metersPerPx;
   const length = Math.hypot(bx - ax, by - ay) || 1;
-  // 走る向き(入口→出口)と、その右(画面は下が +y なので、北へ走るとき右は +x)。
-  const ux = (bx - ax) / length;
-  const uy = (by - ay) / length;
-  const rightX = -uy;
-  const rightY = ux;
+  // 線に直角の向き(端の短い線を引く)。
+  const crossX = -(by - ay) / length;
+  const crossY = (bx - ax) / length;
   const pad = 30;
   const line = clipLine(ax, ay, bx, by, -pad, -pad, w + pad, h + pad);
-  // 札や端の印を出すのは、窓(丸い地図なら円)の内側だけ。
+  // 端の短い線を引くのは、窓(丸い地図なら円)の内側だけ。
   const inView = (x: number, y: number) =>
-    round ? Math.hypot(x - cx, y - cy) < Math.min(cx, cy) - 16 : x > 12 && x < w - 12 && y > 12 && y < h - 12;
+    round ? Math.hypot(x - cx, y - cy) < Math.min(cx, cy) - 8 : x > 6 && x < w - 6 && y > 6 && y < h - 6;
   const end = (x: number, y: number) => ({
-    x: px2(x),
-    y: px2(y),
     shown: inView(x, y),
-    // 端の印(線に直角の短い線)と札の場所。
-    tick: { x1: px2(x - rightX * 13), y1: px2(y - rightY * 13), x2: px2(x + rightX * 13), y2: px2(y + rightY * 13) },
-    flag: { x: px2(x + rightX * 34), y: px2(y + rightY * 34) },
+    tick: { x1: px2(x - crossX * 13), y1: px2(y - crossY * 13), x2: px2(x + crossX * 13), y2: px2(y + crossY * 13) },
   });
   return {
     line: line && { x1: px2(line.x1), y1: px2(line.y1), x2: px2(line.x2), y2: px2(line.y2) },
@@ -205,50 +200,43 @@ function ZoneLine({ zone, metersPerPx }: { zone: ZoneView; metersPerPx: number }
 }
 
 /**
- * 区間の札: 入口に「取締」・出口に「終」、左上に「取締区間まで 300m」(中は「取締区間 あと 1.2km」)、
- * 右上に制限速度と今の速さ(制限より速いと赤)。オービスの帯が出ているときは、帯の下に下げる
- * (制限と速さは帯に出ているので、区間の分は出さない)。
+ * 区間の帯(地図の上。オービスの帯と同じ場所で、色は紫): 盾の印・「取締区間」・距離
+ * (手前は「300 m 先から 1.5km」、中は「残り 1.2 km」)・制限速度と今の速さ(制限より速いと赤)。
+ * オービスの帯が出ているときは、地図の左下に出す(今の速さと、オービスに制限があれば制限も、
+ * オービスの帯に出ているので、区間の分は出さない)。
  */
-function ZoneTags({ zone, orbis, metersPerPx }: { zone: ZoneView; orbis: OrbisView | null; metersPerPx: number }) {
-  const at = zoneOnMap(zone, metersPerPx, RETRO_CRT.w, RETRO_CRT.h);
+function ZoneBand({ zone, orbis }: { zone: ZoneView; orbis: OrbisView | null }) {
   const distance = orbisDistance(zone.distance);
+  const limit = orbis?.limit != null ? null : zone.limit;
+  const speed = orbis ? null : zone.speed;
   const over = zone.limit !== null && zone.speed !== null && zone.speed > zone.limit;
-  const low = orbis ? " is-low" : "";
   return (
-    <>
-      {at.entry.shown ? (
-        <span className="ms-zone-flag is-entry" style={{ left: at.entry.flag.x, top: at.entry.flag.y }} aria-hidden="true">
-          取締
-        </span>
-      ) : null}
-      {at.exit.shown ? (
-        <span className="ms-zone-flag is-exit" style={{ left: at.exit.flag.x, top: at.exit.flag.y }} aria-hidden="true">
-          終
-        </span>
-      ) : null}
-      <div className={`ms-zone-chip${low}`} role="status">
-        <ZoneIcon />
-        <b className="ms-zone-name">{zone.state === "before" ? "取締区間まで" : "取締区間 あと"}</b>
-        <b className="ms-zone-num">
-          {distance.value}
-          <small> {distance.unit}</small>
-        </b>
-        {zone.muted && !orbis ? <small className="ms-zone-muted">画面に触れると声が出ます</small> : null}
-      </div>
-      {zone.limit !== null && orbis?.limit == null ? (
-        <span className={`ms-zone-speed${low}`}>
-          <i className="ms-orbis-limit" aria-label={`制限速度 ${zone.limit}`}>
-            {zone.limit}
-          </i>
-          {zone.speed !== null ? (
-            <b className={over ? "is-over" : undefined} aria-label={`いまの速さ ${zone.speed}`}>
-              {zone.speed}
+    <div className={`ms-zone-band${zone.state === "before" ? " is-before" : ""}${orbis ? " is-low" : ""}`} role="status">
+      <ZoneIcon />
+      <b className="ms-zone-name">取締区間</b>
+      {zone.state === "inside" ? <small className="ms-zone-sub">残り</small> : null}
+      <b className="ms-zone-num">
+        {distance.value}
+        <small> {distance.unit}</small>
+      </b>
+      {zone.state === "before" ? <small className="ms-zone-sub">先から {zoneLengthText(zone.length)}</small> : null}
+      {zone.muted && !orbis ? <small className="ms-zone-muted">画面に触れると声が出ます</small> : null}
+      {limit !== null || speed !== null ? (
+        <span className="ms-zone-speed">
+          {limit !== null ? (
+            <i className="ms-orbis-limit" aria-label={`制限速度 ${limit}`}>
+              {limit}
+            </i>
+          ) : null}
+          {speed !== null ? (
+            <b className={over ? "is-over" : undefined} aria-label={`いまの速さ ${speed}`}>
+              {speed}
               <small>km/h</small>
             </b>
           ) : null}
         </span>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -1039,9 +1027,9 @@ function CrtMap({
           N
         </text>
       </svg>
-      {/* 左上の飾りは、速度取締区間の札が出ている間は出さない(同じ場所に出る)。 */}
+      {/* 左上の飾りは、速度取締区間の帯が出ている間は出さない(帯の角から見えないように)。 */}
       {zone ? null : badge}
-      {zone ? <ZoneTags zone={zone} orbis={orbis} metersPerPx={zoom.metersPerPx} /> : null}
+      {zone ? <ZoneBand zone={zone} orbis={orbis} /> : null}
       {orbis ? <OrbisOnMap orbis={orbis} metersPerPx={zoom.metersPerPx} /> : null}
       {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
       <span className="ms-retro-scale" aria-hidden="true">

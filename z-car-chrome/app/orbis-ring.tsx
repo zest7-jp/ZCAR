@@ -2,15 +2,15 @@
 
 // 近未来のテーマの、丸い地図の上のオービスと速度取締区間。
 // 地図の縁を輪にして残りの距離だけ光らせる(近づくほど短く)。輪の上に距離、地図の中の右下に制限と今の速さ、
-// 地図の上に赤いカメラの印と車からの点線。速度取締区間は紫で、地図に区間の線と「取締」「終」の札、
-// 輪の上に「取締区間まで 300m」(中は「取締区間 あと 1.2km」。輪は区間の残りだけ光る)。
+// 地図の上に赤いカメラの印と車からの点線。速度取締区間は紫で、地図に区間の線、
+// 輪の上に「取締区間 300 m 先から 1.5km」(中は「取締区間 残り 1.2 km」。輪は区間の残りだけ光る)。
 // オービスと区間が同時なら、輪と右下はオービス、区間の札はオービスの札の下に出す。
 // 近未来のメーターには色を変える filter(ブルーなら色を回す)がかかっていて、中に描くと警告の赤が変わってしまう。
 // そのため地図の窓の場所を測り、filter の外(main の直下)から重ねる(出勤日の札 WorkdayMarks と同じ作り)。
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { orbisDistance, zoneOnMap, ZoneIcon, type OrbisView, type ZoneView } from "./meter-styles";
-import { ZONE_WARN_M } from "./speed-zone";
+import { ZONE_WARN_M, zoneLengthText } from "./speed-zone";
 
 /** この距離(m)で輪がいっぱい。近づくほど短くなる。 */
 const RING_FULL_M = 500;
@@ -149,24 +149,6 @@ export function OrbisRing({
                   ) : null}
                   {orbis ? <line className="fo-orbis-line" x1={r} y1={r} x2={round(r + markX)} y2={round(r + markY)} /> : null}
                 </svg>
-                {zoneAt
-                  ? (
-                      [
-                        ["is-entry", zoneAt.entry, "取締"],
-                        ["is-exit", zoneAt.exit, "終"],
-                      ] as const
-                    ).map(([kind, end, text]) =>
-                      end.shown ? (
-                        <span
-                          key={kind}
-                          className={`fo-zone-flag ${kind}`}
-                          style={{ left: end.flag.x, top: end.flag.y, transform: `translate(-50%, -50%) rotate(${-rotation}deg)` }}
-                        >
-                          {text}
-                        </span>
-                      ) : null,
-                    )
-                  : null}
                 {orbis ? (
                   <span className="fo-orbis-mark" style={{ left: round(r + markX), top: round(r + markY), transform: `translate(-50%, -50%) rotate(${-rotation}deg)` }}>
                     <i>
@@ -206,11 +188,15 @@ export function OrbisRing({
               {zone && zoneDistanceText ? (
                 <div className="fo-zone-tag" role="status" style={{ left: cx, top: zoneTagTop }}>
                   <ZoneIcon />
-                  <b className="fo-zone-name">{zone.state === "before" ? "取締区間まで" : "取締区間 あと"}</b>
+                  <b className="fo-zone-name">取締区間</b>
+                  {zone.state === "inside" ? <small className="fo-zone-sub">残り</small> : null}
                   <b className="fo-zone-distance">
                     {zoneDistanceText.value}
                     <small> {zoneDistanceText.unit}</small>
                   </b>
+                  {zone.state === "before" ? (
+                    <small className="fo-zone-sub">先から {zoneLengthText(zone.length)}</small>
+                  ) : null}
                 </div>
               ) : null}
               {muted ? (

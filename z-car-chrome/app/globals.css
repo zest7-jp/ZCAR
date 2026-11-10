@@ -3817,29 +3817,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
   white-space: nowrap;
 }
 .fo-orbis-credit { color: rgba(255, 233, 214, .7); font-size: 8px; font-weight: 600; }
-/* 速度取締区間(紫): 輪は手前の間だけ脈打ち、中は区間の残りだけ静かに光る。地図に区間の線と「取締」「終」の札。 */
+/* 速度取締区間(紫): 輪は手前の間だけ脈打ち、中は区間の残りだけ静かに光る。地図に区間の線。 */
 .fo-orbis.is-zone { --fo: #9b87ff; --fo-rgb: 155, 135, 255; }
 .fo-orbis.is-zone-before .fo-orbis-glow { animation: fo-orbis-pulse 1s ease-in-out infinite alternate; }
 .fo-zone-line line { stroke: #9b87ff; }
 .fo-zone-line .fo-zone-glow { stroke-width: 18; stroke-opacity: .22; stroke-linecap: round; }
 .fo-zone-line .fo-zone-road { stroke-width: 9; stroke-opacity: .88; stroke-dasharray: 13 7; }
 .fo-zone-line .fo-zone-tick { stroke-width: 3.5; stroke-linecap: round; }
-.fo-zone-flag {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  min-width: 28px;
-  height: 20px;
-  padding: 0 6px;
-  box-sizing: border-box;
-  border: 1.5px solid #9b87ff;
-  border-radius: 4px;
-  font: 900 12px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
-  white-space: nowrap;
-  transition: transform .9s cubic-bezier(.2, .68, .22, 1);
-}
-.fo-zone-flag.is-entry { background: #9b87ff; color: #0d0420; }
-.fo-zone-flag.is-exit { background: #0d0420; color: #9b87ff; }
 .fo-zone-tag {
   position: absolute;
   display: flex;
@@ -3858,11 +3842,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
 .fo-zone-name { color: #9b87ff; font-size: 13px; font-weight: 900; letter-spacing: .08em; }
 .fo-zone-distance { color: #e4dcff; font-size: 20px; font-weight: 900; }
 .fo-zone-distance small { font-size: 11px; }
+.fo-zone-sub { color: #cbbfff; font-size: 11px; font-weight: 800; }
 /* 区間の制限より速いときの今の速さ(オービスは輪ごと赤になる)。 */
 .fo-orbis-speed b.is-over { color: #ff3c3c; text-shadow: 0 0 10px #ff3c3c; }
 @media (prefers-reduced-motion: reduce) {
   :is(.fo-orbis-arc, .fo-orbis-glow) { animation: none; transition: none; }
-  :is(.fo-orbis-map, .fo-orbis-mark, .fo-zone-flag) { transition: none; }
+  :is(.fo-orbis-map, .fo-orbis-mark) { transition: none; }
 }
 
 .meter-theme-dialog .meter-theme-options { margin-top: 10px; }
@@ -10322,8 +10307,8 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
   to { box-shadow: 0 0 4px rgba(255, 120, 60, .3); }
 }
 /*
- * 速度取締区間(紫。オービスの琥珀色・赤と見分ける): 地図の区間の線(走査線の下)、入口の「取締」・出口の「終」の札、
- * 左上の「取締区間まで 300m」(中は「取締区間 あと 1.2km」)、右上の制限と今の速さ。
+ * 速度取締区間(紫。オービスの琥珀色・赤と見分ける): 地図の区間の線(走査線の下)と、上の帯
+ * (「取締区間」・手前は「300 m 先から 1.5km」、中は「残り 1.2 km」・制限と今の速さ)。
  */
 .ms-zone-line {
   position: absolute;
@@ -10334,94 +10319,79 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
   pointer-events: none;
 }
 .ms-zone-line line { stroke: #9b87ff; }
-.ms-zone-glow { stroke-width: 20; stroke-opacity: .22; stroke-linecap: round; }
-.ms-zone-road { stroke-width: 10; stroke-opacity: .88; stroke-dasharray: 14 7; }
+.ms-zone-glow { stroke-width: 18; stroke-opacity: .22; stroke-linecap: round; }
+.ms-zone-road { stroke-width: 8; stroke-opacity: .88; stroke-dasharray: 14 7; }
 .ms-zone-tick { stroke-width: 3.5; stroke-linecap: round; }
-.ms-zone-flag {
+.ms-zone-band {
   position: absolute;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  min-width: 28px;
-  height: 20px;
-  padding: 0 6px;
-  box-sizing: border-box;
-  border: 1.5px solid #9b87ff;
-  border-radius: 4px;
-  font: 900 12px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
-  white-space: nowrap;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-.ms-zone-flag.is-entry { background: #9b87ff; color: #0d0420; }
-.ms-zone-flag.is-exit { background: #0d0420; color: #9b87ff; }
-.ms-zone-chip {
-  position: absolute;
-  top: 10px;
+  top: 8px;
+  right: 10px;
   left: 10px;
   z-index: 4;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 9px;
+  gap: 10px;
+  min-height: 50px;
+  padding: 5px 12px;
+  box-sizing: border-box;
   border: 2px solid #9b87ff;
-  border-radius: 8px;
-  background: rgba(14, 6, 34, .9);
+  border-radius: 10px;
+  background: rgba(14, 6, 34, .88);
   color: #9b87ff;
-  box-shadow: 0 0 12px rgba(155, 135, 255, .45);
+  box-shadow: 0 0 14px rgba(155, 135, 255, .45);
   pointer-events: none;
 }
-/* オービスの帯が出ているときは、帯の下に下げる。 */
-.ms-zone-chip.is-low,
-.ms-zone-speed.is-low { top: 76px; }
-.ms-zone-chip svg { flex: none; width: 18px; height: 18px; fill: none; stroke: #9b87ff; stroke-width: 2; stroke-linejoin: round; }
-.ms-zone-name { font: 900 14px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif; letter-spacing: .02em; white-space: nowrap; }
+/*
+ * オービスの帯が出ているときは、地図の左下(縮尺の上)に、中身の幅だけで出す。
+ * 上に重ねると、オービスに近づいて寄せた地図のカメラの印(真ん中の少し上)を隠してしまうため。
+ */
+.ms-zone-band.is-low { top: auto; right: auto; bottom: 46px; min-height: 42px; }
+/* 区間の手前(警告の間)は、ゆっくり明滅。 */
+.ms-zone-band.is-before { animation: ms-zone-pulse 1s ease-in-out infinite alternate; }
+@keyframes ms-zone-pulse {
+  to { box-shadow: 0 0 3px rgba(155, 135, 255, .2); }
+}
+.ms-zone-band > svg { flex: none; width: 26px; height: 26px; fill: none; stroke: #9b87ff; stroke-width: 2; stroke-linejoin: round; }
+.ms-zone-name { font: 900 17px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif; letter-spacing: .06em; white-space: nowrap; }
 .ms-zone-num {
   color: #e4dcff;
-  font: 900 18px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  font: 900 26px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
   white-space: nowrap;
 }
-.ms-zone-num small { font-size: 11px; }
+.ms-zone-num small { font-size: 13px; }
+.ms-zone-sub { color: #cbbfff; font: 700 13px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif; white-space: nowrap; }
 .ms-zone-muted {
   position: absolute;
-  left: 4px;
+  left: 8px;
   bottom: -16px;
   color: #cbbfff;
   font: 700 10px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
   white-space: nowrap;
   text-shadow: 0 0 4px #000;
 }
-.ms-zone-speed {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 4;
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-  pointer-events: none;
-}
+.ms-zone-speed { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .ms-zone-speed b {
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: rgba(14, 6, 34, .8);
   color: #e4dcff;
-  font: 900 16px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  font: 900 24px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  white-space: nowrap;
 }
-.ms-zone-speed b small { margin-left: 2px; font-size: 9px; }
-.ms-zone-speed b.is-over { color: #ff3c3c; text-shadow: 0 0 8px #ff3c3c; }
-/* サイバーのテーマ: 角を切った札、数字は Michroma、説明は Rajdhani。 */
-.ms-cyber .ms-zone-chip {
+.ms-zone-speed b small { margin-left: 3px; font-size: 11px; }
+.ms-zone-speed b.is-over { color: #ff3c3c; text-shadow: 0 0 10px #ff3c3c; }
+/* サイバーのテーマ: 角を切った帯(影は切れるので付けない)、数字は Michroma、説明は Rajdhani。 */
+.ms-cyber .ms-zone-band {
   border-radius: 0;
+  background: rgba(14, 6, 34, .9);
   box-shadow: none;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.ms-cyber .ms-zone-band.is-before { animation: ms-zone-blink 1s ease-in-out infinite alternate; }
+@keyframes ms-zone-blink {
+  to { border-color: rgba(155, 135, 255, .45); }
 }
 .ms-cyber .ms-zone-num,
-.ms-cyber .ms-zone-speed b { font-family: "Michroma", "Rajdhani", sans-serif; font-weight: 400; }
-.ms-cyber .ms-zone-num { font-size: 17px; }
+.ms-cyber .ms-zone-speed b { font-family: "Michroma", "Rajdhani", sans-serif; font-size: 22px; font-weight: 400; }
 .ms-cyber .ms-zone-num small,
 .ms-cyber .ms-zone-speed b small { font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-weight: 700; }
-.ms-cyber .ms-zone-flag { border-radius: 0; }
 /* 光る管の細かい網目(画面全体にうっすら)。 */
 @keyframes ms-blink {
   50% { opacity: .2; }
@@ -10700,7 +10670,9 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
   .ms-retro-cursor { transition: none; }
   .ms-retro-crt-wait { animation: none; }
   .ms-orbis-band.is-warn,
-  .ms-orbis-band.is-over { animation: none; }
+  .ms-orbis-band.is-over,
+  .ms-zone-band.is-before,
+  .ms-cyber .ms-zone-band.is-before { animation: none; }
 }
 
 /* --- 今回だけの行き先(一覧に登録しない一度きりの所。食事のお店など) --- */
