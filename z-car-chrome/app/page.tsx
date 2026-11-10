@@ -41,6 +41,7 @@ import {
   MeterStyleThumb,
   CYBER_MAP_LOOK,
   CyberCluster,
+  FuelTrend,
   RETRO_MAP_LOOK,
   RetroCluster,
   type ClusterData,
@@ -1712,6 +1713,15 @@ export default function Home() {
     (left, right) =>
       right.date.localeCompare(left.date) || right.createdAt - left.createdAt,
   );
+  // 燃費の画面(80年代・サイバー)の棒グラフ: 新しい給油10回分の燃費(左が古い)。
+  const fuelTrendValues = sortedFuelEntries
+    .filter((entry) => entry.liters > 0)
+    .slice(0, 10)
+    .reverse()
+    .map((entry) => entry.distanceKm / entry.liters);
+  // 80年代の7セグメントの字には「,」が無いので、金額は区切らずに出す。
+  const yenText = (value: number) =>
+    activeStyle.id === "retro" ? String(Math.round(value)) : Math.round(value).toLocaleString("ja-JP");
   const recentFuelEntries = sortedFuelEntries.slice(0, 5);
   const recentFuelLiters = recentFuelEntries.reduce(
     (total, entry) => total + entry.liters,
@@ -1902,9 +1912,9 @@ export default function Home() {
       <div
         id="app"
         className={`${showFuel ? "" : "is-fullscreen "}${isFullscreen ? "browser-fullscreen " : ""}${
-          // 80年代のテーマでは、近未来の色の決まり(filter など)をかけない。
-          // 燃費画面は今まで通り、近未来の色で出す。
-          isFuture || showFuel
+          // 80年代・サイバーのテーマでは、近未来の色の決まり(filter など)をかけない。
+          // 燃費画面も、そのテーマの見た目にする(近未来のときは今まで通り)。
+          isFuture
             ? `meter-theme-${activeTheme.id}${activeTheme.tinted ? ` meter-tinted zt-${activeTheme.id}` : ""}`
             : `meter-style-${activeStyle.id}`
         }`}
@@ -2381,6 +2391,7 @@ export default function Home() {
                 <small>{currentMonthName.ja}の平均燃費</small>
                 <strong>{monthlyFuelEconomy === null ? "—" : monthlyFuelEconomy.toFixed(1)}</strong>
                 <em>km/L</em>
+                {isFuture ? null : <FuelTrend values={fuelTrendValues} look={activeStyle.id === "cyber" ? "cyber" : "retro"} />}
               </article>
               <article>
                 <small>{currentMonthName.ja}の合計給油量</small>
@@ -2389,7 +2400,7 @@ export default function Home() {
               </article>
               <article>
                 <small>{currentMonthName.ja}の合計金額</small>
-                <strong>{Math.round(monthlyFuelAmount).toLocaleString("ja-JP")}</strong>
+                <strong>{yenText(monthlyFuelAmount)}</strong>
                 <em>円</em>
               </article>
               <article>
@@ -2497,7 +2508,7 @@ export default function Home() {
                         <span><small>燃費</small><strong>{(entry.distanceKm / entry.liters).toFixed(1)}</strong><em>km/L</em></span>
                         <span><small>給油量</small><strong>{entry.liters.toFixed(1)}</strong><em>L</em></span>
                         <span><small>走行</small><strong>{entry.distanceKm.toFixed(1)}</strong><em>km</em></span>
-                        <span><small>金額</small><strong>{Math.round(entry.amountYen).toLocaleString("ja-JP")}</strong><em>円</em></span>
+                        <span><small>金額</small><strong>{yenText(entry.amountYen)}</strong><em>円</em></span>
                       </article>
                     ))
                   )}

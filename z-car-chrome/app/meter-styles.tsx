@@ -1498,6 +1498,53 @@ export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, onFuel, onDe
   );
 }
 
+/**
+ * 燃費の画面(80年代・サイバーのテーマのとき)の、平均燃費の枠に出す棒グラフ: 給油ごとの燃費(左が古く、右が新しい)。
+ * 高さは出した中のいちばん低い・高い燃費に合わせる。サイバーは右に傾けた緑の棒(いちばん新しいものだけ濃く)、
+ * 80年代は光る棒で、出した中で燃費の良い方から緑・黄・赤。2回分より少なければ出さない。
+ */
+export function FuelTrend({ values, look }: { values: number[]; look: "retro" | "cyber" }) {
+  if (values.length < 2) return null;
+  const w = 92;
+  const h = 38;
+  const low = Math.min(...values) - 1;
+  const high = Math.max(...values) + 0.3;
+  const pitch = w / values.length;
+  return (
+    <svg className="fuel-trend" viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      {values.map((value, i) => {
+        const rank = (value - low) / (high - low);
+        const bar = r2(6 + rank * (h - 8));
+        const x = r2(i * pitch);
+        const opacity = i === values.length - 1 ? 1 : look === "cyber" ? 0.55 : 0.6;
+        if (look === "cyber") {
+          return (
+            <polygon
+              key={i}
+              points={`${r2(x + 3)},${r2(h - bar)} ${r2(x + pitch - 1)},${r2(h - bar)} ${r2(x + pitch - 4)},${h} ${x},${h}`}
+              fill={CYBER.on}
+              opacity={opacity}
+            />
+          );
+        }
+        const color = rank > 0.66 ? RETRO.green : rank > 0.33 ? RETRO.yellow : RETRO.red;
+        return (
+          <rect
+            key={i}
+            x={r2(x + 1)}
+            y={r2(h - bar)}
+            width={r2(pitch - 3)}
+            height={bar}
+            fill={color}
+            opacity={opacity}
+            style={{ filter: `drop-shadow(0 0 3px ${color})` }}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 // ------------------------------------------------------------------
 // テーマ選びに出す小さな見本の絵(車の THEME とスマホの THEME タブ)。
 // ------------------------------------------------------------------

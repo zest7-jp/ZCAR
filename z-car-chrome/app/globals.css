@@ -1,11 +1,12 @@
 @import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
-/* サイバーのテーマの字(SIL Open Font License 1.1。app/fonts に許諾の文と一緒に入れてある)。
-   数字と大きな英字は横に広い Michroma、小さな説明は縦長の Rajdhani。使う画面を開いたときだけ読み込む。 */
+/* テーマの字(どれも SIL Open Font License 1.1。app/fonts に許諾の文と一緒に入れてある)。使う画面を開いたときだけ読み込む。
+   サイバー: 数字と大きな英字は横に広い Michroma、小さな説明は縦長の Rajdhani。80年代の燃費の画面: 7セグメントの DSEG7。 */
 @font-face { font-family: "Michroma"; src: url("./fonts/michroma-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "Rajdhani"; src: url("./fonts/rajdhani-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
 @font-face { font-family: "Rajdhani"; src: url("./fonts/rajdhani-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "DSEG7"; src: url("./fonts/dseg7-classic-bold-italic.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 
 :root {
   color-scheme: dark;
@@ -10267,6 +10268,170 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
 #app.meter-style-cyber .meter-reload small span { color: #14c47c; }
 #app.meter-style-cyber .meter-reload b { color: #19f59b; }
 #app.meter-style-cyber .meter-full-button { border-color: #19f59b; border-radius: 0; color: #19f59b; }
+
+/* ------------------------------------------------------------------
+   燃費の画面(80年代・サイバーのテーマのとき。近未来のときは上の今までの形)。
+   並び(上の4つの数字・入力・給油履歴)は同じで、見た目をテーマに合わせる。
+   平均燃費の枠に給油ごとの燃費の棒グラフ(FuelTrend)、右上の METER(メーターに戻る)は大きなキー。
+   ------------------------------------------------------------------ */
+#app:is(.meter-style-cyber, .meter-style-retro) .fuel-summary-primary { position: relative; }
+.fuel-trend { position: absolute; left: 132px; top: 24px; width: 92px; height: 38px; pointer-events: none; }
+/* サイバー: 角を切った太い線の枠・見出しの札・張り出し・▶▶▶・斜線。数字は Michroma、説明は Rajdhani。 */
+#app.meter-style-cyber { background: #070908; }
+#app.meter-style-cyber .brand b { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 19px; font-weight: 400; letter-spacing: .12em; }
+#app.meter-style-cyber .brand small { color: #19f59b; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .3em; }
+#app.meter-style-cyber .clock { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 20px; font-weight: 400; }
+#app.meter-style-cyber > footer { color: #11583b; }
+#app.meter-style-cyber .car-id-button {
+  height: 40px;
+  padding: 0 18px;
+  border: 2px solid #19f59b;
+  border-radius: 0;
+  background: rgba(25, 245, 155, .12);
+  color: #19f59b;
+  font-family: "Michroma", "Rajdhani", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: .1em;
+  box-shadow: none;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+#app.meter-style-cyber .car-id-button::before { content: "◀◀◀"; margin-right: 8px; letter-spacing: -2px; }
+#app.meter-style-cyber .car-id-button:active { background: rgba(25, 245, 155, .3); }
+#app.meter-style-cyber .fuel-page { border: 0; border-radius: 0; background: none; box-shadow: none; }
+#app.meter-style-cyber .fuel-page::after { display: none; }
+#app.meter-style-cyber .fuel-page-heading { border-bottom: 2px solid #19f59b; }
+#app.meter-style-cyber :is(.fuel-page-heading small, .fuel-entry-card header small, .fuel-history-card header small) {
+  width: max-content;
+  padding: 2px 8px 1px;
+  border: 2px solid #19f59b;
+  color: #19f59b;
+  font-family: "Rajdhani", "Noto Sans JP", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .28em;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+#app.meter-style-cyber :is(.fuel-page-heading h1, .fuel-entry-card header strong, .fuel-history-card header strong) { color: #d4ffe8; }
+#app.meter-style-cyber .fuel-page-heading p { color: #4fa77f; }
+#app.meter-style-cyber .fuel-summary article { position: relative; border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M13 1L63 1L63 51L51 63L1 63L1 13Z' fill='%23020504' fill-opacity='1' stroke='%2319f59b' stroke-opacity='0.7' stroke-width='2'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; box-shadow: none; }
+#app.meter-style-cyber .fuel-summary .fuel-summary-primary { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M13 1L63 1L63 51L51 63L1 63L1 13Z' fill='%2319f59b' fill-opacity='0.1' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 18V12L12 2H18' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 46V52L52 62H46' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; box-shadow: none; }
+#app.meter-style-cyber .fuel-summary-primary::after { content: ""; position: absolute; z-index: 2; top: 0; height: 5px; background: #19f59b; clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 5px 100%); pointer-events: none; right: 26px; width: 60px; }
+#app.meter-style-cyber .fuel-summary small { color: #19f59b; }
+#app.meter-style-cyber .fuel-summary strong { color: #d4ffe8; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 22px; font-weight: 400; letter-spacing: 0; }
+#app.meter-style-cyber .fuel-summary .fuel-summary-primary strong { color: #19f59b; font-size: 28px; text-shadow: none; }
+#app.meter-style-cyber .fuel-summary em { color: #19f59b; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 10px; font-weight: 700; }
+#app.meter-style-cyber :is(.fuel-entry-card, .fuel-history-card) { position: relative; border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M15 1L63 1L63 49L49 63L1 63L1 15Z' fill='%23020504' fill-opacity='1' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 20V14L14 2H20' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 44V50L50 62H44' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 20 fill / 20px / 0 stretch; box-shadow: none; }
+#app.meter-style-cyber :is(.fuel-entry-card, .fuel-history-card)::before { content: ""; position: absolute; z-index: 2; top: 0; height: 5px; background: #19f59b; clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 5px 100%); pointer-events: none; right: 40px; width: 80px; }
+#app.meter-style-cyber .fuel-history-card::after { content: ""; position: absolute; right: 18px; bottom: 7px; width: 30px; height: 10px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='10' viewBox='0 0 30 10'%3E%3Cg fill='%2319f59b'%3E%3Cpolygon points='0,0 8,5 0,10'/%3E%3Cpolygon points='10,0 18,5 10,10'/%3E%3Cpolygon points='20,0 28,5 20,10'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; pointer-events: none; }
+#app.meter-style-cyber :is(.fuel-entry-card, .fuel-history-card) > header { border-bottom: 2px solid #19f59b; background: none; }
+#app.meter-style-cyber :is(.fuel-entry-card, .fuel-history-card) header b { color: #4fa77f; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 9px; font-weight: 700; letter-spacing: .16em; }
+#app.meter-style-cyber .fuel-entry-card label { color: #19f59b; }
+#app.meter-style-cyber .fuel-entry-card label > div { border: 1.5px solid rgba(25, 245, 155, .4); border-radius: 0; background: #000; clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+#app.meter-style-cyber .fuel-entry-card input { border: 1.5px solid rgba(25, 245, 155, .4); border-radius: 0; background: #000; color: #d4ffe8; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 13px; }
+#app.meter-style-cyber .fuel-entry-card label > div input { border: 0; background: transparent; }
+#app.meter-style-cyber .fuel-entry-card input:focus,
+#app.meter-style-cyber .fuel-entry-card label > div:focus-within { border-color: #19f59b; box-shadow: none; }
+#app.meter-style-cyber .fuel-entry-card label em { color: #19f59b; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 10px; }
+#app.meter-style-cyber .fuel-live-result { position: relative; border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M11 1L63 1L63 53L53 63L1 63L1 11Z' fill='%2319f59b' fill-opacity='0.05' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 16V10L10 2H16' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 48V54L54 62H48' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 16 fill / 16px / 0 stretch; box-shadow: none; }
+#app.meter-style-cyber .fuel-live-result::after { content: ""; position: absolute; left: 12px; bottom: -2px; width: 44px; height: 8px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='8' viewBox='0 0 44 8'%3E%3Cg fill='%2319f59b'%3E%3Cpolygon points='4.5,0 7.5,0 3,8 0,8'/%3E%3Cpolygon points='10.5,0 13.5,0 9,8 6,8'/%3E%3Cpolygon points='16.5,0 19.5,0 15,8 12,8'/%3E%3Cpolygon points='22.5,0 25.5,0 21,8 18,8'/%3E%3Cpolygon points='28.5,0 31.5,0 27,8 24,8'/%3E%3Cpolygon points='34.5,0 37.5,0 33,8 30,8'/%3E%3Cpolygon points='40.5,0 43.5,0 39,8 36,8'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; pointer-events: none; }
+#app.meter-style-cyber .fuel-live-result small { color: #19f59b; }
+#app.meter-style-cyber .fuel-live-result strong { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 26px; font-weight: 400; }
+#app.meter-style-cyber .fuel-live-result em { color: #19f59b; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 10px; }
+#app.meter-style-cyber .fuel-live-result button { border: 1px solid transparent; border-radius: 0; background: none; border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M10 1L63 1L63 54L54 63L1 63L1 10Z' fill='%2319f59b' fill-opacity='0.14' stroke='%2319f59b' stroke-opacity='1' stroke-width='2'/%3E%3Cpath d='M2 15V9L9 2H15' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3Cpath d='M62 49V55L55 62H49' fill='none' stroke='%2319f59b' stroke-width='4'/%3E%3C/svg%3E") 14 fill / 14px / 0 stretch; box-shadow: none; color: #19f59b; letter-spacing: .14em; }
+#app.meter-style-cyber .fuel-live-result button:active { transform: scale(.97); }
+#app.meter-style-cyber .fuel-live-result button:disabled { opacity: .45; filter: none; }
+#app.meter-style-cyber .fuel-sync-button { border: 1.5px solid rgba(25, 245, 155, .5); border-radius: 0; color: #19f59b; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 10px; font-weight: 700; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+#app.meter-style-cyber .fuel-sync-button.is-ok i { background: #19f59b; box-shadow: none; }
+#app.meter-style-cyber .fuel-history-table { margin: 0 6px 18px; scrollbar-color: #11583b #020504; }
+#app.meter-style-cyber .fuel-history-table > p { color: #4fa77f; }
+#app.meter-style-cyber .fuel-history-table article { border-bottom-color: rgba(25, 245, 155, .14); }
+#app.meter-style-cyber .fuel-history-table article:nth-child(even) { background: rgba(25, 245, 155, .03); }
+#app.meter-style-cyber .fuel-history-table time { color: #4fa77f; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 9px; }
+#app.meter-style-cyber .fuel-history-table small { color: #19f59b; opacity: .7; }
+#app.meter-style-cyber .fuel-history-table strong { color: #d4ffe8; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 12px; font-weight: 400; }
+#app.meter-style-cyber .fuel-history-table span:first-of-type strong { color: #19f59b; }
+#app.meter-style-cyber .fuel-history-table em { color: #4fa77f; font-family: "Rajdhani", "Noto Sans JP", sans-serif; font-size: 8px; }
+/* 80年代: 上の3本の線、縁取った窓(光る縁と点の網の黒いガラス)、7セグメントの数字(DSEG7)。
+   大事なボタン(記録する・METER)は琥珀色の光る管。日付と説明は等幅の字。 */
+#app.meter-style-retro { background: #040506; }
+#app.meter-style-retro .brand b { color: #52ffd6; font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; font-weight: 800; letter-spacing: .3em; text-shadow: 0 0 6px rgba(82, 255, 214, 0.8), 0 0 14px rgba(82, 255, 214, 0.4); }
+#app.meter-style-retro .brand small { color: #ffb02e; font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; text-shadow: 0 0 6px rgba(255, 176, 46, 0.6), 0 0 14px rgba(255, 176, 46, 0.3); }
+#app.meter-style-retro .clock { color: #ffb02e; font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; text-shadow: 0 0 6px rgba(255, 176, 46, 0.8), 0 0 14px rgba(255, 176, 46, 0.4); }
+#app.meter-style-retro > footer { color: #3d5250; }
+#app.meter-style-retro .car-id-button {
+  height: 40px;
+  padding: 0 18px;
+  border: 2px solid #ffb02e;
+  border-radius: 12px;
+  background: rgba(255, 176, 46, .06);
+  color: #ffc65e;
+  font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace;
+  font-size: 14px;
+  letter-spacing: .2em;
+  box-shadow: 0 0 14px rgba(255, 176, 46, .55), inset 0 0 10px rgba(255, 176, 46, .2);
+  text-shadow: 0 0 8px #ffb02e;
+}
+#app.meter-style-retro .car-id-button::before { content: "◀◀"; margin-right: 8px; }
+#app.meter-style-retro .car-id-button:active { background: rgba(255, 176, 46, .22); }
+#app.meter-style-retro .fuel-page {
+  padding-top: 16px;
+  border: 0;
+  background:
+    linear-gradient(#ffb02e 0 2px, transparent 2px 3px, #ff6b2b 3px 4.5px, transparent 4.5px 6px, #ff3c3c 6px 7px, transparent 7px) top / 100% 8px no-repeat,
+    #131416;
+  box-shadow: none;
+}
+#app.meter-style-retro .fuel-page::after { display: none; }
+#app.meter-style-retro .fuel-page-heading { border-bottom-color: #1c2a2a; }
+#app.meter-style-retro :is(.fuel-page-heading small, .fuel-entry-card header small, .fuel-history-card header small) { color: #52ffd6; font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
+#app.meter-style-retro :is(.fuel-page-heading h1, .fuel-entry-card header strong, .fuel-history-card header strong) { color: #e6fff8; }
+#app.meter-style-retro .fuel-page-heading p { color: #7f9a96; }
+#app.meter-style-retro :is(.fuel-summary article, .fuel-entry-card, .fuel-history-card) {
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle, rgba(0, 0, 0, .55) .55px, transparent .7px) 0 0 / 3px 3px padding-box,
+    linear-gradient(#030404, #030404) padding-box,
+    linear-gradient(135deg, #6a7078, #1c1e21 45%, #3c4046) border-box;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .6);
+}
+#app.meter-style-retro .fuel-summary .fuel-summary-primary { border-color: transparent; }
+#app.meter-style-retro .fuel-summary small { color: #7f9a96; font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
+#app.meter-style-retro .fuel-summary strong { color: #ffb02e; font-family: "DSEG7", "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; font-size: 22px; letter-spacing: 0; text-shadow: 0 0 6px rgba(255, 176, 46, 0.8), 0 0 14px rgba(255, 176, 46, 0.4); }
+#app.meter-style-retro .fuel-summary .fuel-summary-primary strong { color: #52ffd6; font-size: 30px; text-shadow: 0 0 6px rgba(82, 255, 214, 0.8), 0 0 14px rgba(82, 255, 214, 0.4); }
+#app.meter-style-retro .fuel-summary em { color: #7f9a96; }
+#app.meter-style-retro :is(.fuel-entry-card, .fuel-history-card) > header { border-bottom-color: #1c2a2a; background: none; }
+#app.meter-style-retro :is(.fuel-entry-card, .fuel-history-card) header b { color: #4f6f69; }
+#app.meter-style-retro .fuel-entry-card label { color: #7f9a96; font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
+#app.meter-style-retro .fuel-entry-card label > div,
+#app.meter-style-retro .fuel-entry-card input { border-color: rgba(82, 255, 214, .3); background: #020403; color: #52ffd6; }
+#app.meter-style-retro .fuel-entry-card label > div input { border: 0; background: transparent; font-family: "DSEG7", "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; font-size: 13px; }
+#app.meter-style-retro .fuel-entry-card input:focus,
+#app.meter-style-retro .fuel-entry-card label > div:focus-within { border-color: #52ffd6; box-shadow: 0 0 8px rgba(82, 255, 214, .4); }
+#app.meter-style-retro .fuel-entry-card label em { color: #7f9a96; }
+#app.meter-style-retro .fuel-live-result { border: 0; background: #020403; box-shadow: inset 0 0 0 1px #2a3534; }
+#app.meter-style-retro .fuel-live-result small { color: #7f9a96; }
+#app.meter-style-retro .fuel-live-result strong { color: #52ffd6; font-family: "DSEG7", "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; font-size: 24px; text-shadow: 0 0 6px rgba(82, 255, 214, 0.8), 0 0 14px rgba(82, 255, 214, 0.4); }
+#app.meter-style-retro .fuel-live-result em { color: #7f9a96; }
+#app.meter-style-retro .fuel-live-result button {
+  border: 2px solid #ffb02e;
+  border-radius: 12px;
+  background: rgba(255, 176, 46, .06);
+  color: #ffc65e;
+  box-shadow: 0 0 12px rgba(255, 176, 46, .45);
+  text-shadow: 0 0 8px rgba(255, 176, 46, .8);
+}
+#app.meter-style-retro .fuel-live-result button:disabled { opacity: .4; box-shadow: none; filter: none; }
+#app.meter-style-retro .fuel-sync-button { border-color: rgba(82, 255, 214, .35); color: #52ffd6; font-family: "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
+#app.meter-style-retro .fuel-history-table { scrollbar-color: #2a3534 #030404; }
+#app.meter-style-retro .fuel-history-table > p { color: #7f9a96; }
+#app.meter-style-retro .fuel-history-table article { border-bottom-color: #1c2a2a; }
+#app.meter-style-retro .fuel-history-table article:nth-child(even) { background: rgba(82, 255, 214, .025); }
+#app.meter-style-retro .fuel-history-table time { color: #7f9a96; }
+#app.meter-style-retro .fuel-history-table strong { color: #ffb02e; font-family: "DSEG7", "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; font-size: 12px; letter-spacing: 0; text-shadow: 0 0 6px rgba(255, 176, 46, 0.6), 0 0 14px rgba(255, 176, 46, 0.3); }
+#app.meter-style-retro .fuel-history-table span:first-of-type strong { color: #52ffd6; text-shadow: 0 0 6px rgba(82, 255, 214, 0.6), 0 0 14px rgba(82, 255, 214, 0.3); }
+#app.meter-style-retro .fuel-history-table :is(small, em) { color: #7f9a96; }
 
 @media (prefers-reduced-motion: reduce) {
   .ms-retro-cursor { transition: none; }
