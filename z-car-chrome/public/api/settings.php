@@ -32,6 +32,8 @@ const MAX_PLACES = 30;
 /** スマホで登録したオービスの数と、名前の長さ(画面側の MAX_ORBIS_POINTS・MAX_ORBIS_LABEL と同じ)。 */
 const MAX_ORBIS_POINTS = 100;
 const MAX_ORBIS_LABEL = 12;
+/** スマホで登録した速度取締区間の数(画面側の MAX_SPEED_ZONES と同じ)。名前の長さはオービスと同じ。 */
+const MAX_SPEED_ZONES = 50;
 /** 今回だけの行き先の名前の長さ(画面側の MAX_TRIP_LABEL と同じ)。 */
 const MAX_TRIP_LABEL = 20;
 const MIN_KEY_LENGTH = 8;
@@ -234,6 +236,57 @@ if (isset($incoming['orbis']) && is_array($incoming['orbis'])) {
         }
     }
     $clean['orbis'] = $points;
+}
+
+// スマホで登録した速度取締区間。id と、始まり・終わりの緯度・経度が正しいものだけ残す。
+// 空の一覧も「全部消した」として受け付ける。
+if (isset($incoming['speedZones']) && is_array($incoming['speedZones'])) {
+    $zones = [];
+    $seen = [];
+    $readEnd = static function ($point): ?array {
+        if (!is_array($point)) {
+            return null;
+        }
+        $lat = $point['lat'] ?? null;
+        $lng = $point['lng'] ?? null;
+        if (!is_int($lat) && !is_float($lat) || !is_int($lng) && !is_float($lng)) {
+            return null;
+        }
+        if (abs((float) $lat) > 90 || abs((float) $lng) > 180) {
+            return null;
+        }
+        return ['lat' => (float) $lat, 'lng' => (float) $lng];
+    };
+    foreach ($incoming['speedZones'] as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+        $id = isset($entry['id']) && is_string($entry['id']) ? $entry['id'] : '';
+        if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $id) || isset($seen[$id])) {
+            continue;
+        }
+        $start = $readEnd($entry['start'] ?? null);
+        $end = $readEnd($entry['end'] ?? null);
+        if ($start === null || $end === null) {
+            continue;
+        }
+        $label = isset($entry['label']) && is_string($entry['label']) ? trim($entry['label']) : '';
+        $limit = $entry['limit'] ?? null;
+        $seen[$id] = true;
+        $zones[] = [
+            'id' => $id,
+            'label' => mb_substr($label, 0, MAX_ORBIS_LABEL, 'UTF-8'),
+            'start' => $start,
+            'end' => $end,
+            'limit' => is_int($limit) && $limit >= 10 && $limit <= 140 ? $limit : null,
+            // 始まり→終わりの向きだけ知らせるか(false は両方の向き)。
+            'oneWay' => ($entry['oneWay'] ?? false) === true,
+        ];
+        if (count($zones) >= MAX_SPEED_ZONES) {
+            break;
+        }
+    }
+    $clean['speedZones'] = $zones;
 }
 
 // 今回だけの行き先(一度きり。目的地の一覧には足さない)。null は「消した」(着いた・取り消した)。

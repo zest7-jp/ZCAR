@@ -54,6 +54,7 @@ import {
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
 import { OrbisPanel } from "./orbis-panel";
+import { ZonePanel } from "./zone-panel";
 import { parseFuelLog, toFuelEntries } from "./fuel-import";
 import { VehiclePanel } from "./vehicle-info";
 
@@ -170,6 +171,8 @@ export default function PhoneSettingsPage() {
   const [draft, setDraft] = useState<Settings>(defaults);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>("park");
+  // オービスのタブの上の切り替え: オービスか、速度取締区間か。
+  const [orbisSide, setOrbisSide] = useState<"orbis" | "zones">("orbis");
   const [fuelDraft, setFuelDraft] = useState(emptyFuelDraft);
   // 今月の燃費のカードを押すと開く、給油の記録(履歴)。
   const [logOpen, setLogOpen] = useState(false);
@@ -1400,14 +1403,46 @@ export default function PhoneSettingsPage() {
         </section>
       ) : null}
 
-      {/* オービスのタブ: 自分で登録するオービス(車の地図で知らせる)。登録した場所を全部出した地図と一覧。 */}
+      {/* オービスのタブ: 上の切り替えで、自分で登録するオービスと速度取締区間(どちらも車の地図で知らせる)。
+          それぞれ、登録したものを全部出した地図と一覧。 */}
       {tab === "orbis" ? (
+        <nav className="zr-orbis-switch" aria-label="オービスと速度取締区間の切り替え">
+          {(
+            [
+              ["orbis", "オービス", draft.orbis.length],
+              ["zones", "取締区間", draft.speedZones.length],
+            ] as const
+          ).map(([side, name, count]) => (
+            <button
+              key={side}
+              type="button"
+              className={`is-${side}${orbisSide === side ? " is-active" : ""}`}
+              aria-pressed={orbisSide === side}
+              onClick={() => setOrbisSide(side)}
+            >
+              <b>{name}</b>
+              <small>{count}</small>
+            </button>
+          ))}
+        </nav>
+      ) : null}
+      {tab === "orbis" && orbisSide === "orbis" ? (
         <OrbisPanel
           points={draft.orbis}
           syncKey={linked ? draft.syncKey.trim() : ""}
           mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
           sendNote={sendNote}
           onChange={(orbis) => setDraft((current) => ({ ...current, orbis }))}
+          onToast={(text) => setToast(text)}
+        />
+      ) : null}
+      {tab === "orbis" && orbisSide === "zones" ? (
+        <ZonePanel
+          zones={draft.speedZones}
+          syncKey={linked ? draft.syncKey.trim() : ""}
+          mapsKey={draft.googleRoutesApiKey.trim() || DEFAULT_GMAPS_KEY}
+          sendNote={sendNote}
+          onChange={(speedZones) => setDraft((current) => ({ ...current, speedZones }))}
           onToast={(text) => setToast(text)}
         />
       ) : null}
