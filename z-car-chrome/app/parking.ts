@@ -68,7 +68,7 @@ const postPark = async (payload: Record<string, unknown>) => {
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`park failed: ${response.status}`);
-    return (await response.json()) as { ok?: boolean; park?: unknown; now?: unknown };
+    return (await response.json()) as { ok?: boolean; park?: unknown; now?: unknown; token?: unknown };
   } finally {
     window.clearTimeout(timer);
   }
@@ -96,6 +96,25 @@ export const sendParkingBeacon = (key: string, park: ParkingReport) => {
   }
   void fetch(PARK_ENDPOINT, { method: "POST", body, keepalive: true }).catch(() => undefined);
 };
+
+/**
+ * CarPlay 用の鍵を作る。CarPlay が切れたとき(エンジンを切ったとき)に、iPhone のショートカットが
+ * 今いる場所を「停めた場所」として送るのに使う(この鍵でできるのは、停めた場所を送ることだけ)。
+ * 作り直すと、前の鍵は使えなくなる。作れなければ null。
+ */
+export const issueParkToken = async (key: string): Promise<string | null> => {
+  try {
+    const result = await postPark({ key, issue: true });
+    return result.ok === true && typeof result.token === "string" && /^[0-9a-f]{32}$/.test(result.token)
+      ? result.token
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+/** ショートカットに貼る、停めた場所の送り先(鍵入り。画面には出さず、コピーだけする)。 */
+export const parkUrlFor = (token: string) => `${window.location.origin}${PARK_ENDPOINT}?t=${token}`;
 
 const isNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);

@@ -51,6 +51,7 @@ import {
   type PlaceImportError,
   type TripDraft,
 } from "../place-import";
+import { issueParkToken, parkUrlFor } from "../parking";
 import { StarMark } from "../star-mark";
 import { CarLocationPanel } from "./car-location";
 import { OrbisPanel } from "./orbis-panel";
@@ -158,6 +159,22 @@ const SHORTCUT_STEPS = [
   "上の名前を「Z CAR に送る」にし、下の i のボタン(詳細)で「共有シートに表示」をオンにする",
 ];
 
+/**
+ * iPhone の「ショートカット」で、CarPlay が切れたとき(エンジンを切ったとき)に停めた場所を送る
+ * オートメーションを作る手順。
+ */
+const CARPLAY_STEPS = [
+  "上の「送り先をコピー」を押す",
+  "「ショートカット」アプリの下の「オートメーション」を開き、右上の「＋」を押す",
+  "「CarPlay」を選び、「接続解除時」を選ぶ。「すぐに実行」にして「次へ」",
+  "「新規の空のオートメーション」を押し、「アクションを検索」で「現在地を取得」を足す",
+  "「アクションを検索」に URL と入れ、「URLの内容を取得」を足す",
+  "青い「URL」の文字を押して、コピーした送り先を貼り付ける",
+  "「＞」を押して開き、「方法」を「POST」、「本文を要求」を「JSON」にする",
+  "「新規フィールドを追加」→「数字」。キーに lat、値に「現在地」を入れて、それを押して「緯度」を選ぶ",
+  "もう1つ「数字」を足し、キーに lng、値に「現在地」の「経度」を選ぶ。右上の「完了」を押す",
+];
+
 /** 給油履歴に出す日付(10.10 の形)。 */
 const shortDate = (date: string) => date.slice(5).replace("-", ".");
 
@@ -207,13 +224,16 @@ export default function PhoneSettingsPage() {
   // 「Google マップから直接送る」(ショートカットの作り方)を開いているところ。
   const [shortcutOpen, setShortcutOpen] = useState(false);
   const [shortcutFailed, setShortcutFailed] = useState(false);
+  // 「CarPlay のとき」(停めた場所を iPhone のショートカットで送る作り方)を開いているところ。
+  const [carplayOpen, setCarplayOpen] = useState(false);
+  const [carplayFailed, setCarplayFailed] = useState(false);
 
   /** 車のQRを読み取ったときの処理(カメラ・URLのどちらからでも同じ)。 */
   const applyCarKey = useCallback((key: string) => {
     setDraft((current) =>
       current.syncKey.trim() === key && current.pairedAt > 0
         ? current
-        : { ...current, syncKey: key, syncedAt: 0, pairedAt: Date.now(), shareToken: "" },
+        : { ...current, syncKey: key, syncedAt: 0, pairedAt: Date.now(), shareToken: "", parkToken: "" },
     );
     setPairedNotice(true);
   }, []);
@@ -223,7 +243,7 @@ export default function PhoneSettingsPage() {
     let stored = readSettings();
     const handedOff = readSyncKeyFromHash(window.location.hash);
     if (handedOff) {
-      stored = { ...stored, syncKey: handedOff, syncedAt: 0, pairedAt: Date.now(), shareToken: "" };
+      stored = { ...stored, syncKey: handedOff, syncedAt: 0, pairedAt: Date.now(), shareToken: "", parkToken: "" };
       setPairedNotice(true);
       // 合言葉を履歴やアドレスバーに残さない。
       window.history.replaceState(null, "", window.location.pathname);
@@ -624,6 +644,30 @@ export default function PhoneSettingsPage() {
     if (!shareToken) return;
     navigator.clipboard
       .writeText(shareUrlFor(shareToken))
+      .then(() => setToast("送り先をコピーしました。ショートカットに貼り付けてください"))
+      .catch(() => setToast("コピーできませんでした。もう一度押してください"));
+  };
+
+  // 「CarPlay のとき」を開いたら、停めた場所の送り先の鍵を用意しておく(押した瞬間にコピーするため)。
+  const parkToken = draft.parkToken;
+  useEffect(() => {
+    if (!carplayOpen || !shareKey || parkToken) return;
+    let active = true;
+    void issueParkToken(shareKey).then((token) => {
+      if (!active) return;
+      if (token) setDraft((current) => ({ ...current, parkToken: token }));
+      else setCarplayFailed(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [carplayOpen, shareKey, parkToken]);
+
+  /** ショートカットに貼る、停めた場所の送り先(鍵入り)をコピーする。送り先は画面に出さない。 */
+  const copyParkUrl = () => {
+    if (!parkToken) return;
+    navigator.clipboard
+      .writeText(parkUrlFor(parkToken))
       .then(() => setToast("送り先をコピーしました。ショートカットに貼り付けてください"))
       .catch(() => setToast("コピーできませんでした。もう一度押してください"));
   };
@@ -1157,6 +1201,10 @@ export default function PhoneSettingsPage() {
               fuelEntries: draft.fuelEntries,
             }}
             onRegister={registerPlace}
+            onOpenCarPlay={() => {
+              setCarplayFailed(false);
+              setCarplayOpen(true);
+            }}
             onOpenList={() => {
               setTab("navi");
               setEditKey(null);
@@ -1795,6 +1843,65 @@ export default function PhoneSettingsPage() {
                   </p>
                   <p className="zr-note">
                     送り先には専用の鍵が入っています。他の人には教えないでください(この鍵でできるのは、今回だけの行き先を送ることだけです)。
+                  </p>
+                </>
+              ) : (
+                <p className="zr-note zr-share-lead">車とつないでから設定してください。</p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {/* CarPlay のとき: CarPlay が切れたら(エンジンを切ったら)、iPhone のショートカットで停めた場所を送る作り方。 */}
+      {carplayOpen ? (
+        <div className="zr-sheet" role="presentation" onClick={() => setCarplayOpen(false)}>
+          <section
+            className="zr-sheet-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="CarPlay のとき"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="zr-sheet-head">
+              <span>
+                <small>CARPLAY</small>
+                <b>CarPlay のとき</b>
+              </span>
+              <button type="button" onClick={() => setCarplayOpen(false)}>
+                CLOSE
+              </button>
+            </header>
+            <div className="zr-sheet-body">
+              {linked ? (
+                <>
+                  <p className="zr-note zr-share-lead">
+                    車載機を CarPlay の画面にしている間は、車の Z CAR は場所を送れません。そのままエンジンを切ると、
+                    CarPlay にした所が停めた場所になってしまいます。そこで、CarPlay が切れたとき(エンジンを切ったとき)に、
+                    iPhone の今いる場所を停めた場所として送るようにします。最初に1回だけ、iPhone の「ショートカット」アプリで準備します。
+                  </p>
+                  <button
+                    type="button"
+                    className="zr-primary zr-share-copy"
+                    disabled={!parkToken}
+                    onClick={copyParkUrl}
+                  >
+                    {parkToken ? "送り先をコピー" : carplayFailed ? "準備できませんでした" : "準備しています…"}
+                  </button>
+                  <ol className="zr-steps">
+                    {CARPLAY_STEPS.map((step, index) => (
+                      <li key={step}>
+                        <em>{index + 1}</em>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="zr-note">
+                    <b>使い方</b> 何もしなくても、CarPlay が切れると自動で送ります。届くと、車両位置がその場所で駐車中になります。
+                    車の Z CAR の画面に戻ったときは、車から届く場所が使われます。
+                  </p>
+                  <p className="zr-note">
+                    送り先には専用の鍵が入っています。他の人には教えないでください(この鍵でできるのは、停めた場所を送ることだけです)。
                   </p>
                 </>
               ) : (
