@@ -637,6 +637,8 @@ export type Settings = {
    * この端末だけに保存し、同期しない。車とつなぎ直したら作り直す。
    */
   shareToken: string;
+  /** CarPlay 用の、停めた場所の送り先の鍵(この端末だけ。同期しない)。空ならまだ作っていない。 */
+  parkToken: string;
   /** 最後に同期できた内容の時刻(ミリ秒)。これより新しいものが来たら取り込む。 */
   syncedAt: number;
   /** ナビの目的地(並べた順)。車とスマホのどちらからでも足せる。 */
@@ -673,6 +675,7 @@ export const defaults: Settings = {
   syncKey: "",
   pairedAt: 0,
   shareToken: "",
+  parkToken: "",
   syncedAt: 0,
   places: placesFromSlots(defaultMapDestinations),
   startTarget: "",
@@ -1139,6 +1142,7 @@ export const readSettings = (): Settings => {
       syncKey: typeof stored.syncKey === "string" ? stored.syncKey : "",
       pairedAt: typeof stored.pairedAt === "number" ? stored.pairedAt : 0,
       shareToken: typeof stored.shareToken === "string" ? stored.shareToken : "",
+      parkToken: typeof stored.parkToken === "string" ? stored.parkToken : "",
       syncedAt: Number.isFinite(stored.syncedAt) ? Number(stored.syncedAt) : 0,
       places,
       storeName: "",

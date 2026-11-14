@@ -606,6 +606,7 @@ export function CarLocationPanel({
   look,
   vehicle,
   onRegister,
+  onOpenCarPlay,
   onOpenList,
   onOpenFuel,
   onVehicleChange,
@@ -618,6 +619,8 @@ export function CarLocationPanel({
   vehicle: VehicleRecord;
   /** 「現在地を登録」で作った場所を、目的地の一覧に足す。 */
   onRegister: (place: PlaceDraft) => void;
+  /** 「CarPlay のとき」(停めた場所を iPhone のショートカットで送る作り方)を開く。 */
+  onOpenCarPlay: () => void;
   /** 「地点リスト」: 目的地の一覧を開く。 */
   onOpenList: () => void;
   /** 車両情報の「最終給油」: 給油の記録を開く。 */
@@ -1271,10 +1274,14 @@ export function CarLocationPanel({
           </button>
         </div>
       ) : null}
-      {phoneInCar || carOn ? (
+      {park ? (
         <p className="zr-note">
           {phoneInCar ? "この iPhone の GPS で車の位置を動かしています。" : null}
           {carOn ? `登録した場所は、目的地として車の ${look === "future" ? "DEST" : "LIST"} から選べます。` : null}
+          {/* 車載機を CarPlay にしている間は場所が届かないので、iPhone から停めた場所を送る作り方。 */}
+          <button type="button" className="zr-inline-link" onClick={onOpenCarPlay}>
+            CarPlay のとき ›
+          </button>
         </p>
       ) : null}
       {vehicleOpen ? (
