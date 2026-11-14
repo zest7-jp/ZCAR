@@ -49,6 +49,11 @@ const IN_CAR_METERS_PER_SECOND = 40;
  */
 const PHONE_MOVING_KMH = 12;
 const PHONE_STOPPED_KMH = 3;
+/**
+ * 止まってから、この長さ(ミリ秒)までは走行中とみなす。信号待ちや渋滞で、止まって進んでを
+ * 繰り返している間は走行中のまま。これより長く止まっていたら停車中にする。
+ */
+const STOP_SETTLE_MS = 60_000;
 /** iPhone が車の「すぐそば」にあるとみなす距離(m)。これに誤差を足す。 */
 const PHONE_NEAR_METERS = 50;
 /**
@@ -808,10 +813,15 @@ export function CarLocationPanel({
   // (車からは走っている間1分おきにしか届かないので、信号で止まった・走り出したがすぐには分からない)。
   const phoneMotion = phoneInCar ? phoneFix.motion : null;
   const moving = phoneMotion ? phoneMotion.moving : park?.moving === true;
+  // 止まった時刻(サーバーの時計)。iPhone が車の中なら iPhone が止まりを見た時刻、
+  // そうでなければ車がいまの場所に来た時刻。
+  const stillSince = moving || !park ? null : phoneMotion ? phoneMotion.since + offset : park.since;
+  // 止まって1分たつまでは、走行中のまま(信号待ちなど)。
+  const settled = stillSince !== null && clock - stillSince >= STOP_SETTLE_MS;
   // 車の画面が消えた(エンジンを切ったなど)と知らせてきて、iPhone も車の中にいなければ、すぐ駐車中。
   // (知らせが届かなかったときは、3分たって駐車中になる)
   const closed = park?.hidden === true && !phoneInCar;
-  const status = !park ? null : live && !closed ? (moving ? "driving" : "stopped") : "parked";
+  const status = !park ? null : live && !closed ? (settled ? "stopped" : "driving") : "parked";
   // 車の電源が入っている(走行中・停車中)。
   const carOn = status === "driving" || status === "stopped";
   // 自宅として覚えた場所の近くに駐車している。
@@ -920,6 +930,15 @@ export function CarLocationPanel({
   useEffect(() => {
     if (mapCreated && status) mapRef.current?.pin.setStatus(status);
   }, [mapCreated, status]);
+
+  // 止まって1分たったら、すぐ停車中に切り替える(時計はふだん15秒おきにしか進めないため)。
+  const settleAt = status === "driving" && stillSince !== null && !settled ? stillSince + STOP_SETTLE_MS : null;
+  useEffect(() => {
+    if (settleAt === null) return;
+    const wait = settleAt - (Date.now() + offsetRef.current);
+    const timer = window.setTimeout(() => setClock(Date.now() + offsetRef.current), Math.max(0, wait) + 50);
+    return () => window.clearTimeout(timer);
+  }, [settleAt]);
 
   // 航空写真と地図を切り替える。
   useEffect(() => {
