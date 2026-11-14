@@ -9203,6 +9203,41 @@ main.zr[data-style="retro"] .zr-move button:not(:disabled) { box-shadow: 0 0 8px
 .zr-park-pin.is-stopped { --zr-state: #ffd60a; --zr-state-rgb: 255, 214, 10; }
 .zr-park-state.is-parked,
 .zr-park-pin.is-parked { --zr-state: #8a8a8a; --zr-state-rgb: 138, 138, 138; }
+/* 途切れ(走っている途中で車から場所が届かなくなった): 琥珀色。どのテーマでも同じ(注意の色)。 */
+.zr-park-state.is-lost,
+.zr-park-pin.is-lost,
+main.zr[data-style="cyber"] .zr-park-state.is-lost,
+main.zr[data-style="cyber"] .zr-park-pin.is-lost { --zr-state: #ffb02e; --zr-state-rgb: 255, 176, 46; }
+.zr-park-state.is-lost { border-color: rgba(255, 176, 46, .6); background: rgba(40, 24, 0, .88); }
+.zr-park-state.is-lost small { color: #ffe2b0; }
+main.zr[data-style="cyber"] .zr-park-state.is-lost { border-color: #ffb02e; background: rgba(40, 24, 0, .88); }
+main.zr[data-style="cyber"] .zr-park-state.is-lost small { color: #ffe2b0; }
+.zr-park-lost { flex: 0 0 auto; width: 15px; height: 15px; fill: none; stroke: var(--zr-state); stroke-width: 2; stroke-linecap: round; }
+/* 途切れたときの車の印: 点線の輪と「?」、上に「最後に分かった場所」。 */
+.zr-park-pin.is-lost .zr-park-pin-core {
+  border-style: dashed;
+  color: var(--zr-state);
+  font: 900 18px/1 "SFMono-Regular", Consolas, monospace;
+  box-shadow: 0 0 14px rgba(255, 176, 46, .55);
+}
+main.zr[data-style="cyber"] .zr-park-pin.is-lost .zr-park-pin-core { font-family: "Michroma", "Rajdhani", sans-serif; font-weight: 400; }
+.zr-park-pin.is-lost .zr-park-pin-ring { inset: -8px; border-style: dashed; border-color: rgba(255, 176, 46, .7); animation: none; }
+.zr-park-pin-label { display: none; }
+.zr-park-pin.is-lost .zr-park-pin-label {
+  position: absolute;
+  left: 50%;
+  top: -32px;
+  display: block;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 176, 46, .7);
+  border-radius: 6px;
+  background: rgba(20, 12, 0, .9);
+  color: #ffe2b0;
+  font: 800 10px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+main.zr[data-style="cyber"] .zr-park-pin.is-lost .zr-park-pin-label { border-radius: 0; }
 
 /*
  * 駐車中のスマホ(あなた)の今いる場所: 目立たない薄いグレーの点を、照準の角(上に「現在地」)で囲み、歩いている向きの扇。

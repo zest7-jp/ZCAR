@@ -140,6 +140,9 @@ const STATUS = {
   parked: { ja: "駐車中", en: "PARKED", lines: [0, 0, 0] },
   stopped: { ja: "停車中", en: "STOPPED", lines: [1, 0, 0] },
   driving: { ja: "走行中", en: "DRIVING", lines: [1, 1, 1] },
+  // 途切れ: 走っている途中で、車から場所が届かなくなった(CarPlay の画面にした・電波が届かないなど)。
+  // 八卦の代わりに、電波が切れた印を出す。
+  lost: { ja: "途切れています", en: "SIGNAL LOST", lines: [0, 0, 0] },
 } as const;
 
 type ParkStatus = keyof typeof STATUS;
@@ -157,6 +160,12 @@ const trigramRects = (lines: readonly number[]) =>
   });
 
 /** 八卦の印(線3本)。文字(☰☶☷)は iPhone では細くかすれるので、図形で描く。 */
+/** 電波が切れた印(途切れたとき。札の左に出す)。 */
+const LOST_ICON_PATHS = '<path d="M4.5 9.5a11 11 0 0 1 15 0"/><path d="M7.5 12.8a6.6 6.6 0 0 1 9 0"/><path d="M10.4 16a2.4 2.4 0 0 1 3.2 0"/><path d="M4 4l16 16"/>';
+const LostMark = () => (
+  <svg className="zr-park-lost" viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOST_ICON_PATHS }} />
+);
+
 const TrigramMark = ({ lines }: { lines: readonly number[] }) => (
   <svg className="zr-park-trigram" viewBox="0 0 18 13" aria-hidden="true">
     {trigramRects(lines).map((bar, index) => (
@@ -295,7 +304,9 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
   element.innerHTML =
     '<i class="zr-park-pin-ring"></i>' +
     '<i class="zr-park-pin-dir"></i>' +
-    '<span class="zr-park-pin-core"></span>';
+    '<span class="zr-park-pin-core"></span>' +
+    // 途切れたときだけ出す(印の上に「最後に分かった場所」)。
+    '<b class="zr-park-pin-label">最後に分かった場所</b>';
   const core = element.querySelector(".zr-park-pin-core") as HTMLElement;
   const Base = maps.OverlayView as unknown as new () => GOverlay;
   class Pin extends Base {
@@ -324,7 +335,9 @@ const createCarPin = (maps: MapsApi, position: LatLng): CarPin => {
     }
     setStatus(status: ParkStatus) {
       for (const name of Object.keys(STATUS)) element.classList.toggle(`is-${name}`, name === status);
-      core.innerHTML = trigramSvg(STATUS[status].lines);
+      // 途切れたときは、どこにいるか分からないので「?」。
+      if (status === "lost") core.textContent = "?";
+      else core.innerHTML = trigramSvg(STATUS[status].lines);
     }
   }
   return new Pin() as CarPin;
@@ -821,10 +834,22 @@ export function CarLocationPanel({
   const stillSince = moving || !park ? null : phoneMotion ? phoneMotion.since + offset : park.since;
   // 止まって1分たつまでは、走行中のまま(信号待ちなど)。
   const settled = stillSince !== null && clock - stillSince >= STOP_SETTLE_MS;
+  // 走っている途中で、車から場所が届かなくなった(途切れ)。車の画面が消えた(CarPlay の画面にしたなど)と
+  // 走りながら知らせてきたか、走っていると送ってきたまま3分届かない。エンジンを切るのは止まってからなので、
+  // 停めた場所とは思わない(CarPlay が切れて iPhone から停めた場所が届くか、車の画面に戻るまで)。
+  const lost = park !== null && park.moving && !phoneInCar && (park.hidden || !live);
   // 車の画面が消えた(エンジンを切ったなど)と知らせてきて、iPhone も車の中にいなければ、すぐ駐車中。
   // (知らせが届かなかったときは、3分たって駐車中になる)
   const closed = park?.hidden === true && !phoneInCar;
-  const status = !park ? null : live && !closed ? (settled ? "stopped" : "driving") : "parked";
+  const status = !park
+    ? null
+    : lost
+      ? "lost"
+      : live && !closed
+        ? settled
+          ? "stopped"
+          : "driving"
+        : "parked";
   // 車の電源が入っている(走行中・停車中)。
   const carOn = status === "driving" || status === "stopped";
   // 自宅として覚えた場所の近くに駐車している。
@@ -1070,15 +1095,30 @@ export function CarLocationPanel({
     status === "driving" ? (park?.tripSince ?? (phoneMotion?.moving ? phoneSince : null)) : null;
   const stoppedSince =
     status === "stopped" && phoneMotion && !phoneMotion.moving && park?.moving ? phoneSince : null;
+  // 途切れたときは、最後に車から届いた時刻から数える。
   const shownAt = park
     ? status === "driving"
       ? (tripSince ?? park.at)
-      : (stoppedSince ?? park.since)
+      : status === "lost"
+        ? park.heard
+        : (stoppedSince ?? park.since)
     : 0;
   const shownLabel =
-    status === "driving" ? (tripSince !== null ? "出発時刻" : "届いた時刻") : "停めた時刻";
+    status === "driving"
+      ? tripSince !== null
+        ? "出発時刻"
+        : "届いた時刻"
+      : status === "lost"
+        ? "最後に届いた時刻"
+        : "停めた時刻";
   const elapsedLabel =
-    status === "driving" ? (tripSince !== null ? "走行時間" : "何分前") : "停めてから";
+    status === "driving"
+      ? tripSince !== null
+        ? "走行時間"
+        : "何分前"
+      : status === "lost"
+        ? "途切れてから"
+        : "停めてから";
   const sameDay = park !== null && clock > 0 && dateText(shownAt) === dateText(clock);
   const destination = park ? `${park.lat.toFixed(6)},${park.lng.toFixed(6)}` : "";
   // 速さ(iPhone の GPS で追っている間だけ)。
@@ -1108,7 +1148,7 @@ export function CarLocationPanel({
           <div ref={mapElementRef} className="zr-park-canvas" />
           {status ? (
             <em className={`zr-park-state is-${status}${atHome ? " is-home" : ""}`}>
-              <TrigramMark lines={STATUS[status].lines} />
+              {status === "lost" ? <LostMark /> : <TrigramMark lines={STATUS[status].lines} />}
               {atHome ? "AT HOME" : STATUS[status].en}
               <small>{atHome ? "自宅に駐車中" : STATUS[status].ja}</small>
             </em>
@@ -1246,8 +1286,8 @@ export function CarLocationPanel({
         <div className="zr-park-go is-single">
           <VehicleButton record={vehicle} onOpen={() => setVehicleOpen(true)} />
         </div>
-      ) : park ? (
-        // 駐車中は、車まで歩く道案内(Google マップ)と、駐車メモ。
+      ) : park && status === "parked" ? (
+        // 駐車中は、車まで歩く道案内(Google マップ)と、駐車メモ(途切れているときは、車がどこか分からないので出さない)。
         <div className="zr-park-go">
           <a
             className="zr-primary"
@@ -1278,6 +1318,9 @@ export function CarLocationPanel({
         <p className="zr-note">
           {phoneInCar ? "この iPhone の GPS で車の位置を動かしています。" : null}
           {carOn ? `登録した場所は、目的地として車の ${look === "future" ? "DEST" : "LIST"} から選べます。` : null}
+          {status === "lost"
+            ? "車から場所が届いていません(CarPlay の画面にした・電波が届かないなど)。車の Z CAR の画面に戻るか、CarPlay が切れて iPhone から停めた場所が届くと、元の表示に戻ります。"
+            : null}
           {/* 車載機を CarPlay にしている間は場所が届かないので、iPhone から停めた場所を送る作り方。 */}
           <button type="button" className="zr-inline-link" onClick={onOpenCarPlay}>
             CarPlay のとき ›
