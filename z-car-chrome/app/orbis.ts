@@ -352,20 +352,16 @@ export const fetchOsmOrbis = async (point: { lat: number; lng: number }): Promis
 };
 
 // --- 声と音 ---
-
-let audioContext: AudioContext | null = null;
+// 車載機では、音楽(Apple Music など)を聞きながら使う。ブラウザの音の仕組み(AudioContext)を開いたままに
+// すると、ブラウザが「音を出しているアプリ」になり、Z CAR の画面に切り替えるたびに音楽が止まってしまう。
+// そこで音の仕組みは、ピッという音を鳴らすときだけ開き、鳴らし終わったらすぐ閉じる。
+// 声(読み上げ)は音楽を止めずに重ねて出る(機種によっては、話している間だけ音楽が小さくなる)。
 
 /**
- * 声と音を出せるようにする。ブラウザは、画面に触れたあとでないと音を出させないので、
- * 画面に触れたときに呼ぶ(出発のボタンなど)。
+ * 声を出せるようにする。ブラウザは、画面に触れたあとでないと声を出させないので、
+ * 画面に触れたときに呼ぶ(出発のボタンなど)。音楽を止めないよう、ここでは音の仕組みは開かない。
  */
 export const unlockOrbisSound = () => {
-  try {
-    audioContext ??= new AudioContext();
-    void audioContext.resume();
-  } catch {
-    // 音の仕組みが無い端末。
-  }
   try {
     window.speechSynthesis?.getVoices();
   } catch {
@@ -379,12 +375,15 @@ export const soundLocked = () =>
   "userActivation" in navigator &&
   !(navigator as Navigator & { userActivation: { hasBeenActive: boolean } }).userActivation.hasBeenActive;
 
-/** ピッ、ピッという短い音(声が出せないとき)。 */
+/** 鳴らし終わってから音の仕組みを閉じるまで(ミリ秒)。音は 0.4秒ほど。 */
+const BEEP_CLOSE_MS = 800;
+
+/** ピッ、ピッという短い音(声が出せないとき)。鳴らし終わったら音の仕組みを閉じる(音楽を止めないように)。 */
 const beep = () => {
   try {
-    audioContext ??= new AudioContext();
-    const context = audioContext;
+    const context = new AudioContext();
     void context.resume();
+    window.setTimeout(() => void context.close().catch(() => undefined), BEEP_CLOSE_MS);
     [0, 0.22].forEach((offset) => {
       const tone = context.createOscillator();
       const volume = context.createGain();
