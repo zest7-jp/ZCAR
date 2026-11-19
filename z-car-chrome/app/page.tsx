@@ -120,6 +120,71 @@ type FuelDraft = {
 
 const FUEL_TANK_CAPACITY_L = 36;
 const FUEL_RESERVE_L = 4;
+/*
+ * 給油から走った距離(燃料の残りの見積もりに使う)。OBD の速さが届いていればそれで、届いていなければ GPS の
+ * 位置の動きで数える。車載機で音楽や CarPlay を前に出している間など、Z CAR の画面が出ていない間は数えられない
+ * ので、画面に戻ったとき(電源を入れ直したときも)、前に数えた場所からのまっすぐの距離に回り道の分を掛けて足す。
+ * さらに給油のたびに、記録した走行距離(車のトリップメーター)と Z CAR が数えた距離を比べて、次から掛ける係数を合わせる。
+ */
+/** GPS の位置の誤差がこれ(m)より大きいときは数えない。 */
+const ODO_MAX_ACCURACY_M = 50;
+/** 位置がこれ(m)より動いていなければ、止まっているとみなす(止まっていても位置は少し揺れるため)。 */
+const ODO_MIN_STEP_M = 15;
+/** これ(ミリ秒)より長く位置が届かなかったら、途切れていた(画面を切り替えた・電源を切ったなど)とみなす。 */
+const ODO_GAP_MS = 30_000;
+/** 途切れていた間の距離: まっすぐの距離に掛ける、道の回り道の分。 */
+const ODO_DETOUR = 1.25;
+/** 途切れていた間に動いたとみなす最小の距離(m)と、速さの上限(km/h。これより速いのは位置の誤り)。 */
+const ODO_GAP_MIN_M = 100;
+const ODO_GAP_MAX_KMH = 150;
+/** 前に数えた場所(電源を切っても、次に開いたときに途切れていた分を足せるよう、車載機に覚える)。 */
+const ODO_ANCHOR_STORAGE_KEY = "zcar-odo-anchor";
+/**
+ * この数え方を始めた時刻(車載機に覚える)。それより前から数えていた給油の分は、数えきれていないので
+ * 係数を合わせるのに使わない(この版にして最初の給油で、係数が大きく外れないように)。
+ */
+const ODO_STARTED_STORAGE_KEY = "zcar-odo-started";
+/** GPS で数えた1回分の、走っていた時間の上限(秒)。信号で止まっていた時間を走っていた時間にしない。 */
+const ODO_STEP_MAX_SEC = 10;
+/** OBD で数えるのがこれ(ミリ秒)より長くあいたら、続けて数えていたとはみなさない。 */
+const OBD_RUN_BREAK_MS = 5_000;
+/**
+ * この数え方を初めて使うとき、いまの給油がこの時間(ミリ秒)より新しく、給油から数えた距離も短ければ、
+ * いまの給油の分も数えきれるとみなす(満タンにしてすぐにこの版にしたとき、次の給油から合わせ始められるように)。
+ */
+const ODO_START_GRACE_MS = 48 * 60 * 60 * 1000;
+const ODO_START_GRACE_KM = 10;
+/** 給油で合わせる係数(記録した走行距離 ÷ Z CAR が数えた距離)。新しい5回分の真ん中の値を使う。 */
+const FUEL_CALIBRATION_STORAGE_KEY = "zcar-fuel-calibration";
+const FUEL_CALIBRATION_SAMPLES = 5;
+/** 合わせるのに使う給油: どちらの距離もこれ(km)以上のときだけ(短すぎると比べられない)。 */
+const FUEL_CALIBRATION_MIN_KM = 30;
+/** 係数として受け付ける幅(これより外れたものは、記録の間違いとみなして使わない)と、掛ける幅。 */
+const FUEL_CALIBRATION_ACCEPT: [number, number] = [0.5, 4];
+const FUEL_CALIBRATION_RANGE: [number, number] = [0.8, 3];
+
+/** 係数の一覧(端末に覚えたもの)を読む。 */
+const readFuelCalibration = (): number[] => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FUEL_CALIBRATION_STORAGE_KEY) || "[]") as unknown;
+    return Array.isArray(saved)
+      ? saved
+          .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+          .slice(-FUEL_CALIBRATION_SAMPLES)
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+/** 掛ける係数: 覚えた係数の真ん中の値(まだ無ければ 1)。 */
+const fuelCalibrationFactor = (samples: number[]) => {
+  if (samples.length === 0) return 1;
+  const sorted = [...samples].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  return Math.min(FUEL_CALIBRATION_RANGE[1], Math.max(FUEL_CALIBRATION_RANGE[0], median));
+};
 /** 80年代の地図の縮尺(Google マップの zoom)の幅と、覚えておく場所(車だけ。同期しない)。 */
 const RETRO_ZOOM_MIN = 11;
 const RETRO_ZOOM_MAX = 17;
@@ -410,6 +475,8 @@ export default function Home() {
   // 最後の給油から走った距離(km)と、数え始めた時刻(その給油を記録した時刻)。
   // 数え始めより新しい給油が記録されたら(車でもスマホでも)、0から数え直す。
   const [fuelTrip, setFuelTrip] = useState({ km: 0, since: 0 });
+  // 給油で合わせた係数(新しい5回分。車載機だけに覚える)。
+  const [fuelCalibration, setFuelCalibration] = useState<number[]>([]);
   // 今日の走行。距離と、動いていた時間(止まっている時間は数えない)。
   const [dailyTrip, setDailyTrip] = useState({
     date: japanDateKey(),
@@ -462,6 +529,21 @@ export default function Home() {
     status: "idle",
   });
   const latestRefuelRef = useRef(0);
+  // 給油から走った距離を数える仕組み(GPS と OBD のどちらでも数え、途切れていた間の分も足す)。
+  const fuelTripRef = useRef({ km: 0, since: 0 });
+  const fuelEntriesRef = useRef<FuelEntry[]>([]);
+  const fuelLoadedRef = useRef(false);
+  const odoAnchorRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const lastFixAtRef = useRef(0);
+  // OBD の速さで続けて数えていた間(画面が出ていて、OBD が届いていた間)の始まりと、最後に数えた時刻。
+  const obdRunRef = useRef({ start: 0, last: 0 });
+  // この画面を開いてから OBD の速さで数えた距離(km)と、前に数えた場所を覚えたときのその値。
+  // 途切れていた間の分から、その間に OBD で数えた分を引く(二重に数えない)。
+  const obdKmRef = useRef(0);
+  const anchorObdKmRef = useRef(0);
+  const odoStartedRef = useRef(0);
+  const addTravelRef = useRef<(km: number, movingSec: number | null) => void>(() => undefined);
+  const countDistanceRef = useRef<(coords: GeolocationCoordinates) => void>(() => undefined);
   const speedTargetRef = useRef<number | null>(null);
   const speedSamplesRef = useRef<Array<{ value: number; sampledAt: number }>>([]);
   const smoothedSpeedRef = useRef<number | null>(null);
@@ -509,7 +591,8 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      setSettings(readSettings());
+      const loadedSettings = readSettings();
+      setSettings(loadedSettings);
       const savedFuelTrip = Number.parseFloat(
         localStorage.getItem(FUEL_TRIP_KM_STORAGE_KEY) || "0",
       );
@@ -521,6 +604,42 @@ export default function Home() {
         km: Number.isFinite(savedFuelTrip) ? Math.max(0, savedFuelTrip) : 0,
         since: Number.isFinite(savedFuelTripSince) ? savedFuelTripSince : 0,
       });
+      fuelTripRef.current = {
+        km: Number.isFinite(savedFuelTrip) ? Math.max(0, savedFuelTrip) : 0,
+        since: Number.isFinite(savedFuelTripSince) ? savedFuelTripSince : 0,
+      };
+      fuelLoadedRef.current = true;
+      setFuelCalibration(readFuelCalibration());
+      // 前に数えた場所(電源を切っていた間に Z CAR の画面を出さずに走った分を、次に位置が届いたときに足す)。
+      const anchor = JSON.parse(localStorage.getItem(ODO_ANCHOR_STORAGE_KEY) || "null") as {
+        lat?: unknown;
+        lng?: unknown;
+        at?: unknown;
+      } | null;
+      if (
+        anchor &&
+        typeof anchor.lat === "number" &&
+        typeof anchor.lng === "number" &&
+        typeof anchor.at === "number" &&
+        [anchor.lat, anchor.lng, anchor.at].every(Number.isFinite)
+      ) {
+        odoAnchorRef.current = { lat: anchor.lat, lng: anchor.lng, at: anchor.at };
+      }
+      const started = Number(localStorage.getItem(ODO_STARTED_STORAGE_KEY) || "0");
+      if (Number.isFinite(started) && started > 0) {
+        odoStartedRef.current = started;
+      } else {
+        // 初めてこの数え方を使う。満タンにしたばかり(2日以内で、まだあまり走っていない)なら、
+        // その給油から数えたことにする(次の給油から係数を合わせ始められる)。
+        const trip = fuelTripRef.current;
+        const refuelAt = loadedSettings.fuelEntries.reduce((latest, entry) => Math.max(latest, entry.createdAt), 0);
+        const tankStart = Math.max(trip.since, refuelAt);
+        // スマホで記録して、まだ数え直していない給油なら、その給油から数えた距離は0。
+        const countedKm = refuelAt > trip.since ? 0 : trip.km;
+        const fresh = tankStart > 0 && Date.now() - tankStart <= ODO_START_GRACE_MS && countedKm <= ODO_START_GRACE_KM;
+        odoStartedRef.current = fresh ? tankStart : Date.now();
+        localStorage.setItem(ODO_STARTED_STORAGE_KEY, String(odoStartedRef.current));
+      }
       const savedDailyTrip = JSON.parse(
         localStorage.getItem(DAILY_TRIP_STORAGE_KEY) || "null",
       ) as { date?: unknown; distanceKm?: unknown; movingSec?: unknown } | null;
@@ -751,35 +870,138 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, []);
 
+  // 給油から走った距離と、今日の走行(距離・走っていた時間)を足す。movingSec が null のとき(途切れていた間の
+  // まっすぐの距離)は、燃料の見積もりにだけ足す(今日の走行距離と平均速度には入れない)。
+  useEffect(() => {
+    addTravelRef.current = (km, movingSec) => {
+      setFuelTrip((current) => ({ ...current, km: current.km + km }));
+      if (movingSec === null) return;
+      const currentDate = japanDateKey();
+      setDailyTrip((current) =>
+        current.date === currentDate
+          ? {
+              date: currentDate,
+              distanceKm: current.distanceKm + km,
+              movingSec: current.movingSec + movingSec,
+            }
+          : { date: currentDate, distanceKm: km, movingSec },
+      );
+    };
+  }, []);
+
+  /**
+   * 給油の記録が届いた(車でもスマホでも)ときに、記録した走行距離と Z CAR が数えた距離を比べて係数を覚え、
+   * 給油から走った距離を0から数え直す。
+   */
+  const takeRefuel = (entry: Pick<FuelEntry, "distanceKm" | "createdAt"> | undefined, countedKm: number, since: number) => {
+    // この数え方を始める前からの給油の分は、数えきれていないので使わない。
+    const coveredWholeTank = odoStartedRef.current > 0 && fuelTripRef.current.since >= odoStartedRef.current;
+    if (
+      coveredWholeTank &&
+      entry &&
+      entry.distanceKm >= FUEL_CALIBRATION_MIN_KM &&
+      countedKm >= FUEL_CALIBRATION_MIN_KM
+    ) {
+      const ratio = entry.distanceKm / countedKm;
+      if (ratio >= FUEL_CALIBRATION_ACCEPT[0] && ratio <= FUEL_CALIBRATION_ACCEPT[1]) {
+        setFuelCalibration((current) => {
+          const next = [...current, Math.round(ratio * 1000) / 1000].slice(-FUEL_CALIBRATION_SAMPLES);
+          try {
+            localStorage.setItem(FUEL_CALIBRATION_STORAGE_KEY, JSON.stringify(next));
+          } catch {
+            // 覚えられなくても、いまの見積もりには使う。
+          }
+          return next;
+        });
+      }
+    }
+    fuelTripRef.current = { km: 0, since };
+    setFuelTrip({ km: 0, since });
+  };
+  const takeRefuelRef = useRef(takeRefuel);
+  useEffect(() => {
+    takeRefuelRef.current = takeRefuel;
+    fuelTripRef.current = fuelTrip;
+    fuelEntriesRef.current = fuelEntries;
+  });
+
   useEffect(() => {
     let previousSample = performance.now();
     const timer = window.setInterval(() => {
       const now = performance.now();
       const elapsedMs = Math.min(now - previousSample, 3000);
       previousSample = now;
-      const { speed, status } = fuelMotionRef.current;
-      if (status !== "live" || speed === null || speed <= 0) return;
-      const travelledKm = speed * (elapsedMs / 3_600_000);
-      // 数え始めより新しい給油(スマホで記録して届いた給油など)があれば、そこから数え直す。
+      // 数え始めより新しい給油(スマホで記録して届いた給油など)があれば、係数を覚えて、そこから数え直す。
       const refuelAt = latestRefuelRef.current;
-      setFuelTrip((current) =>
-        refuelAt > current.since
-          ? { km: travelledKm, since: refuelAt }
-          : { ...current, km: current.km + travelledKm },
-      );
-      const currentDate = japanDateKey();
-      const movedSec = elapsedMs / 1000;
-      setDailyTrip((current) =>
-        current.date === currentDate
-          ? {
-              date: currentDate,
-              distanceKm: current.distanceKm + travelledKm,
-              movingSec: current.movingSec + movedSec,
-            }
-          : { date: currentDate, distanceKm: travelledKm, movingSec: movedSec },
-      );
+      if (fuelLoadedRef.current && refuelAt > fuelTripRef.current.since) {
+        const entry = fuelEntriesRef.current.find((item) => item.createdAt === refuelAt);
+        takeRefuelRef.current(entry, fuelTripRef.current.km, refuelAt);
+        return;
+      }
+      // 画面が出ていない間は数えない(戻ったときに、途切れていた間の分をまとめて足す)。
+      if (document.visibilityState !== "visible") return;
+      const { speed, status } = fuelMotionRef.current;
+      if (status !== "live" || speed === null) return;
+      // OBD で続けて数えている間を覚える(止まっている間も続いているとみなす)。数秒あいたら、新しく数え始めた。
+      const wall = Date.now();
+      const run = obdRunRef.current;
+      obdRunRef.current = { start: wall - run.last > OBD_RUN_BREAK_MS ? wall : run.start, last: wall };
+      if (speed <= 0) return;
+      const km = speed * (elapsedMs / 3_600_000);
+      obdKmRef.current += km;
+      addTravelRef.current(km, elapsedMs / 1000);
     }, 1000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  /**
+   * GPS が届くたびに、走った距離を数える。OBD の速さで数えている間は場所だけ覚える。
+   * 位置が30秒以上届いていなかった(画面を切り替えていた・電源を切っていた)ときは、前に数えた場所から
+   * いまの場所までのまっすぐの距離に回り道の分を掛けて、燃料の見積もりに足す。
+   */
+  useEffect(() => {
+    const remember = (point: { lat: number; lng: number; at: number }) => {
+      odoAnchorRef.current = point;
+      anchorObdKmRef.current = obdKmRef.current;
+      try {
+        localStorage.setItem(ODO_ANCHOR_STORAGE_KEY, JSON.stringify(point));
+      } catch {
+        // 覚えられなくても、いまの走行は数えられる。
+      }
+    };
+    countDistanceRef.current = (coords) => {
+      if (!(coords.accuracy <= ODO_MAX_ACCURACY_M)) return;
+      const now = Date.now();
+      const here = { lat: coords.latitude, lng: coords.longitude, at: now };
+      const quiet = now - lastFixAtRef.current > ODO_GAP_MS;
+      lastFixAtRef.current = now;
+      const anchor = odoAnchorRef.current;
+      if (!anchor) {
+        remember(here);
+        return;
+      }
+      const meters = distanceMeters(anchor, here);
+      if (quiet) {
+        // 途切れていた間ずっと OBD で数えていた(トンネルで GPS だけ届かなかったなど)のでなければ、
+        // まっすぐの距離 × 回り道の分から、その間に OBD で数えた分(隠す直前など)を引いて足す。
+        const run = obdRunRef.current;
+        const obdCovered = run.start <= anchor.at && now - run.last <= OBD_RUN_BREAK_MS;
+        const hours = Math.max(1000, now - anchor.at) / 3_600_000;
+        const missedKm = (meters * ODO_DETOUR) / 1000 - (obdKmRef.current - anchorObdKmRef.current);
+        if (!obdCovered && missedKm > 0 && meters >= ODO_GAP_MIN_M && meters / 1000 / hours <= ODO_GAP_MAX_KMH) {
+          addTravelRef.current(missedKm, null);
+        }
+        remember(here);
+        return;
+      }
+      if (fuelMotionRef.current.status === "live") {
+        remember(here);
+        return;
+      }
+      if (meters < Math.max(ODO_MIN_STEP_M, coords.accuracy)) return;
+      addTravelRef.current(meters / 1000, Math.min(ODO_STEP_MAX_SEC, (now - anchor.at) / 1000));
+      remember(here);
+    };
   }, []);
 
   useEffect(() => {
@@ -954,6 +1176,7 @@ export default function Home() {
         setLocationStatus("ready");
         checkOrbisRef.current(position.coords);
         checkTripRef.current(position.coords);
+        countDistanceRef.current(position.coords);
       },
       () =>
         setLocationStatus((current) =>
@@ -1544,7 +1767,9 @@ export default function Home() {
     cancelFuelReset();
     setFuelResetting(true);
     fuelResetTimerRef.current = window.setTimeout(() => {
-      setFuelTrip({ km: 0, since: Date.now() });
+      const since = Date.now();
+      fuelTripRef.current = { km: 0, since };
+      setFuelTrip({ km: 0, since });
       setFuelResetting(false);
       fuelResetTimerRef.current = null;
       navigator.vibrate?.(60);
@@ -1813,7 +2038,8 @@ export default function Home() {
     recentFuelLiters > 0 ? recentFuelDistance / recentFuelLiters : null;
   // 最後の給油から走った距離。数え始めより新しい給油が届いていれば(スマホで記録した給油など)、
   // まだ走っていないので0。走り出すと、その給油から数え直す。
-  const fuelTripKm = latestRefuelAt > fuelTrip.since ? 0 : fuelTrip.km;
+  // 給油のたびに合わせた係数を掛ける(Z CAR が数えきれなかった分を足す)。
+  const fuelTripKm = (latestRefuelAt > fuelTrip.since ? 0 : fuelTrip.km) * fuelCalibrationFactor(fuelCalibration);
   const estimatedUsedLiters =
     recentFuelEconomy === null ? null : fuelTripKm / recentFuelEconomy;
   const estimatedRemainingLiters =
@@ -1884,7 +2110,8 @@ export default function Home() {
         },
       ]),
     }));
-    setFuelTrip({ km: 0, since: now });
+    // 記録した走行距離と Z CAR が数えた距離を比べて係数を覚え、給油から数え直す。
+    takeRefuel({ distanceKm: fuelDistanceInput, createdAt: now }, fuelTrip.km, now);
     navigator.vibrate?.(60);
     setFuelDraft({
       date: japanDateKey(),
