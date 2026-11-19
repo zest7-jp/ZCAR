@@ -146,6 +146,14 @@ const ODO_ANCHOR_STORAGE_KEY = "zcar-odo-anchor";
 const ODO_STARTED_STORAGE_KEY = "zcar-odo-started";
 /** GPS で数えた1回分の、走っていた時間の上限(秒)。信号で止まっていた時間を走っていた時間にしない。 */
 const ODO_STEP_MAX_SEC = 10;
+/** OBD で数えるのがこれ(ミリ秒)より長くあいたら、続けて数えていたとはみなさない。 */
+const OBD_RUN_BREAK_MS = 5_000;
+/**
+ * この数え方を初めて使うとき、いまの給油がこの時間(ミリ秒)より新しく、給油から数えた距離も短ければ、
+ * いまの給油の分も数えきれるとみなす(満タンにしてすぐにこの版にしたとき、次の給油から合わせ始められるように)。
+ */
+const ODO_START_GRACE_MS = 48 * 60 * 60 * 1000;
+const ODO_START_GRACE_KM = 10;
 /** 給油で合わせる係数(記録した走行距離 ÷ Z CAR が数えた距離)。新しい5回分の真ん中の値を使う。 */
 const FUEL_CALIBRATION_STORAGE_KEY = "zcar-fuel-calibration";
 const FUEL_CALIBRATION_SAMPLES = 5;
@@ -527,7 +535,12 @@ export default function Home() {
   const fuelLoadedRef = useRef(false);
   const odoAnchorRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const lastFixAtRef = useRef(0);
-  const obdCountedAtRef = useRef(0);
+  // OBD の速さで続けて数えていた間(画面が出ていて、OBD が届いていた間)の始まりと、最後に数えた時刻。
+  const obdRunRef = useRef({ start: 0, last: 0 });
+  // この画面を開いてから OBD の速さで数えた距離(km)と、前に数えた場所を覚えたときのその値。
+  // 途切れていた間の分から、その間に OBD で数えた分を引く(二重に数えない)。
+  const obdKmRef = useRef(0);
+  const anchorObdKmRef = useRef(0);
   const odoStartedRef = useRef(0);
   const addTravelRef = useRef<(km: number, movingSec: number | null) => void>(() => undefined);
   const countDistanceRef = useRef<(coords: GeolocationCoordinates) => void>(() => undefined);
@@ -578,7 +591,8 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      setSettings(readSettings());
+      const loadedSettings = readSettings();
+      setSettings(loadedSettings);
       const savedFuelTrip = Number.parseFloat(
         localStorage.getItem(FUEL_TRIP_KM_STORAGE_KEY) || "0",
       );
@@ -615,7 +629,15 @@ export default function Home() {
       if (Number.isFinite(started) && started > 0) {
         odoStartedRef.current = started;
       } else {
-        odoStartedRef.current = Date.now();
+        // 初めてこの数え方を使う。満タンにしたばかり(2日以内で、まだあまり走っていない)なら、
+        // その給油から数えたことにする(次の給油から係数を合わせ始められる)。
+        const trip = fuelTripRef.current;
+        const refuelAt = loadedSettings.fuelEntries.reduce((latest, entry) => Math.max(latest, entry.createdAt), 0);
+        const tankStart = Math.max(trip.since, refuelAt);
+        // スマホで記録して、まだ数え直していない給油なら、その給油から数えた距離は0。
+        const countedKm = refuelAt > trip.since ? 0 : trip.km;
+        const fresh = tankStart > 0 && Date.now() - tankStart <= ODO_START_GRACE_MS && countedKm <= ODO_START_GRACE_KM;
+        odoStartedRef.current = fresh ? tankStart : Date.now();
         localStorage.setItem(ODO_STARTED_STORAGE_KEY, String(odoStartedRef.current));
       }
       const savedDailyTrip = JSON.parse(
@@ -919,9 +941,15 @@ export default function Home() {
       // 画面が出ていない間は数えない(戻ったときに、途切れていた間の分をまとめて足す)。
       if (document.visibilityState !== "visible") return;
       const { speed, status } = fuelMotionRef.current;
-      if (status !== "live" || speed === null || speed <= 0) return;
-      obdCountedAtRef.current = Date.now();
-      addTravelRef.current(speed * (elapsedMs / 3_600_000), elapsedMs / 1000);
+      if (status !== "live" || speed === null) return;
+      // OBD で続けて数えている間を覚える(止まっている間も続いているとみなす)。数秒あいたら、新しく数え始めた。
+      const wall = Date.now();
+      const run = obdRunRef.current;
+      obdRunRef.current = { start: wall - run.last > OBD_RUN_BREAK_MS ? wall : run.start, last: wall };
+      if (speed <= 0) return;
+      const km = speed * (elapsedMs / 3_600_000);
+      obdKmRef.current += km;
+      addTravelRef.current(km, elapsedMs / 1000);
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -934,6 +962,7 @@ export default function Home() {
   useEffect(() => {
     const remember = (point: { lat: number; lng: number; at: number }) => {
       odoAnchorRef.current = point;
+      anchorObdKmRef.current = obdKmRef.current;
       try {
         localStorage.setItem(ODO_ANCHOR_STORAGE_KEY, JSON.stringify(point));
       } catch {
@@ -953,10 +982,14 @@ export default function Home() {
       }
       const meters = distanceMeters(anchor, here);
       if (quiet) {
-        // 途切れていた間に OBD で数えていなければ、まっすぐの距離 × 回り道の分を足す。
+        // 途切れていた間ずっと OBD で数えていた(トンネルで GPS だけ届かなかったなど)のでなければ、
+        // まっすぐの距離 × 回り道の分から、その間に OBD で数えた分(隠す直前など)を引いて足す。
+        const run = obdRunRef.current;
+        const obdCovered = run.start <= anchor.at && now - run.last <= OBD_RUN_BREAK_MS;
         const hours = Math.max(1000, now - anchor.at) / 3_600_000;
-        if (obdCountedAtRef.current <= anchor.at && meters >= ODO_GAP_MIN_M && meters / 1000 / hours <= ODO_GAP_MAX_KMH) {
-          addTravelRef.current((meters * ODO_DETOUR) / 1000, null);
+        const missedKm = (meters * ODO_DETOUR) / 1000 - (obdKmRef.current - anchorObdKmRef.current);
+        if (!obdCovered && missedKm > 0 && meters >= ODO_GAP_MIN_M && meters / 1000 / hours <= ODO_GAP_MAX_KMH) {
+          addTravelRef.current(missedKm, null);
         }
         remember(here);
         return;
