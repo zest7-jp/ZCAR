@@ -122,8 +122,9 @@ const FUEL_TANK_CAPACITY_L = 36;
 const FUEL_RESERVE_L = 4;
 /*
  * 給油から走った距離(燃料の残りの見積もりに使う)。OBD の速さが届いていればそれで、届いていなければ GPS の
- * 位置の動きで数える。車載機で音楽や CarPlay を前に出している間など、Z CAR の画面が出ていない間は数えられない
- * ので、画面に戻ったとき(電源を入れ直したときも)、前に数えた場所からのまっすぐの距離に回り道の分を掛けて足す。
+ * 位置の動きで数える。車載機で音楽や CarPlay を前に出している間など、Z CAR の画面が出ていない間は OBD では
+ * 数えないので、GPS の位置が届けば GPS で数え、30秒以上届かなかったときは、画面に戻ったとき(電源を入れ直した
+ * ときも)、前に数えた場所からのまっすぐの距離に回り道の分を掛けて足す。
  * さらに給油のたびに、記録した走行距離(車のトリップメーター)と Z CAR が数えた距離を比べて、次から掛ける係数を合わせる。
  */
 /** GPS の位置の誤差がこれ(m)より大きいときは数えない。 */
@@ -146,8 +147,8 @@ const ODO_ANCHOR_STORAGE_KEY = "zcar-odo-anchor";
 const ODO_STARTED_STORAGE_KEY = "zcar-odo-started";
 /** GPS で数えた1回分の、走っていた時間の上限(秒)。信号で止まっていた時間を走っていた時間にしない。 */
 const ODO_STEP_MAX_SEC = 10;
-/** OBD で数えるのがこれ(ミリ秒)より長くあいたら、続けて数えていたとはみなさない。 */
-const OBD_RUN_BREAK_MS = 5_000;
+/** OBD で数えるのがこれ(ミリ秒)より長くあいたら、続けて数えていたとはみなさない(ふだんは1秒ごとに数える)。 */
+const OBD_RUN_BREAK_MS = 3_000;
 /**
  * この数え方を初めて使うとき、いまの給油がこの時間(ミリ秒)より新しく、給油から数えた距離も短ければ、
  * いまの給油の分も数えきれるとみなす(満タンにしてすぐにこの版にしたとき、次の給油から合わせ始められるように)。
@@ -955,7 +956,8 @@ export default function Home() {
   }, []);
 
   /**
-   * GPS が届くたびに、走った距離を数える。OBD の速さで数えている間は場所だけ覚える。
+   * GPS が届くたびに、走った距離を数える。前に覚えた場所からずっと OBD の速さで数えていたなら、場所だけ覚える。
+   * そうでなければ(OBD が届いていない・画面を隠していた)GPS で数え、その間に OBD で数えた分は引く。
    * 位置が30秒以上届いていなかった(画面を切り替えていた・電源を切っていた)ときは、前に数えた場所から
    * いまの場所までのまっすぐの距離に回り道の分を掛けて、燃料の見積もりに足す。
    */
@@ -980,26 +982,32 @@ export default function Home() {
         remember(here);
         return;
       }
+      // 前に覚えた場所からずっと OBD の速さで数えていた(トンネルで GPS だけ届かなかったときも)なら、場所だけ覚える。
+      // 画面が隠れている間は OBD で数えていないので、GPS で数える(音楽アプリを少しだけ前に出したときなど)。
+      const run = obdRunRef.current;
+      const obdCounting =
+        document.visibilityState === "visible" && run.start <= anchor.at && now - run.last <= OBD_RUN_BREAK_MS;
+      if (obdCounting) {
+        remember(here);
+        return;
+      }
       const meters = distanceMeters(anchor, here);
+      // その間に OBD で数えた分(画面を隠す直前・戻った直後など)は引く(二重に数えない)。
+      const obdKm = obdKmRef.current - anchorObdKmRef.current;
       if (quiet) {
-        // 途切れていた間ずっと OBD で数えていた(トンネルで GPS だけ届かなかったなど)のでなければ、
-        // まっすぐの距離 × 回り道の分から、その間に OBD で数えた分(隠す直前など)を引いて足す。
-        const run = obdRunRef.current;
-        const obdCovered = run.start <= anchor.at && now - run.last <= OBD_RUN_BREAK_MS;
+        // まっすぐの距離 × 回り道の分を、燃料の見積もりにだけ足す。
         const hours = Math.max(1000, now - anchor.at) / 3_600_000;
-        const missedKm = (meters * ODO_DETOUR) / 1000 - (obdKmRef.current - anchorObdKmRef.current);
-        if (!obdCovered && missedKm > 0 && meters >= ODO_GAP_MIN_M && meters / 1000 / hours <= ODO_GAP_MAX_KMH) {
+        const missedKm = (meters * ODO_DETOUR) / 1000 - obdKm;
+        if (missedKm > 0 && meters >= ODO_GAP_MIN_M && meters / 1000 / hours <= ODO_GAP_MAX_KMH) {
           addTravelRef.current(missedKm, null);
         }
         remember(here);
         return;
       }
-      if (fuelMotionRef.current.status === "live") {
-        remember(here);
-        return;
-      }
+      // 止まっている間の位置の揺れは数えない。
       if (meters < Math.max(ODO_MIN_STEP_M, coords.accuracy)) return;
-      addTravelRef.current(meters / 1000, Math.min(ODO_STEP_MAX_SEC, (now - anchor.at) / 1000));
+      const stepKm = meters / 1000 - obdKm;
+      if (stepKm > 0) addTravelRef.current(stepKm, Math.min(ODO_STEP_MAX_SEC, (now - anchor.at) / 1000));
       remember(here);
     };
   }, []);
