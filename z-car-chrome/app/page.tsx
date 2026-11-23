@@ -190,6 +190,8 @@ const fuelCalibrationFactor = (samples: number[]) => {
 const RETRO_ZOOM_MIN = 11;
 const RETRO_ZOOM_MAX = 17;
 const RETRO_ZOOM_KEY = "zcar-retro-map-zoom";
+/** 80年代・サイバーの地図を、進行方向が上にしているか(車載機に覚える。無ければ北が上)。 */
+const MAP_HEADING_UP_KEY = "zcar-retro-map-heading-up";
 /** 同じオービスを、続けて何度も声で知らせない(信号待ちのあとなど)。 */
 const ORBIS_RESPEAK_MS = 5 * 60 * 1000;
 /** オービスに近づいたときに拡大する、一番大きな縮尺(目盛りが 100m になるくらい)。 */
@@ -211,6 +213,14 @@ const readRetroZoom = () => {
     return Number.isInteger(saved) && saved >= RETRO_ZOOM_MIN && saved <= RETRO_ZOOM_MAX ? saved : RETRO_MAP_LOOK.zoom;
   } catch {
     return RETRO_MAP_LOOK.zoom;
+  }
+};
+const readMapHeadingUp = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(MAP_HEADING_UP_KEY) === "1";
+  } catch {
+    return false;
   }
 };
 const GREEN_METER_MAP_ZOOM = 12;
@@ -566,6 +576,7 @@ export default function Home() {
   } | null>(null);
   // 80年代の地図の縮尺(＋・− で変える。車だけに覚える)。
   const [retroZoom, setRetroZoom] = useState(readRetroZoom);
+  const [mapHeadingUp, setMapHeadingUp] = useState(readMapHeadingUp);
   // 地図を作り直すとき(テーマを変えたときなど)に、今の縮尺で始めるため。
   const retroZoomRef = useRef(retroZoom);
   // 近未来の地図の縮尺(ふだんは GREEN_METER_MAP_ZOOM。オービスに近づくと寄せる)。地図を作るときに使う。
@@ -1436,7 +1447,8 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [mapHost, location, mapsApiKey]);
+    // 地図の向きを変えると地図の置き場所の大きさが変わるので、そのときも今の場所に合わせ直す。
+  }, [mapHost, location, mapsApiKey, mapHeadingUp]);
 
   // オービスに近づいている間は、近づくほど拡大する(通り過ぎたら、選んだ縮尺に戻る)。
   const retroMapZoom = orbisAlert ? Math.max(retroZoom, orbisAlert.zoom) : retroZoom;
@@ -1456,6 +1468,16 @@ export default function Home() {
     futureZoomRef.current = futureMapZoom;
     if (mapHost === "navi" || mapHost === "orbit") greenGmapRef.current?.setZoom(futureMapZoom);
   }, [mapHost, futureMapZoom]);
+  // 80年代・サイバーの地図の向き(北が上 ⇔ 進行方向が上)を切り替えて、車載機に覚える。
+  const toggleMapHeadingUp = () => {
+    const next = !mapHeadingUp;
+    setMapHeadingUp(next);
+    try {
+      localStorage.setItem(MAP_HEADING_UP_KEY, next ? "1" : "0");
+    } catch {
+      // 覚えられなくても、今の画面では変わる。
+    }
+  };
   const changeRetroZoom = (step: number) => {
     const next = Math.min(RETRO_ZOOM_MAX, Math.max(RETRO_ZOOM_MIN, retroZoom + step));
     setRetroZoom(next);
@@ -2380,6 +2402,7 @@ export default function Home() {
                 onIn: retroZoom < RETRO_ZOOM_MAX ? () => changeRetroZoom(1) : null,
                 onOut: retroZoom > RETRO_ZOOM_MIN ? () => changeRetroZoom(-1) : null,
               }}
+              orient={{ headingUp: mapHeadingUp, onToggle: toggleMapHeadingUp }}
               onFuel={toggleFuelView}
               onDest={openDestDialog}
               onStart={startNavigation}
