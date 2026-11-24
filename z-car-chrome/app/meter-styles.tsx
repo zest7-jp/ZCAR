@@ -77,6 +77,8 @@ type MapProps = {
   orbis: OrbisView | null;
   /** 前方の・いま中を走っている速度取締区間(無ければ null)。 */
   zone: ZoneView | null;
+  /** 地図の向き: 進行方向が上か(false なら北が上)と、切り替えるキー。 */
+  orient: { headingUp: boolean; onToggle: () => void };
 };
 
 /** 地図に出すオービス。 */
@@ -150,7 +152,15 @@ const px2 = (value: number) => Math.round(value * 10) / 10;
  * 地図の上の区間の線の場所(点数)。地図は北が上で、車が窓(w × h)の真ん中。東・北の距離を縮尺で割る。
  * 線は窓の少し外までに切る。入口・出口には、線に直角の短い線を引く。round は丸い地図(近未来)。
  */
-export const zoneOnMap = (zone: ZoneView, metersPerPx: number, w: number, h: number, round = false) => {
+export const zoneOnMap = (
+  zone: ZoneView,
+  metersPerPx: number,
+  w: number,
+  h: number,
+  round = false,
+  /** 端の短い線を引くかを決める(回した地図では、窓に見えているかで決める)。無ければ w・h の内側。 */
+  isShown: ((x: number, y: number) => boolean) | null = null,
+) => {
   const cx = w / 2;
   const cy = h / 2;
   const ax = cx + zone.entry.east / metersPerPx;
@@ -167,7 +177,7 @@ export const zoneOnMap = (zone: ZoneView, metersPerPx: number, w: number, h: num
   const inView = (x: number, y: number) =>
     round ? Math.hypot(x - cx, y - cy) < Math.min(cx, cy) - 8 : x > 6 && x < w - 6 && y > 6 && y < h - 6;
   const end = (x: number, y: number) => ({
-    shown: inView(x, y),
+    shown: isShown ? isShown(x, y) : inView(x, y),
     tick: { x1: px2(x - crossX * 13), y1: px2(y - crossY * 13), x2: px2(x + crossX * 13), y2: px2(y + crossY * 13) },
   });
   return {
@@ -185,12 +195,15 @@ export const ZoneIcon = () => (
   </svg>
 );
 
-/** 区間の線(地図の絵の一部として、走査線の下に引く): 太い紫の点線と、入口・出口の短い線。 */
-function ZoneLine({ zone, metersPerPx }: { zone: ZoneView; metersPerPx: number }) {
-  const at = zoneOnMap(zone, metersPerPx, RETRO_CRT.w, RETRO_CRT.h);
+/**
+ * 区間の線(地図の絵の一部として、走査線の下に引く): 太い紫の点線と、入口・出口の短い線。
+ * 地図と一緒に回す板の中に引く(box は板の大きさ、turn は板の回り)。
+ */
+function ZoneLine({ zone, metersPerPx, box, turn }: { zone: ZoneView; metersPerPx: number; box: RotorBox; turn: number }) {
+  const at = zoneOnMap(zone, metersPerPx, box.w, box.h, false, (x, y) => shownInWindow(x, y, box, turn, 6));
   if (!at.line) return null;
   return (
-    <svg className="ms-zone-line" viewBox={`0 0 ${RETRO_CRT.w} ${RETRO_CRT.h}`} aria-hidden="true">
+    <svg className="ms-zone-line" viewBox={`0 0 ${box.w} ${box.h}`} aria-hidden="true">
       <line className="ms-zone-glow" {...at.line} />
       <line className="ms-zone-road" {...at.line} />
       {at.entry.shown ? <line className="ms-zone-tick" {...at.entry.tick} /> : null}
@@ -247,25 +260,26 @@ export const orbisDistance = (meters: number) =>
     : { value: String(Math.round(meters / 10) * 10), unit: "m" };
 
 /**
- * 地図の上のオービス: 車(真ん中)からの点線と赤いカメラの印、上の帯(距離・制限と今の速さ)。
- * 地図はいつも北が上で車が真ん中なので、東・北の距離を縮尺で割れば印の場所になる。
+ * 地図の上のオービス(地図と一緒に回す板の中): 車(真ん中)からの点線と赤いカメラの印。
+ * 車は板の真ん中なので、東・北の距離を縮尺で割れば印の場所になる。板を回しても、印は立てておく。
  */
-function OrbisOnMap({ orbis, metersPerPx }: { orbis: OrbisView; metersPerPx: number }) {
-  const centerX = RETRO_CRT.w / 2;
-  const centerY = RETRO_CRT.h / 2;
+function OrbisOnMap({ orbis, metersPerPx, box, turn }: { orbis: OrbisView; metersPerPx: number; box: RotorBox; turn: number }) {
+  const centerX = box.w / 2;
+  const centerY = box.h / 2;
   const x = centerX + orbis.east / metersPerPx;
   const y = centerY - orbis.north / metersPerPx;
-  const inView = x > 16 && x < RETRO_CRT.w - 16 && y > 16 && y < RETRO_CRT.h - 16;
-  const over = orbis.limit !== null && orbis.speed !== null && orbis.speed > orbis.limit;
-  const tone = orbis.level === "show" ? "is-show" : over ? "is-over" : "is-warn";
-  const distance = orbisDistance(orbis.distance);
+  const inView = shownInWindow(x, y, box, turn, 16);
   return (
     <>
-      <svg className="ms-orbis-line" viewBox={`0 0 ${RETRO_CRT.w} ${RETRO_CRT.h}`} aria-hidden="true">
+      <svg className="ms-orbis-line" viewBox={`0 0 ${box.w} ${box.h}`} aria-hidden="true">
         <line x1={centerX} y1={centerY} x2={x} y2={y} />
       </svg>
       {inView ? (
-        <span className="ms-orbis-mark" style={{ left: x, top: y }} aria-hidden="true">
+        <span
+          className="ms-orbis-mark"
+          style={{ left: x, top: y, transform: `translate(-50%, -50%) rotate(${-turn}deg)` }}
+          aria-hidden="true"
+        >
           <i>
             <svg viewBox="0 0 24 24">
               <rect x="3" y="7" width="13" height="10" rx="1.5" />
@@ -276,44 +290,53 @@ function OrbisOnMap({ orbis, metersPerPx }: { orbis: OrbisView; metersPerPx: num
           <b>ORBIS</b>
         </span>
       ) : null}
-      <div className={`ms-orbis-band ${tone}`} role="status">
-        <b className="ms-orbis-name">ORBIS</b>
-        <b className="ms-orbis-distance">
-          {distance.value}
-          <small> {distance.unit}</small>
-        </b>
-        {/* 連続区間: 全部で何か所かと、1 2 3 の札(通ったものは薄く、いまのものを光らせる)。 */}
-        {orbis.series ? (
-          <span className="ms-orbis-series" aria-label={`オービス連続区間 全${orbis.series.total}か所の${orbis.series.index}か所目`}>
-            <i>連続区間 全{orbis.series.total}か所</i>
-            <span>
-              {Array.from({ length: orbis.series.total }, (_, i) => (
-                <b
-                  key={i}
-                  className={
-                    i + 1 === orbis.series?.index ? "is-now" : i + 1 < (orbis.series?.index ?? 0) ? "is-passed" : undefined
-                  }
-                >
-                  {i + 1}
-                </b>
-              ))}
-            </span>
-          </span>
-        ) : null}
-        {orbis.muted ? <small className="ms-orbis-muted">画面に触れると声が出ます</small> : null}
-        <span className="ms-orbis-speed">
-          {orbis.limit !== null ? (
-            <i className="ms-orbis-limit" aria-label={`制限速度 ${orbis.limit}`}>
-              {orbis.limit}
-            </i>
-          ) : null}
-          {orbis.speed !== null ? (
-            <b aria-label={`いまの速さ ${orbis.speed}`}>{orbis.speed}</b>
-          ) : null}
-        </span>
-        {orbis.osm ? <small className="ms-orbis-credit">© OpenStreetMap</small> : null}
-      </div>
     </>
+  );
+}
+
+/** オービスの上の帯(地図の上。回さない): 距離・連続区間・制限と今の速さ。 */
+function OrbisBand({ orbis }: { orbis: OrbisView }) {
+  const over = orbis.limit !== null && orbis.speed !== null && orbis.speed > orbis.limit;
+  const tone = orbis.level === "show" ? "is-show" : over ? "is-over" : "is-warn";
+  const distance = orbisDistance(orbis.distance);
+  return (
+    <div className={`ms-orbis-band ${tone}`} role="status">
+      <b className="ms-orbis-name">ORBIS</b>
+      <b className="ms-orbis-distance">
+        {distance.value}
+        <small> {distance.unit}</small>
+      </b>
+      {/* 連続区間: 全部で何か所かと、1 2 3 の札(通ったものは薄く、いまのものを光らせる)。 */}
+      {orbis.series ? (
+        <span className="ms-orbis-series" aria-label={`オービス連続区間 全${orbis.series.total}か所の${orbis.series.index}か所目`}>
+          <i>連続区間 全{orbis.series.total}か所</i>
+          <span>
+            {Array.from({ length: orbis.series.total }, (_, i) => (
+              <b
+                key={i}
+                className={
+                  i + 1 === orbis.series?.index ? "is-now" : i + 1 < (orbis.series?.index ?? 0) ? "is-passed" : undefined
+                }
+              >
+                {i + 1}
+              </b>
+            ))}
+          </span>
+        </span>
+      ) : null}
+      {orbis.muted ? <small className="ms-orbis-muted">画面に触れると声が出ます</small> : null}
+      <span className="ms-orbis-speed">
+        {orbis.limit !== null ? (
+          <i className="ms-orbis-limit" aria-label={`制限速度 ${orbis.limit}`}>
+            {orbis.limit}
+          </i>
+        ) : null}
+        {orbis.speed !== null ? (
+          <b aria-label={`いまの速さ ${orbis.speed}`}>{orbis.speed}</b>
+        ) : null}
+      </span>
+      {orbis.osm ? <small className="ms-orbis-credit">© OpenStreetMap</small> : null}
+    </div>
   );
 }
 
@@ -652,6 +675,33 @@ const BAR_SEGMENTS = 18;
  * 置く箱。DEST・START はその箱の中。
  */
 const RETRO_CRT = { x: 284, y: 220, w: 469, h: 322 };
+/** 地図とその上の線を載せて回す板の大きさ。 */
+type RotorBox = { w: number; h: number };
+/** 進行方向が上のときの板: 回しても窓の角が空かないよう、窓の対角線より少し大きい正方形。 */
+const RETRO_ROTOR = Math.ceil(Math.hypot(RETRO_CRT.w, RETRO_CRT.h)) + 12;
+/**
+ * 板の上の点(板の中の位置)が、板を turn 度回したとき、窓の縁から margin より内側に見えるか。
+ * 板の真ん中は窓の真ん中。CSS の rotate は画面で時計回り。
+ */
+const shownInWindow = (x: number, y: number, box: RotorBox, turn: number, margin: number) => {
+  const r = (turn * Math.PI) / 180;
+  const dx = x - box.w / 2;
+  const dy = y - box.h / 2;
+  const sx = dx * Math.cos(r) - dy * Math.sin(r);
+  const sy = dx * Math.sin(r) + dy * Math.cos(r);
+  return Math.abs(sx) < RETRO_CRT.w / 2 - margin && Math.abs(sy) < RETRO_CRT.h / 2 - margin;
+};
+/**
+ * 地図の板・自分の車の矢印・北の印の ▲ の回り(度)。heading は切れ目なく続く向き(359° の次は 360°)。
+ * 進行方向が上: 板と ▲ を -heading 回し、矢印は上向き。北が上: 板と ▲ は回さず、矢印を heading 回す。
+ * 回さない方も 360° の倍数(見た目は同じ)にしておき、切り替えたときに近い方へ回るようにする。
+ */
+const mapTurns = (heading: number | null, headingUp: boolean) => {
+  const h = heading ?? 0;
+  const whole = 360 * Math.round(h / 360);
+  // 進行方向が上のときは 15° ごとに回す(GPS の向きの細かい揺れで、地図が揺れないように)。
+  return headingUp ? { map: -Math.round(h / 15) * 15, car: whole } : { map: -whole, car: Math.round(h) };
+};
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
 const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
 /** DEST・START は箱の中に同じ大きさで縦に並べる(ナビ中は、Google マップの小さな画面がこの上に重なる)。 */
@@ -992,8 +1042,11 @@ const litSegments = (value: number, y: number, color: (index: number) => string)
   ));
 
 /**
- * 地図の窓(80年代とサイバーで同じ): Google マップの置き場所・待ちの字・走査線・自分の車・北の印・オービス・縮尺と ＋・−。
- * badge は窓の左上に出す飾り(オービスの帯が出ると、その下に隠れる)。
+ * 地図の窓(80年代とサイバーで同じ): Google マップの置き場所・待ちの字・走査線・自分の車・北の印・オービス・
+ * 縮尺と、右下のキー(地図の向き・＋・−)。badge は窓の左上に出す飾り(オービスの帯が出ると、その下に隠れる)。
+ * 地図は北が上か、進行方向が上(右下の向きのキーで切り替える)。進行方向が上のときは、地図と区間の線・
+ * オービスの点線と印を板に載せて一緒に回す(回している途中もずれない)。走査線より下に引く地図と区間の線、
+ * 上に引くオービスとで、板を2枚に分ける。
  */
 function CrtMap({
   data,
@@ -1002,41 +1055,103 @@ function CrtMap({
   zoom,
   orbis,
   zone,
+  orient,
   badge = null,
 }: MapProps & { data: ClusterData; badge?: ReactNode }) {
   const scale = mapScale(zoom.metersPerPx);
+  const headingUp = orient.headingUp;
+  // 押したあと数秒だけ、キーの横に今の向きを出す(押すたびに出し直す)。
+  const [orientNotes, setOrientNotes] = useState(0);
+  const turns = mapTurns(data.heading, headingUp);
+  const box: RotorBox = headingUp ? { w: RETRO_ROTOR, h: RETRO_ROTOR } : { w: RETRO_CRT.w, h: RETRO_CRT.h };
+  const rotorStyle = {
+    left: (RETRO_CRT.w - box.w) / 2,
+    top: (RETRO_CRT.h - box.h) / 2,
+    width: box.w,
+    height: box.h,
+    transform: `rotate(${turns.map}deg)`,
+  };
+  // 進行方向が上のときだけ、板をゆっくり回す(北が上のときは回さない)。矢印はその逆。
+  const rotorClass = `ms-retro-rotor${headingUp ? " is-turning" : ""}`;
   return (
     <div className="ms-retro-crt" style={{ left: RETRO_CRT.x, top: RETRO_CRT.y, width: RETRO_CRT.w, height: RETRO_CRT.h }}>
-      <div ref={mapRef} className="ms-map-canvas" />
-      {zone ? <ZoneLine zone={zone} metersPerPx={zoom.metersPerPx} /> : null}
+      <div className={rotorClass} style={rotorStyle}>
+        <div ref={mapRef} className="ms-map-canvas" />
+        {zone ? <ZoneLine zone={zone} metersPerPx={zoom.metersPerPx} box={box} turn={turns.map} /> : null}
+      </div>
       {!mapReady ? <span className="ms-retro-crt-wait">MAP LOADING</span> : null}
       <i className="ms-retro-scan" aria-hidden="true" />
+      {orbis ? (
+        <div className={`${rotorClass} is-over`} style={rotorStyle}>
+          <OrbisOnMap orbis={orbis} metersPerPx={zoom.metersPerPx} box={box} turn={turns.map} />
+        </div>
+      ) : null}
+      {/* 自分の車: 琥珀色の矢印と、進む向きを照らす光(緑の地図に埋もれないように)。 */}
       <svg
-        className="ms-retro-cursor"
-        viewBox="-12 -12 24 24"
+        className={`ms-retro-cursor${headingUp ? "" : " is-turning"}`}
+        viewBox="-66 -66 132 132"
         aria-hidden="true"
-        style={{ transform: `translate(-50%, -50%) rotate(${Math.round(data.heading ?? 0)}deg)` }}
+        style={{ transform: `translate(-50%, -50%) rotate(${turns.car}deg)` }}
       >
-        <polygon points="0,-10 -8,10 0,5 8,10" />
+        <defs>
+          <radialGradient id="ms-retro-beam-glow" cx="0" cy="0" r="64" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="currentColor" stopOpacity=".6" />
+            <stop offset=".35" stopColor="currentColor" stopOpacity=".35" />
+            <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <path className="ms-retro-beam" d="M0 -6L-20 -62A64 64 0 0 1 20 -62Z" fill="url(#ms-retro-beam-glow)" />
+        <polygon className="ms-retro-arrow" points="0,-12 -9.5,11 0,5.5 9.5,11" />
       </svg>
-      {/* 北の印(地図はいつも北が上)。 */}
-      <svg className="ms-retro-north" viewBox="-14 -20 28 34" aria-hidden="true">
-        <polygon points="0,-19 -5,-11 5,-11" />
-        <circle cx="0" cy="2" r="10.5" />
-        <text x="0" y="6.5" textAnchor="middle">
+      {/* 北の印(丸の中の N と、北を指す ▲)。進行方向が上のときは、▲ が丸のまわりを回って北を指す。 */}
+      <svg className="ms-retro-north" viewBox="-18 -18 36 36" aria-hidden="true">
+        <g className={headingUp ? "is-turning" : undefined} style={{ transform: `rotate(${turns.map}deg)` }}>
+          <polygon points="0,-17.5 -5,-12 5,-12" />
+        </g>
+        <circle r="10.5" />
+        <text x="0" y="4.5" textAnchor="middle">
           N
         </text>
       </svg>
       {/* 左上の飾りは、速度取締区間の帯が出ている間は出さない(帯の角から見えないように)。 */}
       {zone ? null : badge}
       {zone ? <ZoneBand zone={zone} orbis={orbis} /> : null}
-      {orbis ? <OrbisOnMap orbis={orbis} metersPerPx={zoom.metersPerPx} /> : null}
-      {/* 縮尺: 左下に目盛り、右下に近くする(＋)・広くする(−)キー。 */}
+      {orbis ? <OrbisBand orbis={orbis} /> : null}
+      {/* 縮尺: 左下に目盛り。 */}
       <span className="ms-retro-scale" aria-hidden="true">
         {scale.label}
         <i style={{ width: scale.width }} />
       </span>
+      {/* 地図を回している間は、Google の出典が窓の外に回ってしまうので、下に書いておく。 */}
+      {headingUp ? <small className="ms-retro-credit">地図データ ©Google</small> : null}
+      {/* 右下のキー: 地図の向き(北が上 ⇔ 進行方向が上)・近くする(＋)・広くする(−)。 */}
       <span className="ms-retro-zoom">
+        <button
+          type="button"
+          className="ms-retro-orient"
+          aria-label={headingUp ? "地図を北が上にする" : "地図を進行方向が上にする"}
+          aria-pressed={headingUp}
+          onClick={() => {
+            orient.onToggle();
+            setOrientNotes((count) => count + 1);
+          }}
+        >
+          {headingUp ? (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <polygon className="is-arrow" points="12,2.5 4.5,21 12,16.2 19.5,21" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path className="is-tip" d="M12 1.2 8.4 5.8h7.2z" />
+              <path d="M7.6 21.5V9.4l8.8 12.1V9.4" />
+            </svg>
+          )}
+        </button>
+        {orientNotes > 0 ? (
+          <small key={orientNotes} className="ms-retro-orient-note" role="status">
+            {headingUp ? "進行方向が上" : "北が上"}
+          </small>
+        ) : null}
         <button type="button" aria-label="地図を近くする" disabled={!zoom.onIn} onClick={zoom.onIn ?? undefined}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h14M12 5v14" />
@@ -1072,7 +1187,7 @@ function ClusterHits({ data, onFuel, onDest, onStart }: ClusterProps) {
   );
 }
 
-export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, zone, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, zone, orient, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -1085,7 +1200,7 @@ export function RetroCluster({ data, mapRef, mapReady, zoom, orbis, zone, onFuel
   return (
     <Board className="ms-retro">
       <RetroFace />
-      <CrtMap data={data} mapRef={mapRef} mapReady={mapReady} zoom={zoom} orbis={orbis} zone={zone} />
+      <CrtMap data={data} mapRef={mapRef} mapReady={mapReady} zoom={zoom} orbis={orbis} zone={zone} orient={orient} />
       <svg className="ms-layer" viewBox={`0 0 ${BOARD_W} ${BOARD_H}`} aria-hidden="true">
         <SevenSeg text={data.clock} x={22} y={34} h={52} color={RETRO.amber} />
         <SevenSeg text={`${pad2(data.month)}-${pad2(data.day)}`} x={22} y={118} h={22} color={RETRO.amber} />
@@ -1550,7 +1665,7 @@ const CyberFace = memo(function CyberFace() {
   );
 });
 
-export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, zone, onFuel, onDest, onStart }: ClusterProps & MapProps) {
+export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, zone, orient, onFuel, onDest, onStart }: ClusterProps & MapProps) {
   const rpm = data.rpm === null ? null : Math.max(0, data.rpm);
   const weatherSlots = data.weather
     ? [
@@ -1572,6 +1687,7 @@ export function CyberCluster({ data, mapRef, mapReady, zoom, orbis, zone, onFuel
         zoom={zoom}
         orbis={orbis}
         zone={zone}
+        orient={orient}
         badge={
           <svg className="ms-cy-loc" viewBox="0 0 112 22" aria-hidden="true">
             <path d="M1 1H111L104 21H1Z" fill="#000a05" fillOpacity=".88" stroke={CYBER.on} strokeWidth="1.5" />

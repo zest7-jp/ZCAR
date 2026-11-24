@@ -10122,30 +10122,44 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
     repeating-linear-gradient(0deg, rgba(0, 0, 0, .42) 0 1.2px, transparent 1.2px 3px);
   pointer-events: none;
 }
-/* 自分の車(進む向きに回る三角)。 */
+/*
+ * 地図とその上の線(区間の線・オービスの点線と印)を載せて回す板。北が上のときは窓と同じ大きさで回さない。
+ * 進行方向が上のときは窓の対角線より大きい正方形で、進む向きに合わせてゆっくり回す。
+ * オービスの板(is-over)は走査線より上に重ねる。
+ */
+.ms-retro-rotor { position: absolute; transform-origin: 50% 50%; }
+.ms-retro-rotor.is-turning { transition: transform .9s ease-out; }
+.ms-retro-rotor.is-over { z-index: 3; pointer-events: none; }
+.ms-retro-rotor.is-turning .ms-orbis-mark { transition: transform .9s ease-out; }
+/* 自分の車: 琥珀色の矢印と、進む向きを照らす光(緑の地図に埋もれないように)。北が上のときは進む向きに回る。 */
 .ms-retro-cursor {
   position: absolute;
   left: 50%;
   top: 50%;
   z-index: 2;
-  width: 22px;
-  height: 22px;
-  fill: #52ffd6;
-  filter: drop-shadow(0 0 4px rgba(82, 255, 214, .9));
-  transition: transform .9s ease-out;
+  width: 148px;
+  height: 148px;
+  color: #ffb02e;
+  fill: #ffb02e;
+  filter: drop-shadow(0 0 5px rgba(255, 176, 46, .85));
+  pointer-events: none;
 }
-/* 地図の上の真ん中の、北の印(▲ と丸の中の N)。 */
+.ms-retro-cursor.is-turning { transition: transform .9s ease-out; }
+.ms-retro-arrow { stroke: #261000; stroke-width: 2.4; stroke-linejoin: round; }
+/* 地図の上の真ん中の、北の印(丸の中の N と ▲)。進行方向が上のときは、▲ が丸のまわりを回って北を指す。 */
 .ms-retro-north {
   position: absolute;
   left: 50%;
-  top: 8px;
+  top: 12px;
   z-index: 2;
-  width: 28px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   transform: translateX(-50%);
   fill: #7dff4f;
   filter: drop-shadow(0 0 4px rgba(125, 255, 79, .8));
+  overflow: visible;
 }
+.ms-retro-north g.is-turning { transition: transform .9s ease-out; }
 .ms-retro-north circle { fill: rgba(2, 18, 8, .7); stroke: #7dff4f; stroke-width: 1.6; }
 .ms-retro-north text { font: 700 12px/1 "DejaVu Sans Mono", "Droid Sans Mono", "Roboto Mono", monospace; }
 .ms-retro-crt-wait {
@@ -10216,6 +10230,42 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
   cursor: default;
 }
 .ms-retro-zoom button:disabled svg { stroke: rgba(82, 255, 214, .28); filter: none; }
+/* 地図の向きのキー: 北が上のときは N、進行方向が上のときは琥珀色の矢印。 */
+.ms-retro-orient svg { stroke-width: 2.8; stroke-linejoin: round; }
+.ms-retro-orient .is-tip { fill: #b9fff0; stroke: none; }
+.ms-retro-orient .is-arrow { fill: #ffb02e; stroke: #261000; stroke-width: 1.4; }
+/* 押したあと数秒だけ、キーの左に今の向き(北が上・進行方向が上)を出す。 */
+.ms-retro-orient-note {
+  position: absolute;
+  top: 23px;
+  right: 56px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(2, 8, 6, .88);
+  color: #5dff8a;
+  font: 700 13px/1 "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", sans-serif;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(93, 255, 138, .8);
+  transform: translateY(-50%);
+  pointer-events: none;
+  animation: ms-orient-note 3s ease-in forwards;
+}
+@keyframes ms-orient-note {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+/* 進行方向が上のときの Google の出典(地図ごと回るので、窓の下に書いておく)。 */
+.ms-retro-credit {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  z-index: 3;
+  transform: translateX(-50%);
+  color: rgba(93, 255, 138, .7);
+  font: 400 10px/1 "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+}
 /* オービス: 車からの点線と赤いカメラの印(地図の上)、上の帯(距離・制限と今の速さ)。 */
 .ms-orbis-line {
   position: absolute;
@@ -10490,7 +10540,10 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
   clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
 }
 .ms-cyber .ms-retro-scan { background: radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, .5) 100%); }
-.ms-cyber .ms-retro-cursor { fill: #d4ffe8; filter: none; }
+/* 自分の車は、いままでと同じ大きさの白っぽい矢印(緑一色のテーマなので、琥珀色と光は使わない)。 */
+.ms-cyber .ms-retro-cursor { width: 121px; height: 121px; fill: #d4ffe8; filter: none; }
+.ms-cyber .ms-retro-beam { display: none; }
+.ms-cyber .ms-retro-arrow { stroke: none; }
 .ms-cyber .ms-retro-north { fill: #19f59b; filter: none; }
 .ms-cyber .ms-retro-north circle { fill: rgba(0, 10, 5, .85); stroke: #19f59b; stroke-width: 2; }
 .ms-cyber .ms-retro-north text { font: 400 9px/1 "Michroma", "Rajdhani", sans-serif; }
@@ -10508,6 +10561,15 @@ main.zr[data-style="cyber"] :is(.zr-toast, .zr-paired) { border: 2px solid #19f5
 .ms-cyber .ms-retro-zoom button:active { background: rgba(25, 245, 155, .24); }
 .ms-cyber .ms-retro-zoom button:disabled { border-color: rgba(25, 245, 155, .25); }
 .ms-cyber .ms-retro-zoom button:disabled svg { stroke: rgba(25, 245, 155, .3); }
+.ms-cyber .ms-retro-orient .is-tip { fill: #19f59b; }
+.ms-cyber .ms-retro-orient .is-arrow { fill: #19f59b; stroke: none; }
+.ms-cyber .ms-retro-orient-note {
+  border-radius: 0;
+  color: #19f59b;
+  font: 700 14px/1 "Rajdhani", "Noto Sans JP", sans-serif;
+  text-shadow: none;
+}
+.ms-cyber .ms-retro-credit { color: rgba(25, 245, 155, .7); }
 /* 地図の左上の「LOCATION」の札(オービスの帯が出ると、その下に隠れる)。 */
 .ms-cy-loc { position: absolute; left: 10px; top: 10px; z-index: 3; width: 112px; height: 22px; pointer-events: none; }
 /* 上の状態のバー: 下に太い緑の線。説明は Rajdhani。 */
