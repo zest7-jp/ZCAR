@@ -192,6 +192,19 @@ const RETRO_ZOOM_MAX = 17;
 const RETRO_ZOOM_KEY = "zcar-retro-map-zoom";
 /** 80年代・サイバーの地図を、進行方向が上にしているか(車載機に覚える。無ければ北が上)。 */
 const MAP_HEADING_UP_KEY = "zcar-retro-map-heading-up";
+/*
+ * 80年代・サイバーの地図を回す向き(と自分の車の矢印の向き)。GPS の向きは細かく揺れるので、
+ * 遅いとき(止まっているとき)の向きは使わず、ならしてから、大きくずれたときだけ変える(地図が小刻みに回らないように)。
+ */
+/** これ(km/h)より遅いときの GPS の向きは使わない(止まっているときの向きは当てにならない)。 */
+const MAP_HEADING_MIN_KMH = 10;
+/** GPS の向きが届くたびに、ならした向きを、差のこの割合だけ近づける。 */
+const MAP_HEADING_SMOOTH = 0.4;
+/** ならした向きが、いま出している向きからこれ(度)以上ずれたら変える。 */
+const MAP_HEADING_TURN_DEG = 10;
+/** 小さなずれ(度)でも、前に変えてからこの時間(ミリ秒)たっていれば合わせる(曲がり終わりに傾いたままにしない)。 */
+const MAP_HEADING_SETTLE_DEG = 4;
+const MAP_HEADING_SETTLE_MS = 5_000;
 /** 同じオービスを、続けて何度も声で知らせない(信号待ちのあとなど)。 */
 const ORBIS_RESPEAK_MS = 5 * 60 * 1000;
 /** オービスに近づいたときに拡大する、一番大きな縮尺(目盛りが 100m になるくらい)。 */
@@ -577,6 +590,12 @@ export default function Home() {
   // 80年代の地図の縮尺(＋・− で変える。車だけに覚える)。
   const [retroZoom, setRetroZoom] = useState(readRetroZoom);
   const [mapHeadingUp, setMapHeadingUp] = useState(readMapHeadingUp);
+  // 80年代・サイバーの地図を回す向き(切れ目なく続く度。359° の次は 360°)。GPS の向きをならして、
+  // 大きくずれたときだけ変える。まだ走っていなければ null(北を上、矢印も北向き)。
+  const [mapHeading, setMapHeading] = useState<number | null>(null);
+  const mapCourseRef = useRef<number | null>(null);
+  const mapHeadingShownRef = useRef<{ heading: number; at: number } | null>(null);
+  const steerMapRef = useRef<(coords: GeolocationCoordinates) => void>(() => undefined);
   // 地図を作り直すとき(テーマを変えたときなど)に、今の縮尺で始めるため。
   const retroZoomRef = useRef(retroZoom);
   // 近未来の地図の縮尺(ふだんは GREEN_METER_MAP_ZOOM。オービスに近づくと寄せる)。地図を作るときに使う。
@@ -1159,6 +1178,34 @@ export default function Home() {
   // 行かなくても、12時間たてば消す。
   useTripExpiry(settings.trip, setSettings);
 
+  // GPS の向きが届いたら、地図を回す向きを決める(遅いときは使わない・ならす・大きくずれたときだけ変える)。
+  useEffect(() => {
+    steerMapRef.current = (coords) => {
+      const course = coords.heading;
+      if (course === null || !Number.isFinite(course)) return;
+      // 速さは OBD が届いていれば OBD、なければ GPS。どちらも分からなければ使う。
+      const obd = fuelMotionRef.current;
+      const gpsKmh = coords.speed !== null && Number.isFinite(coords.speed) ? coords.speed * 3.6 : null;
+      const kmh = obd.status === "live" && obd.speed !== null ? obd.speed : gpsKmh;
+      if (kmh !== null && kmh < MAP_HEADING_MIN_KMH) return;
+      const smooth = mapCourseRef.current;
+      // 前のならした向きから、近い方へ近づける(359° → 1° は +2°)。
+      const next = smooth === null ? course : smooth + MAP_HEADING_SMOOTH * (((((course - smooth) % 360) + 540) % 360) - 180);
+      mapCourseRef.current = next;
+      const now = Date.now();
+      const shown = mapHeadingShownRef.current;
+      const off = shown === null ? 0 : Math.abs(next - shown.heading);
+      if (
+        shown === null ||
+        off >= MAP_HEADING_TURN_DEG ||
+        (off >= MAP_HEADING_SETTLE_DEG && now - shown.at >= MAP_HEADING_SETTLE_MS)
+      ) {
+        mapHeadingShownRef.current = { heading: next, at: now };
+        setMapHeading(Math.round(next));
+      }
+    };
+  }, []);
+
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
@@ -1193,6 +1240,7 @@ export default function Home() {
           };
         });
         setLocationStatus("ready");
+        steerMapRef.current(position.coords);
         checkOrbisRef.current(position.coords);
         checkTripRef.current(position.coords);
         countDistanceRef.current(position.coords);
@@ -2114,8 +2162,8 @@ export default function Home() {
     avgFuel: estimatedAverageFuelEconomy,
     rangeKm: fuelRangeKm,
     fuelPercent,
-    // 360度に丸めない向き(北をまたいでも、車の印が逆向きに一回りしないように)。
-    heading: location?.heading ?? null,
+    // 地図を回す向き(ならして、大きくずれたときだけ変える)。360度に丸めない(北をまたいでも、逆向きに一回りしない)。
+    heading: mapHeading,
     destLabel: navTarget ? navTarget.label : null,
     destOnce: navTarget?.once === true,
     workDays,
