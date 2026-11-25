@@ -1,6 +1,20 @@
 // 車両位置(停めた場所)のやりとり。車が送り、スマホが読む。
 // サーバー側は public/api/park.php(同期と同じ合言葉で読み書きする)。
 
+/**
+ * 車が送る、燃料の残りの元。スマホはこれと給油の記録(同期している)から、車と同じ計算で
+ * 走行可能距離を出す(app/fuel-estimate.ts)。
+ */
+export type ParkFuel = {
+  /** 最後の給油から走った距離(km。車で合わせた係数を掛けたもの)。 */
+  tripKm: number;
+  /**
+   * どの給油から数えたか(その給油を記録した時刻。給油の記録の createdAt)。
+   * これより新しい給油がスマホにあれば、そのあと車はまだ走っていない(満タンのまま)。
+   */
+  since: number;
+};
+
 /** 車が送る、いまの場所。 */
 export type ParkingReport = {
   lat: number;
@@ -16,10 +30,12 @@ export type ParkingReport = {
   drivingMs?: number | null;
   /** 車の画面が消えるとき(エンジンを切ったなど)の最後の知らせ。 */
   hidden?: boolean;
+  /** 燃料の残りの元(まだ分からなければ送らない。サーバーは前のものを残す)。 */
+  fuel?: ParkFuel;
 };
 
 /** サーバーにある、車の最後の場所。 */
-export type ParkedCar = ParkingReport & {
+export type ParkedCar = Omit<ParkingReport, "fuel"> & {
   /** その場所に来た時刻(サーバーの時計のミリ秒)。 */
   since: number;
   /** 最後に位置が届いた時刻(サーバーの時計のミリ秒)。 */
@@ -33,6 +49,8 @@ export type ParkedCar = ParkingReport & {
   tripSince: number | null;
   /** 最後の知らせが、車の画面が消えるとき(エンジンを切ったなど)のものか。 */
   hidden: boolean;
+  /** 燃料の残りの元と、届いた時刻(サーバーの時計)。まだ届いていない・古い車の版なら null。 */
+  fuel: (ParkFuel & { at: number }) | null;
 };
 
 export const PARK_ENDPOINT = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/park.php`;
@@ -81,7 +99,7 @@ export const pushParking = (key: string, park: ParkingReport) => postPark({ key,
  * 電源が入っていることだけを知らせる(GPS が使えないときなど)。場所は変えない。
  * これが届いている間、スマホは駐車中にしない。
  */
-export const pingParking = (key: string) => postPark({ key, alive: true });
+export const pingParking = (key: string, fuel?: ParkFuel) => postPark(fuel ? { key, alive: true, fuel } : { key, alive: true });
 
 /**
  * 画面が消えるとき(電源を切ったときなど)に、最後の場所を送る。
@@ -139,7 +157,16 @@ const sanitizeParkedCar = (value: unknown): ParkedCar | null => {
     heard: isNumber(park.heard) ? Math.max(park.heard, at) : at,
     tripSince: isNumber(park.tripSince) ? park.tripSince : null,
     hidden: park.hidden === true,
+    fuel: sanitizeFuel(park.fuel),
   };
+};
+
+/** サーバーから戻ってきた燃料の残りの元。おかしければ null。 */
+const sanitizeFuel = (value: unknown): ParkedCar["fuel"] => {
+  if (!value || typeof value !== "object") return null;
+  const { tripKm, since, at } = value as Record<string, unknown>;
+  if (!isNumber(tripKm) || !isNumber(since) || !isNumber(at) || tripKm < 0) return null;
+  return { tripKm, since, at };
 };
 
 /**

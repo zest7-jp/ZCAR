@@ -6,6 +6,7 @@ import {
   pingParking,
   pushParking,
   sendParkingBeacon,
+  type ParkFuel,
   type ParkingReport,
 } from "../parking";
 
@@ -51,6 +52,8 @@ type Options = {
   location: Fix | null;
   /** OBD の速さ(km/h)。いま届いていなければ null(そのときは GPS で決める)。 */
   obdSpeed: number | null;
+  /** 燃料の残りの元(スマホに走行可能距離を出す)。まだ分からなければ null(送らない)。 */
+  fuel: ParkFuel | null;
 };
 
 /**
@@ -61,12 +64,13 @@ type Options = {
  * 最後に届いた場所を「停めた場所」とする。画面が消えるとき(電源を切ったときなど)にも、
  * そのときの場所を送る。GPS が使えない間も、電源が入っていることは1分おきに知らせる。
  * 走っている間は、走り出してからの長さも送る(スマホに走行時間と出発時刻を出す)。
+ * 燃料の残りの元(給油から走った距離)も一緒に送る(スマホの車両位置に走行可能距離を出す)。
  */
-export function useParkingReport({ enabled, syncKey, location, obdSpeed }: Options) {
-  // 一定の間隔で調べるので、最新の場所と速さは ref から読む。
-  const latestRef = useRef({ location, obdSpeed });
+export function useParkingReport({ enabled, syncKey, location, obdSpeed, fuel }: Options) {
+  // 一定の間隔で調べるので、最新の場所と速さと燃料は ref から読む。
+  const latestRef = useRef({ location, obdSpeed, fuel });
   useEffect(() => {
-    latestRef.current = { location, obdSpeed };
+    latestRef.current = { location, obdSpeed, fuel };
   });
 
   useEffect(() => {
@@ -103,7 +107,7 @@ export function useParkingReport({ enabled, syncKey, location, obdSpeed }: Optio
 
     /** いま送る内容。場所が分からない・外れているときは null。 */
     const report = (): ParkingReport | null => {
-      const { location: fix, obdSpeed: knownKmh } = latestRef.current;
+      const { location: fix, obdSpeed: knownKmh, fuel: fuelNow } = latestRef.current;
       if (!fix || !(fix.accuracy <= MAX_ACCURACY_METERS)) return null;
       const now = Date.now();
       let kmh = knownKmh;
@@ -124,6 +128,7 @@ export function useParkingReport({ enabled, syncKey, location, obdSpeed }: Optio
         lng: fix.lng,
         accuracy: Math.round(fix.accuracy),
         moving: kmh !== null && kmh >= MOVING_KMH,
+        ...(fuelNow ? { fuel: fuelNow } : {}),
       };
     };
 
@@ -135,7 +140,7 @@ export function useParkingReport({ enabled, syncKey, location, obdSpeed }: Optio
         // そうしないと、ドライブスルーなどで止まっている間に、スマホが駐車中と思ってしまう。
         if (busy || Date.now() - contactAt < HEARTBEAT_MS) return;
         busy = true;
-        void pingParking(syncKey)
+        void pingParking(syncKey, latestRef.current.fuel ?? undefined)
           .then((result) => {
             if (active && result.ok) contactAt = Date.now();
           })
