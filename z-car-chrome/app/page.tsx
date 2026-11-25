@@ -195,11 +195,27 @@ const MAP_HEADING_UP_KEY = "zcar-retro-map-heading-up";
 /*
  * 80年代・サイバーの地図を回す向き(と自分の車の矢印の向き)。GPS の向きは細かく揺れるので、
  * 遅いとき(止まっているとき)の向きは使わず、ならしてから、大きくずれたときだけ変える(地図が小刻みに回らないように)。
+ * 減速して止まるときは曲がらない(一般道でハンドルを切りながら止まることはない)ので、減速し始めたら、それまで
+ * 走っていた向きに合わせて止めておく(止まる間際の当てにならない向きで回さない)。走り出すときは曲がることが
+ * あるので、また向きを追う。
  */
 /** これ(km/h)より遅いときの GPS の向きは使わない(止まっているときの向きは当てにならない)。 */
 const MAP_HEADING_MIN_KMH = 10;
+/**
+ * これ(km/h)より遅く、速さが前より上がっておらず、ここ MAP_HEADING_BRAKE_MS の間にいちばん速かったときから
+ * MAP_HEADING_BRAKE_DROP(km/h) 以上遅くなっていたら、減速して止まるところとみなし、向きを変えない
+ * (速さが上がり始めたら、また追う)。
+ */
+const MAP_HEADING_BRAKE_KMH = 30;
+const MAP_HEADING_BRAKE_DROP = 3;
+const MAP_HEADING_BRAKE_MS = 2_500;
+/**
+ * 減速し始めたとき、ならした向きが出している向きからこれ(度)以上ずれていたら(曲がってすぐ止まるときなど)、
+ * 合わせてから止めておく。ふつうに減速して止まるときは、ずれが小さいので回さない。
+ */
+const MAP_HEADING_STOP_DEG = 5;
 /** GPS の向きが届くたびに、ならした向きを、差のこの割合だけ近づける。 */
-const MAP_HEADING_SMOOTH = 0.4;
+const MAP_HEADING_SMOOTH = 0.6;
 /** ならした向きが、いま出している向きからこれ(度)以上ずれたら変える。 */
 const MAP_HEADING_TURN_DEG = 10;
 /** 小さなずれ(度)でも、前に変えてからこの時間(ミリ秒)たっていれば合わせる(曲がり終わりに傾いたままにしない)。 */
@@ -595,6 +611,9 @@ export default function Home() {
   const [mapHeading, setMapHeading] = useState<number | null>(null);
   const mapCourseRef = useRef<number | null>(null);
   const mapHeadingShownRef = useRef<{ heading: number; at: number } | null>(null);
+  // ここ数秒の速さ(減速しているかを見る)と、いま向きを止めているか(止まりかけ・止まっている)。
+  const mapSpeedsRef = useRef<{ at: number; kmh: number }[]>([]);
+  const mapFrozenRef = useRef(false);
   const steerMapRef = useRef<(coords: GeolocationCoordinates) => void>(() => undefined);
   // 地図を作り直すとき(テーマを変えたときなど)に、今の縮尺で始めるため。
   const retroZoomRef = useRef(retroZoom);
@@ -1178,30 +1197,56 @@ export default function Home() {
   // 行かなくても、12時間たてば消す。
   useTripExpiry(settings.trip, setSettings);
 
-  // GPS の向きが届いたら、地図を回す向きを決める(遅いときは使わない・ならす・大きくずれたときだけ変える)。
+  // GPS の向きが届いたら、地図を回す向きを決める(遅いとき・減速して止まるときは変えない・ならす・
+  // 大きくずれたときだけ変える)。
   useEffect(() => {
     steerMapRef.current = (coords) => {
-      const course = coords.heading;
-      if (course === null || !Number.isFinite(course)) return;
-      // 速さは OBD が届いていれば OBD、なければ GPS。どちらも分からなければ使う。
+      const now = Date.now();
+      // 速さは OBD が届いていれば OBD、なければ GPS。どちらも分からなければ、向きはいつも使う。
       const obd = fuelMotionRef.current;
       const gpsKmh = coords.speed !== null && Number.isFinite(coords.speed) ? coords.speed * 3.6 : null;
       const kmh = obd.status === "live" && obd.speed !== null ? obd.speed : gpsKmh;
-      if (kmh !== null && kmh < MAP_HEADING_MIN_KMH) return;
+      const before = mapSpeedsRef.current.filter((item) => now - item.at <= MAP_HEADING_BRAKE_MS);
+      mapSpeedsRef.current = kmh === null ? before : [...before, { at: now, kmh }];
+      // 減速しているか: 前より速くなっておらず、ここ数秒でいちばん速かったときから 3km/h 以上遅くなった。
+      const previous = before.length > 0 ? before[before.length - 1].kmh : null;
+      const peak = before.reduce((top, item) => Math.max(top, item.kmh), 0);
+      const braking =
+        kmh !== null &&
+        kmh < MAP_HEADING_BRAKE_KMH &&
+        previous !== null &&
+        kmh <= previous &&
+        peak - kmh >= MAP_HEADING_BRAKE_DROP;
+      const shown = mapHeadingShownRef.current;
+      const show = (heading: number) => {
+        mapHeadingShownRef.current = { heading, at: now };
+        setMapHeading(Math.round(heading));
+      };
+      // 止まっている・減速して止まるところ: 向きは変えない。止まりかけたとき、それまで走っていた向き
+      // (ならした向き)と大きくずれていれば(曲がってすぐ止まるときなど)、そこに合わせておく。
+      const stopping = braking || (kmh !== null && kmh < MAP_HEADING_MIN_KMH);
+      if (stopping) {
+        const smooth = mapCourseRef.current;
+        if (!mapFrozenRef.current && smooth !== null && shown !== null && Math.abs(smooth - shown.heading) >= MAP_HEADING_STOP_DEG) {
+          show(smooth);
+        }
+        mapFrozenRef.current = true;
+        return;
+      }
+      mapFrozenRef.current = false;
+      const course = coords.heading;
+      if (course === null || !Number.isFinite(course)) return;
       const smooth = mapCourseRef.current;
       // 前のならした向きから、近い方へ近づける(359° → 1° は +2°)。
       const next = smooth === null ? course : smooth + MAP_HEADING_SMOOTH * (((((course - smooth) % 360) + 540) % 360) - 180);
       mapCourseRef.current = next;
-      const now = Date.now();
-      const shown = mapHeadingShownRef.current;
       const off = shown === null ? 0 : Math.abs(next - shown.heading);
       if (
         shown === null ||
         off >= MAP_HEADING_TURN_DEG ||
         (off >= MAP_HEADING_SETTLE_DEG && now - shown.at >= MAP_HEADING_SETTLE_MS)
       ) {
-        mapHeadingShownRef.current = { heading: next, at: now };
-        setMapHeading(Math.round(next));
+        show(next);
       }
     };
   }, []);
