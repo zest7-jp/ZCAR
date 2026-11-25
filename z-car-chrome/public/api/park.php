@@ -32,6 +32,9 @@
  * 車の画面が消えるとき(エンジンを切ったなど)の最後の知らせには hidden が付く。
  * 画面に戻って次の知らせ(場所・電源)が届けば消える。
  * 走行中は、車が送る走行の長さ(drivingMs)から、走り出した時刻(tripSince)も残す。
+ * 車は燃料の残りの元(fuel: 最後の給油から走った距離 tripKm と、どの給油から数えたか since)も送ってくる
+ * (場所と一緒に、または電源の知らせと一緒に)。スマホはこれと給油の記録から、走行可能距離を出す。
+ * fuel が無い知らせ(CarPlay のショートカット・古い車の版)のときは、前の fuel を残す。
  *
  * 位置は合言葉から作った鍵で暗号化して保存します。合言葉はどこにも保存しないので、
  * 保存したファイルだけを見ても場所は分かりません。
@@ -52,6 +55,10 @@ const SAME_PLACE_METERS = 30;
 const MAX_ACCURACY_METERS = 5000;
 /** 走行の長さとして受け取る上限(ミリ秒)。これより長いのはおかしな値なので捨てる。 */
 const MAX_TRIP_MS = 24 * 60 * 60 * 1000;
+/** 給油から走った距離として受け取る上限(km)。これより長いのはおかしな値なので捨てる。 */
+const MAX_FUEL_TRIP_KM = 5000;
+/** どの給油から数えたか(車の時計のミリ秒)として受け取る、いまより先の上限(時計のずれの分)。 */
+const MAX_FUEL_SINCE_AHEAD_MS = 24 * 60 * 60 * 1000;
 const CIPHER = 'aes-256-gcm';
 
 function fail(int $status, string $message): void
@@ -68,6 +75,40 @@ function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): flo
     $a = sin(($lat2 - $lat1) * $rad / 2) ** 2
         + cos($lat1 * $rad) * cos($lat2 * $rad) * sin(($lng2 - $lng1) * $rad / 2) ** 2;
     return 2 * 6371000 * asin(min(1.0, sqrt($a)));
+}
+
+/**
+ * 車が送ってきた燃料の残りの元(給油から走った距離 tripKm と、どの給油から数えたか since)。
+ * 受け取った時刻(このサーバーの時計)を at に付ける。無い・おかしいときは null。
+ */
+function fuelIn($value, int $now): ?array
+{
+    if (!is_array($value)) {
+        return null;
+    }
+    $tripKm = $value['tripKm'] ?? null;
+    $since = $value['since'] ?? null;
+    if (!(is_int($tripKm) || is_float($tripKm)) || !(is_int($since) || is_float($since))) {
+        return null;
+    }
+    if ($tripKm < 0 || $tripKm > MAX_FUEL_TRIP_KM || $since < 0 || $since > $now + MAX_FUEL_SINCE_AHEAD_MS) {
+        return null;
+    }
+    return ['tripKm' => round((float) $tripKm, 1), 'since' => (int) round((float) $since), 'at' => $now];
+}
+
+/** 保存してある燃料の残りの元。無い・壊れているときは null。 */
+function fuelStored($value): ?array
+{
+    if (!is_array($value)) {
+        return null;
+    }
+    foreach (['tripKm', 'since', 'at'] as $field) {
+        if (!isset($value[$field]) || !is_numeric($value[$field])) {
+            return null;
+        }
+    }
+    return ['tripKm' => (float) $value['tripKm'], 'since' => (int) $value['since'], 'at' => (int) $value['at']];
 }
 
 /** 保存してある場所を読む。無い・壊れている・鍵が合わないときは null。 */
@@ -106,6 +147,8 @@ function readPark(string $file, string $secret): ?array
             : (int) $park['at'],
         'tripSince' => isset($park['tripSince']) && is_numeric($park['tripSince']) ? (int) $park['tripSince'] : null,
         'hidden' => ($park['hidden'] ?? false) === true,
+        // 前の版で保存した場所には無い。
+        'fuel' => fuelStored($park['fuel'] ?? null),
     ];
 }
 
@@ -282,6 +325,8 @@ if (isset($_GET['t'])) {
         'heard' => $now,
         'tripSince' => null,
         'hidden' => true,
+        // 燃料の残りの元は車からしか届かないので、前のものを残す。
+        'fuel' => $previous['fuel'] ?? null,
     ];
     if (!writePark($file, $secret, $park)) {
         reply('保存できませんでした。少しあとで、もう一度送ってください。');
@@ -343,6 +388,8 @@ if (($body['alive'] ?? false) === true && !array_key_exists('park', $body)) {
     $previous['heard'] = max($now, $previous['heard']);
     // 知らせは画面が出ているときだけ届くので、画面が消えた印は消す。
     $previous['hidden'] = false;
+    // 燃料の残りの元が付いていれば新しくする(無ければ前のまま)。
+    $previous['fuel'] = fuelIn($body['fuel'] ?? null, $now) ?? $previous['fuel'];
     if (!writePark($file, $secret, $previous)) {
         fail(500, 'could not save');
     }
@@ -376,7 +423,8 @@ if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 || $accuracy > MAX_ACCU
 }
 
 // 前と同じ場所なら、その場所に来た時刻を引き継ぐ(止まっている間に何度届いても変わらない)。
-$since = arrivedAt(readPark($file, $secret), $lat, $lng, $accuracy, $now);
+$previous = readPark($file, $secret);
+$since = arrivedAt($previous, $lat, $lng, $accuracy, $now);
 
 // 走り出してからの長さ(ミリ秒)を、サーバーの時計で「走り出した時刻」にする。
 $drivingMs = $incoming['drivingMs'] ?? null;
@@ -394,6 +442,8 @@ $park = [
     'heard' => $now,
     'tripSince' => $tripSince,
     'hidden' => ($incoming['hidden'] ?? false) === true,
+    // 燃料の残りの元が付いていれば新しくする(無ければ前のまま)。
+    'fuel' => fuelIn($incoming['fuel'] ?? null, $now) ?? ($previous['fuel'] ?? null),
 ];
 if (!writePark($file, $secret, $park)) {
     fail(500, 'could not save');

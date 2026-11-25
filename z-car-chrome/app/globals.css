@@ -9526,6 +9526,39 @@ main.zr[data-style="cyber"] .zr-park-pin.is-lost .zr-park-pin-label { border-rad
   letter-spacing: 0;
 }
 .zr-park-elapsed span:last-child em { margin-right: 0; }
+/* 走行可能距離の段(数字の段の下): 左に FUEL・走行可能、真ん中に燃料の目盛り(E〜F)、右に距離。 */
+.zr-park-fuel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--zr-edge);
+}
+.zr-park-fuel-label { display: grid; gap: 4px; margin: 0; }
+.zr-park-fuel-label small {
+  color: var(--zr-accent);
+  font: 700 9px/1 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .2em;
+}
+.zr-park-fuel-label b { color: var(--zr-ink); font-size: 12px; font-weight: 800; line-height: 1; }
+.zr-park-fuel-gauge { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.zr-park-fuel-gauge > b { color: var(--zr-muted); font: 700 11px/1 "SFMono-Regular", Consolas, monospace; }
+.zr-park-fuel-gauge > span { display: flex; flex: 1; gap: 2px; min-width: 0; }
+.zr-park-fuel-gauge i { flex: 1; height: 15px; border-radius: 2px; background: rgba(var(--zr-accent-rgb), .12); }
+.zr-park-fuel-gauge i.is-on { background: var(--zr-accent); box-shadow: 0 0 5px rgba(var(--zr-accent-rgb), .7); }
+.zr-park-fuel-gauge i.is-low { background: #ff5a4d; box-shadow: 0 0 5px rgba(255, 90, 77, .7); }
+.zr-park-fuel-range {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--zr-ink);
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+.zr-park-fuel-range em { color: var(--zr-accent); font-size: 12px; font-style: normal; font-weight: 800; }
 .zr-park-facts dl { display: grid; gap: 3px; min-width: 0; margin: 0; }
 .zr-park-facts dl div { display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; }
 .zr-park-facts dt { color: var(--zr-muted); font-size: 10px; font-weight: 700; }
@@ -9795,6 +9828,18 @@ main.zr[data-style="retro"] :is(.zr-park-elapsed, .zr-hero-value) em {
 }
 main.zr[data-style="retro"] .zr-park-elapsed span:last-child em { margin-right: 0; }
 main.zr[data-style="retro"] .zr-park-facts { background: transparent; }
+/* 80年代: 車の FUEL と同じ琥珀色の目盛り(左の3つは赤)と、7セグメントの距離。 */
+main.zr[data-style="retro"] .zr-park-fuel-label small { font-family: "SFMono-Regular", Consolas, monospace; }
+main.zr[data-style="retro"] .zr-park-fuel-gauge i { background: rgba(var(--zr-amber-rgb), .13); }
+main.zr[data-style="retro"] .zr-park-fuel-gauge i.is-on { background: var(--zr-amber); box-shadow: 0 0 5px var(--zr-amber); }
+main.zr[data-style="retro"] .zr-park-fuel-gauge i.is-low { background: #ff3c3c; box-shadow: 0 0 5px #ff3c3c; }
+main.zr[data-style="retro"] .zr-park-fuel-range { align-items: flex-end; color: var(--zr-amber); }
+main.zr[data-style="retro"] .zr-park-fuel-range em {
+  margin-bottom: 2px;
+  color: var(--zr-amber);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  text-shadow: 0 0 8px rgba(var(--zr-amber-rgb), .85);
+}
 main.zr[data-style="retro"] .zr-park-facts dd {
   display: flex;
   align-items: flex-end;
@@ -9930,6 +9975,13 @@ main.zr[data-style="cyber"] .zr-hero-value strong { font-size: clamp(42px, 6.4dv
 main.zr[data-style="cyber"] :is(.zr-park-elapsed, .zr-hero-value) em { color: #19f59b; }
 main.zr[data-style="cyber"] :is(.zr-park-elapsed small, .zr-park-facts dt, .zr-hero-stats dt) { color: #19f59b; }
 main.zr[data-style="cyber"] .zr-park-facts { border-top: 2px solid #19f59b; background: transparent; }
+/* サイバー: 緑一色(車の FUEL と同じく、目盛りは残りわずかでも緑)。 */
+main.zr[data-style="cyber"] .zr-park-fuel { border-top: 1px solid rgba(25, 245, 155, .45); }
+main.zr[data-style="cyber"] .zr-park-fuel-label small { color: #19f59b; }
+main.zr[data-style="cyber"] .zr-park-fuel-gauge i { border-radius: 0; background: rgba(25, 245, 155, .14); transform: skewX(-12deg); }
+main.zr[data-style="cyber"] .zr-park-fuel-gauge i:is(.is-on, .is-low) { background: #19f59b; box-shadow: none; }
+main.zr[data-style="cyber"] .zr-park-fuel-range { color: #19f59b; font: 400 24px/1 "Michroma", "Rajdhani", sans-serif; }
+main.zr[data-style="cyber"] .zr-park-fuel-range em { color: #4fa77f; font: 700 12px/1 "Rajdhani", "Noto Sans JP", sans-serif; }
 main.zr[data-style="cyber"] :is(.zr-park-facts dd, .zr-hero-stats dd) { color: #19f59b; font-family: "Michroma", "Rajdhani", sans-serif; font-size: 14px; font-weight: 400; }
 main.zr[data-style="cyber"] .zr-park-facts dd :is(small, em) { color: #4fa77f; font-family: inherit; }
 main.zr[data-style="cyber"] .zr-park-facts dd small { font-family: system-ui, sans-serif; }

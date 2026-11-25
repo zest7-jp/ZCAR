@@ -4,12 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../google-maps";
 import { SegNumber } from "../meter-styles";
 import type { MeterStyle } from "../settings-store";
+import { estimateFuel } from "../fuel-estimate";
 import { distanceMeters, fetchParking, type ParkedCar } from "../parking";
 import type { PlaceDraft } from "../place-import";
 import { VehicleButton, VehicleSheet, type VehicleDates, type VehicleRecord } from "./vehicle-info";
 
 /** 車両位置を読み直す間隔(画面に戻ってきたときは、すぐ読み直す)。 */
 const PARK_POLL_MS = 30_000;
+/** 走行可能距離の段の、燃料の目盛りの数(車のメーターと同じ)と、赤くする左の数(残りわずか)。 */
+const FUEL_SEGMENTS = 18;
+const FUEL_LOW_SEGMENTS = 3;
 /** 読めなかったときは、これだけ待って1回だけ読み直す(開いた直後などは、すぐつながらないことがある)。 */
 const PARK_RETRY_MS = 5_000;
 /**
@@ -752,6 +756,21 @@ export function CarLocationPanel({
     parkRef.current = park;
     offsetRef.current = offset;
   });
+  // 走行可能距離: 車から届いた「給油から走った距離」と給油の記録(同期している)から、車と同じ計算で出す。
+  // 車から最後に届いたあとにスマホで給油を記録していれば(満タンにした)、まだ走っていないので 0km から。
+  // 車からまだ届いていない(古い車の版)・燃費が分からない(給油の記録が無い)ときは出さない。
+  const fuelView = (() => {
+    const fuel = park?.fuel ?? null;
+    if (!fuel) return null;
+    const refueledAfter = vehicle.fuelEntries.some((entry) => entry.createdAt > fuel.since);
+    const estimate = estimateFuel(vehicle.fuelEntries, refueledAfter ? 0 : fuel.tripKm);
+    if (estimate.economy === null) return null;
+    return {
+      rangeKm: Math.round(estimate.rangeKm),
+      percent: Math.round(estimate.percent),
+      lit: Math.round((estimate.percent / 100) * FUEL_SEGMENTS),
+    };
+  })();
   const live = park !== null && clock > 0 && clock - park.heard <= LIVE_MS;
 
   // 車の電源が入っている間は、iPhone の GPS で車の位置を毎秒追う。
@@ -1247,6 +1266,35 @@ export function CarLocationPanel({
                 </div>
               )}
             </dl>
+          </div>
+        ) : null}
+        {/* 走行可能距離の段: 左に FUEL・走行可能、真ん中に燃料の目盛り(E〜F)、右に距離(車のメーターと同じ値)。 */}
+        {park && fuelView ? (
+          <div
+            className="zr-park-fuel"
+            role="group"
+            aria-label={`燃料 走行可能距離 ${fuelView.rangeKm} km、残り約${fuelView.percent}%`}
+          >
+            <p className="zr-park-fuel-label" aria-hidden="true">
+              <small>FUEL</small>
+              <b>走行可能</b>
+            </p>
+            <span className="zr-park-fuel-gauge" aria-hidden="true">
+              <b>E</b>
+              <span>
+                {Array.from({ length: FUEL_SEGMENTS }, (_, index) => (
+                  <i
+                    key={index}
+                    className={index < fuelView.lit ? (index < FUEL_LOW_SEGMENTS ? "is-low" : "is-on") : undefined}
+                  />
+                ))}
+              </span>
+              <b>F</b>
+            </span>
+            <strong className="zr-park-fuel-range" aria-hidden="true">
+              {segNumber(String(fuelView.rangeKm), 26)}
+              <em>km</em>
+            </strong>
           </div>
         ) : null}
       </section>

@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useObd2, type ObdConnectionStatus } from "./hooks/use-obd2";
 import { useParkingReport } from "./hooks/use-parking-report";
+import { estimateFuel, sortFuelEntries } from "./fuel-estimate";
 import { useSharedSync } from "./hooks/use-shared-sync";
 import { useTripExpiry } from "./hooks/use-trip-expiry";
 import {
@@ -118,8 +119,6 @@ type FuelDraft = {
   amountYen: string;
 };
 
-const FUEL_TANK_CAPACITY_L = 36;
-const FUEL_RESERVE_L = 4;
 /*
  * 給油から走った距離(燃料の残りの見積もりに使う)。OBD の速さが届いていればそれで、届いていなければ GPS の
  * 位置の動きで数える。車載機で音楽や CarPlay を前に出している間など、Z CAR の画面が出ていない間は OBD では
@@ -837,6 +836,10 @@ export default function Home() {
   // --- 車両位置 ---
   // 止まったときなどに場所を送り、スマホの「車両位置」に停めた場所を出す。
   const parkingKey = settings.syncKey.trim();
+  // 最後の給油から走った距離。数え始めより新しい給油が届いていれば(スマホで記録した給油など)、
+  // まだ走っていないので0。走り出すと、その給油から数え直す。
+  // 給油のたびに合わせた係数を掛ける(Z CAR が数えきれなかった分を足す)。
+  const fuelTripKm = (latestRefuelAt > fuelTrip.since ? 0 : fuelTrip.km) * fuelCalibrationFactor(fuelCalibration);
   useParkingReport({
     enabled: ready && carDevice && parkingKey.length >= MIN_SYNC_KEY_LENGTH,
     syncKey: parkingKey,
@@ -844,6 +847,10 @@ export default function Home() {
     // OBD の速さは、いま届いているときだけ使う(切れたまま残った古い値で、走っているのに
     // 止まっているとしないため)。届いていなければ GPS で決める。
     obdSpeed: obdStatus === "live" ? obdData.speed : null,
+    // 燃料の残りの元(スマホの車両位置に走行可能距離を出す)。車載機に覚えた分を読み終えるまでは送らない。
+    fuel: ready
+      ? { tripKm: Math.round(fuelTripKm * 10) / 10, since: Math.max(fuelTrip.since, latestRefuelAt) }
+      : null,
   });
 
   // 給油記録は設定と一緒に保存されるが、旧キーにも書いておく(古い版に戻しても読める)。
@@ -2135,10 +2142,7 @@ export default function Home() {
   );
   const monthlyFuelEconomy =
     monthlyFuelLiters > 0 ? monthlyFuelDistance / monthlyFuelLiters : null;
-  const sortedFuelEntries = [...fuelEntries].sort(
-    (left, right) =>
-      right.date.localeCompare(left.date) || right.createdAt - left.createdAt,
-  );
+  const sortedFuelEntries = sortFuelEntries(fuelEntries);
   // 燃費の画面(80年代・サイバー)の棒グラフ: 新しい給油10回分の燃費(左が古い)。
   const fuelTrendValues = sortedFuelEntries
     .filter((entry) => entry.liters > 0)
@@ -2148,39 +2152,11 @@ export default function Home() {
   // 80年代の7セグメントの字には「,」が無いので、金額は区切らずに出す。
   const yenText = (value: number) =>
     activeStyle.id === "retro" ? String(Math.round(value)) : Math.round(value).toLocaleString("ja-JP");
-  const recentFuelEntries = sortedFuelEntries.slice(0, 5);
-  const recentFuelLiters = recentFuelEntries.reduce(
-    (total, entry) => total + entry.liters,
-    0,
-  );
-  const recentFuelDistance = recentFuelEntries.reduce(
-    (total, entry) => total + entry.distanceKm,
-    0,
-  );
-  const recentFuelEconomy =
-    recentFuelLiters > 0 ? recentFuelDistance / recentFuelLiters : null;
-  // 最後の給油から走った距離。数え始めより新しい給油が届いていれば(スマホで記録した給油など)、
-  // まだ走っていないので0。走り出すと、その給油から数え直す。
-  // 給油のたびに合わせた係数を掛ける(Z CAR が数えきれなかった分を足す)。
-  const fuelTripKm = (latestRefuelAt > fuelTrip.since ? 0 : fuelTrip.km) * fuelCalibrationFactor(fuelCalibration);
-  const estimatedUsedLiters =
-    recentFuelEconomy === null ? null : fuelTripKm / recentFuelEconomy;
-  const estimatedRemainingLiters =
-    estimatedUsedLiters === null
-      ? null
-      : Math.max(0, FUEL_TANK_CAPACITY_L - estimatedUsedLiters);
-  const safeRemainingLiters =
-    estimatedRemainingLiters === null
-      ? null
-      : Math.max(0, estimatedRemainingLiters - FUEL_RESERVE_L);
-  const fuelRangeKm =
-    safeRemainingLiters === null || recentFuelEconomy === null
-      ? 0
-      : safeRemainingLiters * recentFuelEconomy;
-  const fuelPercent =
-    estimatedRemainingLiters === null
-      ? 0
-      : Math.max(0, Math.min(100, (estimatedRemainingLiters / FUEL_TANK_CAPACITY_L) * 100));
+  // 残りの燃料と走行可能距離(スマホの車両位置にも同じ計算で出す。app/fuel-estimate.ts)。
+  const fuelEstimate = estimateFuel(fuelEntries, fuelTripKm);
+  const recentFuelEconomy = fuelEstimate.economy;
+  const fuelRangeKm = fuelEstimate.rangeKm;
+  const fuelPercent = fuelEstimate.percent;
   const estimatedAverageFuelEconomy = recentFuelEconomy;
 
   // 80年代のデジタルのテーマに渡す値(近未来のメーターと同じ値)。
