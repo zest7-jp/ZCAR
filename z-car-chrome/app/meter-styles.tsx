@@ -692,15 +692,15 @@ const shownInWindow = (x: number, y: number, box: RotorBox, turn: number, margin
   return Math.abs(sx) < RETRO_CRT.w / 2 - margin && Math.abs(sy) < RETRO_CRT.h / 2 - margin;
 };
 /**
- * 地図の板・自分の車の矢印・北の印の ▲ の回り(度)。heading は切れ目なく続く向き(359° の次は 360°)。
+ * 地図の板・自分の車の矢印・北の印の ▲ の回り(度)。heading は切れ目なく続く向き(359° の次は 360°)で、
+ * page.tsx でならしてあり、大きくずれたときだけ変わる(地図が小刻みに回らないように)。
  * 進行方向が上: 板と ▲ を -heading 回し、矢印は上向き。北が上: 板と ▲ は回さず、矢印を heading 回す。
  * 回さない方も 360° の倍数(見た目は同じ)にしておき、切り替えたときに近い方へ回るようにする。
  */
 const mapTurns = (heading: number | null, headingUp: boolean) => {
-  const h = heading ?? 0;
+  const h = Math.round(heading ?? 0);
   const whole = 360 * Math.round(h / 360);
-  // 進行方向が上のときは 15° ごとに回す(GPS の向きの細かい揺れで、地図が揺れないように)。
-  return headingUp ? { map: -Math.round(h / 15) * 15, car: whole } : { map: -whole, car: Math.round(h) };
+  return headingUp ? { map: -h, car: whole } : { map: -whole, car: h };
 };
 /** Google マップの小さな画面(ナビ中に重ねて出す)を置く、縦長の箱。小さな画面が付く右下の角に寄せる。 */
 const RETRO_MAP_BAY = { x: 834, y: 332, w: 166, h: 218 };
